@@ -44,3 +44,4 @@ pre { margin: 0; font: inherit; white-space: pre-wrap; }
 .meldung.warnung { color: var(--orange); }
 .meldung.fehler { color: var(--rot); }
 .meldung.erfolg { color: var(--gruen); font-weight: 600; }
+.zurueck { margin: 0 0 4px; font-size: 14px; } .zurueck a { color: var(--akzent); text-decoration: none; }

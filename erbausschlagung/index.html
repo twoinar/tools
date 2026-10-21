@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Sicherheitssperre: Nach dem Laden darf die Seite keine Daten senden oder nachladen (connect-src 'none'). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Erbausschlagung → XNP</title>
+<link rel="stylesheet" href="styles.css">
+<script src="vendor/pdf-lib.min.js"></script>
+<script src="vendor/jszip.min.js"></script>
+<script type="module" src="js/app.js"></script>
+</head>
+<body>
+<header>
+  <p class="zurueck"><a href="../">← Tools</a></p>
+  <h1>Erbausschlagung → XNP</h1>
+  <p class="unter">Erstellt einen Importordner für XNP „Sonstige Anträge“. <strong>Alles läuft auf diesem PC; es werden keine Daten übertragen.</strong> <span id="version"></span></p>
+</header>
+
+<main>
+  <details id="einstellungen">
+    <summary>Notardaten (werden nur in diesem Browser gespeichert)</summary>
+    <div class="raster">
+      <label>Anrede <select id="n_anrede"><option>Herr</option><option>Frau</option></select></label>
+      <label>Vorname <input id="n_vorname"></label>
+      <label>Nachname <input id="n_nachname"></label>
+      <label>Straße Nr. <input id="n_strasse"></label>
+      <label>PLZ <input id="n_plz" inputmode="numeric"></label>
+      <label>Ort <input id="n_ort"></label>
+    </div>
+  </details>
+
+  <section>
+    <h2>1. Beglaubigte Abschrift</h2>
+    <div class="zeile nur-ordner">
+      <span>Ordner der Abschriften: <strong id="eingang-name"></strong></span>
+      <button type="button" id="eingang-waehlen">Ordner …</button>
+      <button type="button" id="neueste">Neueste PDF laden</button>
+    </div>
+    <div class="zeile">
+      <label class="datei">Oder Dateien wählen (PDF + Signaturdatei):
+        <input type="file" id="datei" accept=".pdf,.pkcs7,.p7s" multiple></label>
+      <span id="pdf-name" class="dateiname"></span>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. Angaben prüfen</h2>
+    <p class="hilfe">Gelb markierte Felder bitte prüfen oder ergänzen.</p>
+    <fieldset>
+      <legend>Vorgang</legend>
+      <div class="raster">
+        <label>UVZ-Nr. <input id="uvz_nr"></label>
+        <label>Jahr <input id="uvz_jahr"></label>
+        <label>Urkundsdatum (JJJJ-MM-TT) <input id="urkundsdatum"></label>
+        <label class="breit">Nachlassgericht (letzter gewöhnlicher Aufenthalt) <select id="gericht"></select></label>
+        <label>Az. des Gerichts (falls bekannt) <input id="gericht_aktenzeichen"></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Erblasser(in)</legend>
+      <div class="raster">
+        <label>Vorname(n) <input id="e_vorname"></label>
+        <label>Nachname <input id="e_nachname"></label>
+        <label>Geburtsname <input id="e_geburtsname"></label>
+        <label>Geburtsdatum <input id="e_geburtsdatum"></label>
+        <label>Verstorben (von) <input id="sterbedatum_von"></label>
+        <label>(bis) <input id="sterbedatum_bis"></label>
+        <label class="breit">Letzter Wohnort <input id="letzter_wohnort"></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Ausschlagende</legend>
+      <div id="personen"></div>
+      <button type="button" id="person-neu" class="klein">+ Person</button>
+    </fieldset>
+    <fieldset>
+      <legend>Minderjährige Kinder (nur zur Kontrolle)</legend>
+      <pre id="kinder">–</pre>
+    </fieldset>
+  </section>
+
+  <section>
+    <h2>3. Importordner erstellen</h2>
+    <div class="zeile">
+      <label><input type="checkbox" id="anschreiben-auto" checked> Anschreiben automatisch erstellen</label>
+      <label class="datei">oder eigenes Anschreiben (PDF): <input type="file" id="anschreiben" accept=".pdf"></label>
+      <span id="anschreiben-name" class="dateiname"></span>
+    </div>
+    <div class="zeile nur-ordner">
+      <span>Zielordner: <strong id="ziel-name"></strong></span>
+      <button type="button" id="ziel-waehlen">Zielordner …</button>
+    </div>
+    <div class="zeile">
+      <button type="button" id="erstellen" class="haupt">Importordner erstellen</button>
+    </div>
+    <p id="meldung" class="meldung" role="status"></p>
+  </section>
+</main>
+</body>
+</html>
