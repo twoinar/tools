@@ -54,6 +54,7 @@ export function auslesen(roh) {
   const t = glaetten(roh);
   const d = {
     uvz_nr: "", uvz_jahr: "", urkundsdatum: "", notar: "", erblasser: null,
+    gericht_aktenzeichen: "", gericht_ort: "",
     sterbedatum_von: "", sterbedatum_bis: "", sterbeort: "", letzter_wohnort: "",
     ausschlagende: [], kinder: [], unsicher: [],
   };
@@ -61,9 +62,15 @@ export function auslesen(roh) {
   let m = t.match(/UVZ\.?-?\s*Nr\.?\s*(\d+)\s*für\s*(\d{4})/);
   if (m) [, d.uvz_nr, d.uvz_jahr] = m; else d.unsicher.push("UVZ-Nummer");
 
-  m = t.match(new RegExp(`Erbe nach (${NAME})(?:, geb(?:orene|oren)? (${NAME}))?\\s+geworden`));
+  // Aktenzeichen und Gericht, falls das Nachlassgericht schon geschrieben hat
+  m = t.match(/Az\.?\s*(?:des\s+)?Nachlassgerichts:?\s*(.+?)\s+(?=UVZ|Ausschlagung)/);
+  if (m) d.gericht_aktenzeichen = m[1].trim();
+  m = t.match(/Schreiben des Amtsgerichts? (.+?) vom/);
+  if (m) d.gericht_ort = m[1].trim();
+
+  m = t.match(new RegExp(`Erb(?:e|in) nach (${NAME})(?:, geb(?:orene|oren)? (${NAME}))?,?\\s+geworden`));
   if (m) {
-    const g = t.match(new RegExp(`Erblasser(?:in)?, geboren am (${DATUM})`));
+    const g = t.match(new RegExp(`Erblasser(?:in)?,? geboren am (${DATUM})`));
     d.erblasser = person(m[1], { geburtsname: m[2] || "", geburtsdatum: g ? datumIso(g[1]) : "" });
     if (!g) d.unsicher.push("Geburtsdatum Erblasser");
   } else {
@@ -75,6 +82,8 @@ export function auslesen(roh) {
     d.sterbedatum_von = datumIso(m[1]); d.sterbedatum_bis = datumIso(m[2]); d.sterbeort = m[3].trim();
   } else if ((m = t.match(new RegExp(`(?:am )?(${DATUM}) in (.+?) verstorben`)))) {
     d.sterbedatum_von = d.sterbedatum_bis = datumIso(m[1]); d.sterbeort = m[2].trim();
+  } else if ((m = t.match(new RegExp(`am (${DATUM}) verstorben`)))) {
+    d.sterbedatum_von = d.sterbedatum_bis = datumIso(m[1]);
   } else {
     d.unsicher.push("Sterbedatum/-ort");
   }
@@ -85,8 +94,8 @@ export function auslesen(roh) {
   // Beglaubigungsvermerk: Name, Geburtsdatum, Anschrift der Unterzeichner
   const vermerk = {};
   const reVermerk = new RegExp(
-    `(?:Frau|Herrn?) (${NAME}), geboren am (${DATUM_LANG}|${DATUM}), Anschrift: ([^,]+?,[^,]+?)(?= Frau| Herrn?| jeweils|$)`, "g");
-  for (const v of t.matchAll(reVermerk)) vermerk[v[1].trim()] = [datumIso(v[2]), v[3].trim()];
+    `(Frau|Herrn?) (${NAME}), geboren am (${DATUM_LANG}|${DATUM}), Anschrift: ([^,]+?,[^,]+?)(?= Frau| Herrn?| jeweils| ausgewiesen| wird| werden|$)`, "g");
+  for (const v of t.matchAll(reVermerk)) vermerk[v[2].trim()] = [datumIso(v[3]), v[4].trim(), v[1]];
 
   // Ausschlagende: "Hiermit schlage ich, Frau/Herr <Name> die Erbschaft / für ..."
   const gesehen = new Set();
@@ -98,6 +107,13 @@ export function auslesen(roh) {
     d.ausschlagende.push(person(name, { geburtsdatum: geb, anschrift, anrede: a[1] }));
     if (!geb) d.unsicher.push(`Geburtsdatum/Anschrift ${name}`);
   }
+  // „Hiermit schlage ich, die Unterzeichnende …“: Namen aus dem Beglaubigungsvermerk
+  if (!d.ausschlagende.length) {
+    for (const [name, [geb, anschrift, anrede]] of Object.entries(vermerk)) {
+      d.ausschlagende.push(person(name, { geburtsdatum: geb, anschrift, anrede }));
+    }
+  }
+  if (!d.ausschlagende.length) d.unsicher.push("Ausschlagende");
 
   // Minderjährige Kinder: nur die vor der Erklärung der Eltern aufgezählten
   const eltern = t.search(/für die vorgenannten minderjährigen Kinder/);
@@ -110,9 +126,9 @@ export function auslesen(roh) {
   m = t.match(new RegExp(`, (?:den )?(${DATUM_LANG})`));
   if (m) d.urkundsdatum = datumIso(m[1]);
 
-  m = t.match(new RegExp(`(${NAME}), (Notar(?:assessor)?|Notarin)\\b`));
+  m = t.match(/([A-ZÄÖÜ][A-Za-zäöüßÄÖÜ\- ]+?), (Notar(?:assessor)?|Notarin)\b/);
   if (m) d.notar = `${m[1].trim()}, ${m[2]}`;
 
-  d.unsicher.push("Nachlassgericht (steht nicht in der Urkunde)");
+  if (!d.gericht_ort) d.unsicher.push("Nachlassgericht (steht nicht in der Urkunde)");
   return d;
 }

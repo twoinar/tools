@@ -5,7 +5,7 @@ import { nachricht, aktenzeichen } from "./xjustiz.js";
 import { GERICHTE, vorschlagen, merken } from "./gerichte.js";
 import { erstellen as anschreibenErstellen } from "./anschreiben.js";
 
-export const VERSION = "1.0 (21.10.2026)";
+export const VERSION = "1.1 (21.10.2026)";
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("../vendor/pdf.worker.min.mjs", import.meta.url).href;
 
 const $ = (s) => document.querySelector(s);
@@ -118,13 +118,17 @@ function maskeFuellen(d) {
   for (const k of ["uvz_nr", "uvz_jahr", "urkundsdatum", "sterbedatum_von", "sterbedatum_bis", "letzter_wohnort"]) setzen(k, d[k]);
   for (const k of ["vorname", "nachname", "geburtsdatum"]) setzen(`e_${k}`, e[k]);
   setzen("e_geburtsname", e.geburtsname, false);
-  setzen("gericht_aktenzeichen", "", false);
+  setzen("gericht_aktenzeichen", d.gericht_aktenzeichen, false);
   $("#personen").innerHTML = "";
   d.ausschlagende.forEach(personZeile);
   $("#kinder").textContent = d.kinder.length
     ? d.kinder.map((k) => `${k.vorname} ${k.nachname}, geb. ${k.geburtsdatum}`).join("\n")
     : "–";
   gerichtVorschlagen(true);
+  if (d.gericht_ort && GERICHTE[`AG ${d.gericht_ort}`]) {
+    $("#gericht").value = `AG ${d.gericht_ort}`;
+    $("#gericht").classList.remove("leer");
+  }
 }
 
 function personZeile(p = {}) {
