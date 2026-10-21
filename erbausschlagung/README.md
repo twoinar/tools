@@ -14,7 +14,7 @@ in `index.html`) verbietet dem Browser jede Datenverbindung nach dem Laden.
 2. Ordner der beglaubigten Abschriften wählen („Ordner …“) und „Neueste PDF
    laden“, oder PDF + Signaturdatei direkt auswählen.
 3. Gelb markierte Felder prüfen, Nachlassgericht wählen.
-4. Zielordner wählen und „Importordner erstellen“ (ohne Zielordner: ZIP-Download,
+4. Zielordner wählen und „XNP-Importdatei erstellen“ (ohne Zielordner: ZIP-Download,
    dann entpacken).
 5. In XNP: Sonstige Anträge → Importieren → Ordner wählen → **Empfänger von
    Hand auswählen** → prüfen, signieren, versenden.
