@@ -5,7 +5,7 @@ import { nachricht, aktenzeichen } from "./xjustiz.js";
 import { GERICHTE, vorschlagen, merken } from "./gerichte.js";
 import { erstellen as anschreibenErstellen } from "./anschreiben.js";
 
-export const VERSION = "1.2 (21.10.2026)";
+export const VERSION = "1.3 (21.10.2026)";
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("../vendor/pdf.worker.min.mjs", import.meta.url).href;
 
 const $ = (s) => document.querySelector(s);
@@ -72,15 +72,18 @@ function istSignaturZu(pdfName, name) {
 async function dateienUebernehmen(dateien) {
   const pdfs = dateien.filter((f) => /\.pdf$/i.test(f.name));
   if (!pdfs.length) return meldung("Bitte eine PDF-Datei auswählen.", "warnung");
-  const pdf = pdfs.sort((a, b) => b.lastModified - a.lastModified)[0];
-  const sig = dateien.find((f) => istSignaturZu(pdf.name, f.name)) || null;
+  // Neueste PDF, bevorzugt eine mit Signaturdatei daneben (elektronisch beglaubigte Abschrift)
+  const sigZu = (pdf) => dateien.find((f) => istSignaturZu(pdf.name, f.name)) || null;
+  pdfs.sort((a, b) => b.lastModified - a.lastModified);
+  const pdf = pdfs.find(sigZu) || pdfs[0];
+  const sig = sigZu(pdf);
   await laden(pdf, sig);
 }
 
 async function laden(pdf, signatur) {
   zustand.pdf = pdf;
   zustand.signatur = signatur;
-  $("#pdf-name").textContent = pdf.name;
+  $("#pdf-name").textContent = `${pdf.name} – ${signatur ? `signiert (${signatur.name})` : "OHNE Signaturdatei"}`;
   let d;
   try {
     d = auslesen(await pdfText(await pdf.arrayBuffer()));
