@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Sicherheitssperre: Nach dem Laden darf die Seite keine Daten senden oder nachladen (connect-src 'none'). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<title>XNP – Handelsregister</title>
+<link rel="stylesheet" href="styles.css">
+<script type="module" src="js/app.js"></script>
+</head>
+<body>
+<header>
+  <p class="zurueck"><a href="../">← Tools</a></p>
+  <h1>XNP – Handelsregisteranmeldung</h1>
+  <p class="unter">Liest die Anmeldung aus und erstellt die Strukturdaten für XNP. <strong>Alles läuft auf diesem PC; es werden keine Daten übertragen.</strong> <span id="version"></span></p>
+</header>
+
+<main>
+  <section>
+    <h2>1. Dateien</h2>
+    <div class="zeile">
+      <label class="breit">Anmeldungsart <select id="art"><option value="gf-wechsel">GmbH: Geschäftsführerwechsel</option></select></label>
+    </div>
+    <div id="ablage" class="ablage">
+      Anmeldung und Anlagen (PDF, Signaturdateien) hierher ziehen
+      <div class="zeile mitte"><label class="datei">oder wählen: <input type="file" id="datei" accept=".pdf,.pkcs7,.p7s" multiple></label></div>
+    </div>
+    <table id="dokumente" class="dokumente" hidden>
+      <thead><tr><th>Mit</th><th>Anmeldung</th><th>Datei</th><th>Bezeichnung</th><th>Signatur</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>2. Angaben prüfen</h2>
+    <p class="hilfe">Gelb markierte Felder bitte prüfen oder ergänzen.</p>
+    <fieldset>
+      <legend>Gesellschaft</legend>
+      <div class="raster">
+        <label class="breit">Firma <input id="firma"></label>
+        <label>Sitz <input id="sitz"></label>
+        <label>Registergericht <select id="gericht"></select></label>
+        <label>Register <select id="registerart"><option>HRB</option><option>HRA</option></select></label>
+        <label>Registernummer <input id="registernummer"></label>
+        <label class="breit">Inländische Geschäftsanschrift <input id="geschaeftsanschrift"></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Urkunde</legend>
+      <div class="raster">
+        <label>UVZ-Nr. <input id="uvz_nr"></label>
+        <label>Jahr <input id="uvz_jahr"></label>
+        <label>Datum (JJJJ-MM-TT) <input id="datum"></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Ausgeschiedene Geschäftsführer</legend>
+      <div id="ausgeschieden"></div>
+      <button type="button" class="klein" data-neu="ausgeschieden">+ Person</button>
+    </fieldset>
+    <fieldset>
+      <legend>Neu bestellte Geschäftsführer</legend>
+      <div id="bestellt"></div>
+      <button type="button" class="klein" data-neu="bestellt">+ Person</button>
+    </fieldset>
+    <fieldset>
+      <legend>Allgemeine Vertretungsregelung (nur zur Kontrolle, ändert sich beim Geschäftsführerwechsel nicht)</legend>
+      <pre id="vertretung_allgemein">–</pre>
+    </fieldset>
+  </section>
+
+  <section>
+    <h2>3. XNP-Importdatei erstellen</h2>
+    <p class="hinweis">Die Importdatei für das XNP-Handelsregistermodul folgt, sobald ein Muster-Export aus ARNOtop vorliegt. Bis dahin dient die Seite zum Testen des Auslesens.</p>
+    <div class="zeile">
+      <button type="button" id="erstellen" class="haupt" disabled>XNP-Importdatei erstellen</button>
+    </div>
+    <p id="meldung" class="meldung" role="status"></p>
+  </section>
+</main>
+</body>
+</html>
