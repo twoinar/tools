@@ -83,7 +83,11 @@ export function auslesen(roh) {
     if (m) break;
   }
   if (m) {
-    const umfeld = t.slice(m.index, m.index + m[0].length + 120);
+    // Geburtsdatum: in der Nähe der ersten Erwähnung des Erblassers (nicht im Beglaubigungsvermerk)
+    const nachname = m[1].trim().split(" ").pop();
+    const erste = t.indexOf(nachname);
+    const umfeld = t.slice(erste >= 0 ? Math.min(erste, m.index) : m.index, (erste >= 0 ? erste : m.index) + 200)
+      .split(/Vorstehende|Unterschrift(?:en)? von/)[0];
     const g = umfeld.match(new RegExp(`geboren am (${DATUM_LANG}|${DATUM})`))
       || t.match(new RegExp(`Erblasser(?:in)?,?(?: ist| war)? geboren am (${DATUM_LANG}|${DATUM})`));
     d.erblasser = person(m[1], { geburtsname: m[2] || "", geburtsdatum: g ? datumIso(g[1]) : "" });
@@ -156,7 +160,6 @@ export function auslesen(roh) {
   if (m) d.notar = `${m[1].trim()}, ${m[2]}`;
 
   kopfangaben(t, d, vermerk);
-  if (!d.gericht_ort) d.unsicher.push("Nachlassgericht (steht nicht in der Urkunde)");
   return d;
 }
 
