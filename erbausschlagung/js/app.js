@@ -187,7 +187,7 @@ async function erstellen() {
   if (!zustand.pdf) return meldung("Bitte zuerst die Urkunde (PDF) laden.", "warnung");
   if (!n.nachname || !n.ort) { $("#einstellungen").open = true; return meldung("Bitte unter „Notardaten“ Ihre Angaben eintragen.", "warnung"); }
   if (!d.gericht_code) return meldung("Bitte das Nachlassgericht auswählen.", "warnung");
-  if (!d.ausschlagende.length) return meldung("Es ist keine ausschlagende Person eingetragen.", "warnung");
+  if (!d.ausschlagende.length) return meldung("Es ist kein Unterzeichner eingetragen.", "warnung");
 
   const e = d.erblasser;
   const ordnername = sauber(`Erbausschlagung ${d.uvz_nr}_${d.uvz_jahr} - ${e.nachname}`, 80);
