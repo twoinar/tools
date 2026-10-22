@@ -13,6 +13,7 @@ const NAME = String.raw`[A-ZÄÖÜ][\wäöüßÄÖÜ\- ]+?`;
 export function glaetten(text) {
   return text
     .replace(/\r/g, "")
+    .replace(/_x000b_|\v/g, "\n")
     // Silbentrennung am Zeilenende: "Muster-\nfrau" -> "Musterfrau"
     .replace(/([\wäöüß])-\n([\wäöüß])/g, "$1$2")
     .replace(/[ \t]*\n[ \t]*/g, " ")
@@ -59,7 +60,7 @@ export function auslesen(roh) {
     ausschlagende: [], kinder: [], unsicher: [],
   };
 
-  let m = t.match(/UVZ\.?-?\s*Nr\.?\s*(\d+)\s*für\s*(\d{4})/);
+  let m = t.match(/UVZ\.?-?\s*Nr\.?:?\s*(\d+)\s*(?:für|\/|-)\s*(\d{4})/);
   if (m) [, d.uvz_nr, d.uvz_jahr] = m; else d.unsicher.push("UVZ-Nummer");
 
   // Aktenzeichen und Gericht, falls das Nachlassgericht schon geschrieben hat
@@ -108,6 +109,7 @@ export function auslesen(roh) {
 
   // Letzter Wohnort
   m = t.match(new RegExp(`zuletzt (?:wohnhaft )?in ${ORT}(?: wohnhaft| gewohnt| gemeldet|,| und|\\.)`))
+    || t.match(new RegExp(`(?:mit |seinem |ihrem )?letzte[mnr]? (?:gewöhnliche[mnr]? )?(?:Aufenthalt|Wohnsitz|Wohnort) in ${ORT}(?= verstorben|,|\\.| und|$)`))
     || t.match(new RegExp(`letzte[rn]? (?:gewöhnliche[rn]? )?(?:Wohnsitz|Wohnort|Aufenthalt)(?:es|s)?:? (?:war )?(?:in )?${ORT}(?=[,.;]| und|$)`));
   if (m) {
     d.letzter_wohnort = m[1].trim().replace(/^\d{5}\s+/, "");
@@ -118,7 +120,7 @@ export function auslesen(roh) {
   // Beglaubigungsvermerk: Name, Geburtsdatum, Anschrift der Unterzeichner
   const vermerk = {};
   const reVermerk = new RegExp(
-    `(Frau|Herrn?) (${NAME}), geboren am (${DATUM_LANG}|${DATUM}), Anschrift: ([^,]+?,[^,]+?)(?= Frau| Herrn?| jeweils| ausgewiesen| wird| werden|$)`, "g");
+    `(Frau|Herrn?) (${NAME}), geboren am (${DATUM_LANG}|${DATUM}), Anschrift: ([^,]+?,[^,]+?),?(?= Frau| Herrn?| jeweils| ausgewiesen| wird| werden|$)`, "g");
   for (const v of t.matchAll(reVermerk)) vermerk[v[2].trim()] = [datumIso(v[3]), v[4].trim(), v[1]];
 
   // Ausschlagende: "Hiermit schlage ich, Frau/Herr <Name> die Erbschaft / für ..."
@@ -147,7 +149,7 @@ export function auslesen(roh) {
     }
   }
 
-  m = t.match(new RegExp(`, (?:den )?(${DATUM_LANG})`));
+  m = t.match(new RegExp(`, (?:den )?(${DATUM_LANG})`)) || t.match(new RegExp(`[a-z)], (?:den )?(${DATUM})(?![\\d.])`));
   if (m) d.urkundsdatum = datumIso(m[1]);
 
   m = t.match(/([A-ZÄÖÜ][A-Za-zäöüßÄÖÜ\- ]+?), (Notar(?:assessor)?|Notarin)\b/);
@@ -185,6 +187,11 @@ function kopfangaben(t, d, vermerk) {
     });
     ohne(d, "Erblasser");
     if (!d.erblasser.geburtsdatum) d.unsicher.push("Geburtsdatum Erblasser");
+    const ans = e.match(/Anschrift:?\s*\d{5}\s+([^,]+)/);
+    if (ans && !d.letzter_wohnort) {
+      d.letzter_wohnort = ans[1].trim();
+      ohne(d, "letzter Wohnort");
+    }
   }
 
   const a = kopf(t, "Ausschlagende(?: Personen)?");
