@@ -80,6 +80,8 @@ function alleTreffer(t, re, { verneinungPruefen = false } = {}) {
   const liste = [];
   for (const m of t.matchAll(re)) {
     if (verneinungPruefen && verneint(t, m.index, m[0].length, verneinungPruefen === "davor" ? 0 : 45)) continue;
+    // Treffer dicht hintereinander zeigen denselben Ausschnitt: nur einmal aufführen
+    if (liste.length && m.index - liste[liste.length - 1].index < 100) continue;
     liste.push({ index: m.index, wort: m[0], text: ausschnitt(t, m.index, m[0].length), m });
   }
   return liste;
