@@ -1,0 +1,101 @@
+:root {
+  --text: #1f2328; --leise: #59636e; --rand: #d0d7de; --flaeche: #f6f8fa; --hinter: #ffffff;
+  --akzent: #1f5f99; --gelb: #fff3b0; --rot: #b42318; --gruen: #1a7f37; --orange: #9a6700;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #e6edf3; --leise: #9198a1; --rand: #3d444d; --flaeche: #151b23; --hinter: #0d1117;
+    --akzent: #4493f8; --gelb: #4d3f00; --rot: #f85149; --gruen: #3fb950; --orange: #d29922;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.45 system-ui, "Segoe UI", sans-serif; color: var(--text); background: var(--hinter); }
+header, main { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+header { padding-top: 20px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+h2 { font-size: 17px; margin: 24px 0 8px; }
+.unter, .hilfe { color: var(--leise); margin: 0 0 8px; }
+#version { white-space: nowrap; }
+section { border-top: 1px solid var(--rand); }
+fieldset { border: 1px solid var(--rand); border-radius: 8px; margin: 0 0 12px; padding: 8px 12px 12px; }
+legend { font-weight: 600; padding: 0 4px; }
+details { margin: 12px 0; border: 1px solid var(--rand); border-radius: 8px; padding: 8px 12px; background: var(--flaeche); }
+summary { cursor: pointer; font-weight: 600; }
+.raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 12px; margin-top: 8px; }
+.raster .breit { grid-column: span 2; }
+@media (max-width: 480px) { .raster .breit { grid-column: auto; } }
+label { display: flex; flex-direction: column; font-size: 13px; color: var(--leise); gap: 2px; }
+label:has(> input[type=checkbox]) { flex-direction: row; align-items: center; gap: 6px; color: var(--text); font-size: 15px; }
+input, select { font: inherit; color: var(--text); background: var(--hinter); border: 1px solid var(--rand); border-radius: 6px; padding: 5px 8px; min-width: 0; }
+label > input, label > select { font-size: 15px; }
+input:focus, select:focus { outline: 2px solid var(--akzent); outline-offset: 0; }
+.leer { background: var(--gelb); }
+.zeile { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 8px 0; }
+label.datei { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: 15px; flex-wrap: wrap; }
+.dateiname { color: var(--leise); }
+.person { display: grid; grid-template-columns: 70px 1fr 1fr 1.3fr 70px 1fr auto; gap: 6px; margin-bottom: 6px; }
+@media (max-width: 700px) { .person { grid-template-columns: 1fr 1fr; } }
+button { font: inherit; border: 1px solid var(--rand); background: var(--flaeche); color: var(--text); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--akzent); }
+button.klein { padding: 3px 8px; }
+button.haupt { background: var(--akzent); color: #fff; border-color: var(--akzent); font-weight: 600; padding: 8px 18px; }
+pre { margin: 0; font: inherit; white-space: pre-wrap; }
+.meldung { min-height: 1.4em; padding: 8px 0 24px; }
+.meldung.warnung { color: var(--orange); }
+.meldung.fehler { color: var(--rot); }
+.meldung.erfolg { color: var(--gruen); font-weight: 600; }
+.zurueck { margin: 0 0 4px; font-size: 14px; } .zurueck a { color: var(--akzent); text-decoration: none; }
+textarea { font: inherit; color: var(--text); background: var(--hinter); border: 1px solid var(--rand); border-radius: 6px; padding: 6px 8px; width: 100%; resize: vertical; }
+label.breit { margin: 8px 0; }
+.zeile label.breit { flex: 1 1 320px; }
+.dokumente { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 14px; }
+.dokumente th, .dokumente td { border-bottom: 1px solid var(--rand); padding: 4px 6px; text-align: left; vertical-align: middle; }
+.dokumente td input[type=text] { width: 100%; }
+.dokumente .ok { color: var(--gruen); }
+.dokumente .fehlt { color: var(--rot); font-weight: 600; }
+@media (max-width: 700px) { .dokumente th:nth-child(3), .dokumente td:nth-child(3) { display: none; } }
+[hidden] { display: none !important; }
+
+/* ---------- Geldwäscheprüfung ---------- */
+h3 { font-size: 15px; margin: 16px 0 6px; }
+.ablage { border: 2px dashed var(--rand); border-radius: 10px; padding: 18px; text-align: center; background: var(--flaeche); }
+.ablage.ueber { border-color: var(--akzent); }
+.ablage p { margin: 4px 0; }
+.knopf { display: inline-block; color: var(--akzent); cursor: pointer; text-decoration: underline; font-size: 15px; }
+details textarea { margin: 8px 0; }
+.tabelle { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tabelle th, .tabelle td { border-bottom: 1px solid var(--rand); padding: 4px 6px; text-align: left; vertical-align: top; }
+@media (max-width: 700px) { .tabelle th:nth-child(4), .tabelle td:nth-child(4) { display: none; } }
+.gesamt { border-radius: 10px; padding: 12px 16px; border: 1px solid var(--rand); }
+.gesamt h3 { margin: 0 0 4px; font-size: 17px; }
+.gesamt p { margin: 4px 0; }
+.stufe-rot { border-left: 6px solid var(--rot); }
+.stufe-orange { border-left: 6px solid var(--orange); }
+.stufe-gelb { border-left: 6px solid #d4a72c; }
+.stufe-gruen { border-left: 6px solid var(--gruen); }
+.gruppe { margin: 16px 0 6px; font-size: 15px; }
+.punkt { border: 1px solid var(--rand); border-radius: 8px; padding: 8px 12px; margin: 6px 0; }
+.punkt.ist-ja { border-color: var(--rot); }
+.punkt.ist-offen.hat-funde { background: var(--gelb); }
+.punkt-kopf { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.punkt-titel { flex: 1 1 380px; }
+.punkt-titel small { display: block; color: var(--leise); }
+.punkt select { flex: 0 0 auto; }
+.funde { margin: 6px 0 0; padding-left: 18px; font-size: 13px; color: var(--leise); }
+.funde li { margin: 2px 0; }
+.punkt textarea { margin-top: 6px; font-size: 14px; }
+.punkt .hinweis { font-size: 13px; color: var(--orange); margin: 4px 0 0; }
+.marke { font-size: 12px; border-radius: 4px; padding: 0 5px; white-space: nowrap; }
+.marke.auto { background: var(--flaeche); border: 1px solid var(--akzent); color: var(--akzent); }
+.punkt a { color: var(--akzent); }
+.vermerk { display: none; }
+@media print {
+  .kein-druck { display: none !important; }
+  body { background: #fff; color: #000; font: 11pt/1.4 "Times New Roman", serif; }
+  .vermerk { display: block; max-width: none; padding: 0; }
+  .vermerk h1 { font-size: 15pt; margin: 0 0 8pt; }
+  .vermerk h2 { font-size: 12pt; margin: 12pt 0 4pt; }
+  .vermerk table { width: 100%; border-collapse: collapse; }
+  .vermerk td, .vermerk th { border: 1px solid #999; padding: 3pt 5pt; vertical-align: top; text-align: left; font-size: 10pt; }
+  .vermerk .klein { font-size: 9pt; color: #333; }
+}

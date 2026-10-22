@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Sicherheitssperre: Nach dem Laden darf die Seite keine Daten senden oder nachladen (connect-src 'none'). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Geldwäscheprüfung Kaufvertrag</title>
+<link rel="stylesheet" href="styles.css">
+<script src="vendor/jszip.min.js"></script>
+<script type="module" src="js/app.js"></script>
+</head>
+<body>
+<header class="kein-druck">
+  <p class="zurueck"><a href="../">← Tools</a></p>
+  <h1>Geldwäscheprüfung Kaufvertrag</h1>
+  <p class="unter">Liest einen Kaufvertrag (PDF, Word oder Text) und zeigt, welche Punkte nach dem GwG und der GwGMeldV-Immobilien zu prüfen sind. <strong>Alles läuft auf diesem PC; es werden keine Daten übertragen.</strong> Das Ergebnis ist eine Hilfe zur Dokumentation; die Entscheidung trifft der Notar.</p>
+</header>
+
+<main class="kein-druck">
+  <section>
+    <h2>1. Vertrag laden</h2>
+    <div id="ablage" class="ablage" tabindex="0">
+      <p><strong>Datei hierher ziehen</strong> oder <label class="knopf">Datei wählen …<input type="file" id="datei" accept=".pdf,.docx,.txt" hidden></label></p>
+      <p class="hilfe">PDF (mit Text, kein reiner Scan), Word (.docx) oder Text (.txt)</p>
+    </div>
+    <details>
+      <summary>Oder Vertragstext einfügen</summary>
+      <textarea id="eingabe" rows="8" placeholder="Vertragstext hier einfügen (z. B. aus Word kopiert) …"></textarea>
+      <button type="button" id="text-pruefen">Text prüfen</button>
+    </details>
+    <p id="meldung" class="meldung" role="status"></p>
+  </section>
+
+  <div id="ergebnisbereich" hidden>
+    <section>
+      <h2>2. Erkannte Angaben</h2>
+      <p class="hilfe">Bitte kontrollieren. Felder können geändert werden; die Bewertung passt sich an.</p>
+      <div class="raster">
+        <label>UVZ-Nr. <input id="uvz"></label>
+        <label>Urkundsdatum <input id="urkundsdatum" type="date"></label>
+        <label>Vertragsart <input id="vertragsart"></label>
+        <label>Kaufpreis (€) <input id="kaufpreis" inputmode="decimal"></label>
+        <label class="breit">Objekt <input id="objekt"></label>
+        <label>Verkehrswert, geschätzt (€) <input id="verkehrswert" inputmode="decimal" placeholder="für § 6 Abs. 1 Nr. 2"></label>
+        <label>Vorerwerb des Verkäufers am <input id="vorerwerb" type="date"></label>
+        <label>Früherer Kaufpreis (€) <input id="vorpreis" inputmode="decimal" placeholder="für § 6 Abs. 2"></label>
+      </div>
+      <h3>Beteiligte</h3>
+      <table class="tabelle" id="beteiligte">
+        <thead><tr><th>Name</th><th>Rolle</th><th>Art</th><th>Wohnort / Sitz</th><th>Auffällig</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p id="entlastend" class="hilfe"></p>
+    </section>
+
+    <section>
+      <h2>3. Ergebnis</h2>
+      <div id="gesamt" class="gesamt"></div>
+    </section>
+
+    <section>
+      <h2>4. Prüfpunkte</h2>
+      <p class="hilfe">Vorschläge aus dem Vertrag sind vorausgewählt (<span class="marke auto">aus Vertrag</span>). Punkte, die der Vertrag nicht zeigt, bitte selbst beantworten. Bei „entkräftet“ die Gründe eintragen.</p>
+      <div class="zeile">
+        <button type="button" id="rest-nein">Alle noch nicht geprüften Sachverhalte und Risikofaktoren: liegt nicht vor</button>
+      </div>
+      <div id="punkte"></div>
+    </section>
+
+    <section>
+      <h2>5. Vermerk</h2>
+      <div class="raster">
+        <label>Geprüft von <input id="bearbeiter"></label>
+        <label class="breit">Weitere Feststellungen (z. B. Herkunft der Mittel, Zweck) <textarea id="bemerkung" rows="3"></textarea></label>
+      </div>
+      <div class="zeile">
+        <button type="button" id="drucken" class="haupt">Vermerk drucken / als PDF speichern</button>
+        <button type="button" id="speichern">Als Textdatei speichern</button>
+        <button type="button" id="kopieren">Kopieren</button>
+      </div>
+    </section>
+  </div>
+
+  <details id="einstellungen">
+    <summary>Einstellungen: Liste der Hochrisikostaaten</summary>
+    <p class="hilfe">Stand: <span id="hr-stand"></span>. Eine Zeile je Staat: Ländercode, Name, danach nach einem Doppelpunkt die Schreibweisen im Text, durch Komma getrennt. Änderungen werden nur in diesem Browser gespeichert. Aktuelle Liste: Übersicht der FIU / Delegierte Verordnung (EU) 2016/1675.</p>
+    <textarea id="hr-liste" rows="10"></textarea>
+    <div class="zeile">
+      <button type="button" id="hr-speichern">Speichern</button>
+      <button type="button" id="hr-zurueck">Auf Standardliste zurücksetzen</button>
+    </div>
+  </details>
+</main>
+
+<article id="vermerk" class="vermerk"></article>
+</body>
+</html>
