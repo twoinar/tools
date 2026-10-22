@@ -5,7 +5,7 @@ import { nachricht, aktenzeichen } from "./xjustiz.js";
 import { GERICHTE, vorschlagen, merken } from "./gerichte.js";
 import { erstellen as anschreibenErstellen } from "./anschreiben.js";
 
-export const VERSION = "1.6 (22.10.2026)";
+export const VERSION = "1.7 (22.10.2026)";
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("../vendor/pdf.worker.min.mjs", import.meta.url).href;
 
 const $ = (s) => document.querySelector(s);

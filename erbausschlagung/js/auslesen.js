@@ -121,26 +121,42 @@ export function auslesen(roh) {
     d.unsicher.push("letzter Wohnort");
   }
 
-  // Beglaubigungsvermerk: Name, Geburtsdatum, Anschrift der Unterzeichner
+  // Beglaubigungsvermerk: Name, Geburtsname, Geburtsdatum, Anschrift der Unterzeichner.
+  // Die Unterzeichner sind die Ausschlagenden; der Vermerk ist dafür die verlässlichste Quelle.
   const vermerk = {};
-  const reVermerk = new RegExp(
-    `(Frau|Herrn?) (${NAME}), geboren am (${DATUM_LANG}|${DATUM}), Anschrift: ([^,]+?,[^,]+?),?(?= Frau| Herrn?| jeweils| ausgewiesen| wird| werden|$)`, "g");
-  for (const v of t.matchAll(reVermerk)) vermerk[v[2].trim()] = [datumIso(v[3]), v[4].trim(), v[1]];
-
-  // Ausschlagende: "Hiermit schlage ich, Frau/Herr <Name> die Erbschaft / für ..."
-  const gesehen = new Set();
-  for (const a of t.matchAll(new RegExp(`schlagen? (?:ich|wir),? (Frau|Herrn?) (${NAME}),? (?:die Erbschaft|für|hiermit|als|und|aus)`, "g"))) {
-    const name = a[2].trim();
-    if (gesehen.has(name)) continue;
-    gesehen.add(name);
-    const [geb, anschrift] = vermerk[name] || ["", ""];
-    d.ausschlagende.push(person(name, { geburtsdatum: geb, anschrift, anrede: a[1] }));
-    if (!geb) d.unsicher.push(`Geburtsdatum/Anschrift ${name}`);
+  const vStart = t.search(/vollzogene Unterschrift(?:\/?en)? von|Unterschrift(?:en)? von/);
+  if (vStart >= 0) {
+    let abschnitt = t.slice(vStart).replace(/^[^,]*? von /, "");
+    abschnitt = abschnitt.split(/\(?jeweils\)? ausgewiesen|ausgewiesen durch|persönlich bekannt|wird\/?(?:werden)? hiermit|werden hiermit/)[0];
+    let vorige = "";
+    for (const teil of abschnitt.split(/(?=\b(?:Frau|Herrn?) [A-ZÄÖÜ])/)) {
+      const k = teil.match(new RegExp(`^(Frau|Herrn?) (${NAME})(?:,|\\s+geb)`));
+      if (!k) continue;
+      const gebName = teil.match(new RegExp(`geb(?:\\.|orene)\\s+(?!am\\b)(${NAME})(?:,|\\s+geb|$)`));
+      const gebDatum = teil.match(new RegExp(`geb(?:oren|\\.)? am (${DATUM_LANG}|${DATUM})`));
+      let anschrift = (teil.match(/(?:Anschrift:?|wohnhaft(?: in)?)\s*(\d{5}\s+[^,]+?,\s*[^,]+?)\s*,?\s*$/)
+        || teil.match(/(?:Anschrift:?|wohnhaft(?: in)?)\s*(\d{5}\s+[^,]+?,\s*[^,]+?)(?:,|$)/) || [, ""])[1].trim();
+      if (!anschrift && /ebenda|ebendort|ebenso|dieselbe Anschrift/.test(teil)) anschrift = vorige;
+      if (anschrift) vorige = anschrift;
+      vermerk[k[2].trim()] = [gebDatum ? datumIso(gebDatum[1]) : "", anschrift, k[1], gebName ? gebName[1].trim() : ""];
+    }
   }
-  // „Hiermit schlage ich, die Unterzeichnende …“: Namen aus dem Beglaubigungsvermerk
-  if (!d.ausschlagende.length) {
-    for (const [name, [geb, anschrift, anrede]] of Object.entries(vermerk)) {
-      d.ausschlagende.push(person(name, { geburtsdatum: geb, anschrift, anrede }));
+
+  // Ausschlagende im Text: "Hiermit schlage ich, Frau/Herr <Name> …" (nur, wenn der Vermerk nichts liefert)
+  const ausVermerk = Object.entries(vermerk);
+  if (ausVermerk.length) {
+    for (const [name, [geb, anschrift, anrede, geburtsname]] of ausVermerk) {
+      d.ausschlagende.push(person(name, { geburtsdatum: geb, anschrift, anrede, geburtsname }));
+      if (!geb || !anschrift) d.unsicher.push(`Geburtsdatum/Anschrift ${name}`);
+    }
+  } else {
+    const gesehen = new Set();
+    for (const a of t.matchAll(new RegExp(`schlagen? (?:ich|wir),? (Frau|Herrn?) (${NAME}),? (?:die Erbschaft|für|hiermit|als|und|aus)`, "g"))) {
+      const name = a[2].trim();
+      if (gesehen.has(name)) continue;
+      gesehen.add(name);
+      d.ausschlagende.push(person(name, { anrede: a[1] }));
+      d.unsicher.push(`Geburtsdatum/Anschrift ${name}`);
     }
   }
   if (!d.ausschlagende.length) d.unsicher.push("Ausschlagende");
@@ -150,6 +166,13 @@ export function auslesen(roh) {
   if (eltern >= 0) {
     for (const k of t.slice(0, eltern).matchAll(new RegExp(`Kind (\\d+): (${NAME}), geboren am (${DATUM})`, "g"))) {
       d.kinder.push(person(k[2], { geburtsdatum: datumIso(k[3]) }));
+    }
+    if (!d.kinder.length) {
+      const liste = t.slice(0, eltern).match(/Kinder,? nämlich:?\s*(.+?)\.(?:\s|$)/);
+      if (liste) for (const n of liste[1].split(/,\s*|\s+und\s+/)) {
+        const [name, geb] = n.split(/,?\s*geb(?:oren|\.)? am\s*/);
+        if (/^[A-ZÄÖÜ]/.test(name.trim())) d.kinder.push(person(name.trim(), { geburtsdatum: datumIso(geb || "") }));
+      }
     }
   }
 
