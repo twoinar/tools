@@ -45,3 +45,13 @@ pre { margin: 0; font: inherit; white-space: pre-wrap; }
 .meldung.fehler { color: var(--rot); }
 .meldung.erfolg { color: var(--gruen); font-weight: 600; }
 .zurueck { margin: 0 0 4px; font-size: 14px; } .zurueck a { color: var(--akzent); text-decoration: none; }
+textarea { font: inherit; color: var(--text); background: var(--hinter); border: 1px solid var(--rand); border-radius: 6px; padding: 6px 8px; width: 100%; resize: vertical; }
+label.breit { margin: 8px 0; }
+.zeile label.breit { flex: 1 1 320px; }
+.dokumente { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 14px; }
+.dokumente th, .dokumente td { border-bottom: 1px solid var(--rand); padding: 4px 6px; text-align: left; vertical-align: middle; }
+.dokumente td input[type=text] { width: 100%; }
+.dokumente .ok { color: var(--gruen); }
+.dokumente .fehlt { color: var(--rot); font-weight: 600; }
+@media (max-width: 700px) { .dokumente th:nth-child(3), .dokumente td:nth-child(3) { display: none; } }
+[hidden] { display: none !important; }

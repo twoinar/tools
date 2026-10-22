@@ -73,6 +73,7 @@ export function auslesen(roh) {
   const VOR = String.raw`(?:(?:meine[mrns]?|unsere[mrns]?|seine[mrns]?|ihre[mrns]?) [A-ZÄÖÜ][a-zäöüß]+,? )?(?:(?:de[mr]|des) )?(?:(?:am [^ ]+ )?(?:verstorbenen|verst\.) )?(?:(?:Herrn?|Frau) )?`;
   const GEB = String.raw`(?:,? geb(?:\.|orene|oren)? (${NAME}))?`;
   const ERBLASSER = [
+    `(?:verstarb|verstorben ist|starb)(?: am (?:${DATUM}|${DATUM_LANG}))?(?: in [A-ZÄÖÜ][^,.;]*?)? ${VOR}(${NAME})${GEB},?\\s+(?:geboren|zuletzt|wohnhaft|am\\b|in\\b|mit\\b)`,
     `(?:Mit|Allein|Vor|Nach)?[Ee]rb(?:e|in|en) nach ${VOR}(${NAME})${GEB},?\\s+(?:geworden|bin|sei|ist|bzw|gemäß|nach|auf|aus|geboren|verstorben|zuletzt|wohnhaft)`,
     `[Ee]rbschaft nach ${VOR}(${NAME})${GEB},?\\s+(?:aus\\b|aus sämtlichen|aus allen|als|und|für)`,
     `Nachlass(?:sache)? ${VOR}(${NAME})${GEB},?\\s+(?:geboren|verstorben|zuletzt|ist|war|bin|als)`,

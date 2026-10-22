@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Sicherheitssperre: Nach dem Laden darf die Seite keine Daten senden oder nachladen (connect-src 'none'). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<title>XNP – Sonstige Anträge</title>
+<link rel="stylesheet" href="styles.css">
+<script src="vendor/pdf-lib.min.js"></script>
+<script src="vendor/jszip.min.js"></script>
+<script type="module" src="js/app.js"></script>
+</head>
+<body>
+<header>
+  <p class="zurueck"><a href="../">← Tools</a></p>
+  <h1>XNP – Sonstige Anträge</h1>
+  <p class="unter">Erstellt eine XNP-Importdatei mit Urkunde, Anlagen und Anschreiben. <strong>Alles läuft auf diesem PC; es werden keine Daten übertragen.</strong> <span id="version"></span></p>
+</header>
+
+<main>
+  <details id="einstellungen">
+    <summary>Notardaten (werden nur in diesem Browser gespeichert)</summary>
+    <div class="raster">
+      <label>Anrede <select id="n_anrede"><option>Herr</option><option>Frau</option></select></label>
+      <label>Vorname <input id="n_vorname"></label>
+      <label>Nachname <input id="n_nachname"></label>
+      <label>Straße Nr. <input id="n_strasse"></label>
+      <label>PLZ <input id="n_plz" inputmode="numeric"></label>
+      <label>Ort <input id="n_ort"></label>
+    </div>
+  </details>
+
+  <section>
+    <h2>1. Antragsart und Vorgang</h2>
+    <div class="zeile">
+      <label class="breit">Antragsart <select id="art"></select></label>
+    </div>
+    <div class="zeile nur-ordner">
+      <span>Eingangsordner: <strong id="eingang-name"></strong></span>
+      <button type="button" id="eingang-waehlen">Ordner …</button>
+    </div>
+    <div class="zeile nur-ordner">
+      <label>Vorgang (Unterordner) <select id="vorgang"></select></label>
+      <button type="button" id="vorgang-laden">Laden</button>
+      <button type="button" id="neueste">Neueste PDF im Eingangsordner</button>
+    </div>
+    <div class="zeile">
+      <label class="datei">Oder Dateien wählen (Urkunde, Anlagen, Signaturdateien):
+        <input type="file" id="datei" accept=".pdf,.pkcs7,.p7s" multiple></label>
+    </div>
+    <table id="dokumente" class="dokumente" hidden>
+      <thead><tr><th>Mit</th><th>Urkunde</th><th>Datei</th><th>Bezeichnung</th><th>Signatur</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>2. Angaben prüfen</h2>
+    <p class="hilfe">Gelb markierte Felder bitte prüfen oder ergänzen.</p>
+    <fieldset>
+      <legend>Vorgang</legend>
+      <div class="raster">
+        <label>UVZ-Nr. <input id="uvz_nr"></label>
+        <label>Jahr <input id="uvz_jahr"></label>
+        <label>Urkundsdatum (JJJJ-MM-TT) <input id="urkundsdatum"></label>
+        <label>Sachgebiet <select id="sachgebiet"></select></label>
+        <label class="breit">Gegenstand <input id="gegenstand"></label>
+        <label class="breit nicht-nachlass">Parteien <input id="parteien"></label>
+        <label class="breit nicht-nachlass"><span id="ort-label">Ort für die Zuständigkeit</span> <input id="ort"></label>
+        <label class="breit">Gericht <select id="gericht"></select></label>
+        <label>Az. des Gerichts (falls bekannt) <input id="gericht_aktenzeichen"></label>
+      </div>
+    </fieldset>
+    <fieldset class="nur-nachlass">
+      <legend>Erblasser(in)</legend>
+      <div class="raster">
+        <label>Vorname(n) <input id="e_vorname"></label>
+        <label>Nachname <input id="e_nachname"></label>
+        <label>Geburtsname <input id="e_geburtsname"></label>
+        <label>Geburtsdatum <input id="e_geburtsdatum"></label>
+        <label>Verstorben (von) <input id="sterbedatum_von"></label>
+        <label>(bis) <input id="sterbedatum_bis"></label>
+        <label class="breit">Letzter Wohnort <input id="letzter_wohnort"></label>
+      </div>
+    </fieldset>
+    <fieldset class="nur-unterzeichner">
+      <legend>Unterzeichner laut Beglaubigungsvermerk (für sich und/oder als Eltern)</legend>
+      <div id="personen"></div>
+      <button type="button" id="person-neu" class="klein">+ Person</button>
+    </fieldset>
+    <fieldset class="nur-unterzeichner">
+      <legend>Minderjährige Kinder, für die die Eltern ausschlagen (nur zur Kontrolle)</legend>
+      <pre id="kinder">–</pre>
+    </fieldset>
+  </section>
+
+  <section>
+    <h2>3. XNP-Importdatei erstellen</h2>
+    <div class="zeile">
+      <label><input type="checkbox" id="anschreiben-auto" checked> Anschreiben automatisch erstellen</label>
+      <label class="datei">oder eigenes Anschreiben (PDF): <input type="file" id="anschreiben" accept=".pdf"></label>
+      <span id="anschreiben-name" class="dateiname"></span>
+    </div>
+    <label class="breit">Text des Anschreibens (wird pro Antragsart in diesem Browser gemerkt)
+      <textarea id="brieftext" rows="3"></textarea></label>
+    <div class="zeile nur-ordner">
+      <span>Zielordner: <strong id="ziel-name"></strong></span>
+      <button type="button" id="ziel-waehlen">Zielordner …</button>
+    </div>
+    <div class="zeile">
+      <button type="button" id="erstellen" class="haupt">XNP-Importdatei erstellen</button>
+    </div>
+    <p id="meldung" class="meldung" role="status"></p>
+  </section>
+</main>
+</body>
+</html>

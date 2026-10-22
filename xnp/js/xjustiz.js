@@ -1,12 +1,14 @@
 // Erzeugt xjustiz_nachricht.xml für den Import in XNP „Sonstige Anträge“.
 // Aufbau wie ein Export „Für Ersatzeinreichung“ aus XNP (XJustiz 3.6.2).
 
+import { SACHGEBIETE } from "./arten.js";
+
 export const CODES = {
-  sachgebiet: "025",            // Nachlasssachen
   rolle_notar: "208",           // Notar(in)
   rolle_einreicher: "215",      // Einreicher(in)
   dokumentklasse_urkunde: "015", dokumenttyp_urkunde: "213",          // Schreiben / Urkunde
   dokumentklasse_anschreiben: "001", dokumenttyp_anschreiben: "122",  // Sonstige / Anschreiben
+  dokumentklasse_anlage: "001",                                         // Sonstige
 };
 const GESCHLECHT = { Herr: "1", Frau: "2" };
 
@@ -67,26 +69,22 @@ function dokument(nr, datum, klasse, typ, datei, signatur) {
 // XNP liest Parteien und Gegenstand aus EINEM Feld, fünf Teile mit Semikolon getrennt:
 // Aktenzeichen; Sachgebiet; Bezeichnung der Parteien; Verfahrensgegenstand; Verfahrensnummer (vergibt XNP)
 export function gegenstandXnp(d, az) {
-  const e = d.erblasser || {};
-  const parteien = [e.nachname, e.vorname].filter(Boolean).join(", ");
-  return `${az};Nachlasssachen;${parteien};Erbausschlagung;`;
+  const teil = (s) => String(s || "").replace(/;/g, ",").trim();
+  return `${az};${SACHGEBIETE[d.sachgebiet] || ""};${teil(d.parteien)};${teil(d.gegenstand)};`;
 }
 
 export function aktenzeichen(d) {
   return d.uvz_nr ? `${d.uvz_nr}/${d.uvz_jahr}` : "";
 }
 
-export function nachricht(d, notar, dateien, version) {
+export function nachricht(d, notar, dokumente, version) {
   const az = aktenzeichen(d);
   const jetzt = new Date();
   jetzt.setMilliseconds(0);
   const zeit = new Date(jetzt - jetzt.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
-  let doks = dokument(1, d.urkundsdatum, CODES.dokumentklasse_urkunde, CODES.dokumenttyp_urkunde,
-    dateien.urkunde, dateien.signatur);
-  if (dateien.anschreiben) {
-    doks += dokument(2, d.urkundsdatum, CODES.dokumentklasse_anschreiben, CODES.dokumenttyp_anschreiben,
-      dateien.anschreiben, dateien.anschreibenSignatur);
-  }
+  // dokumente: [{ datei, signatur, klasse, typ }] in der Reihenfolge Urkunde, Anschreiben, Anlagen
+  const doks = dokumente.map((dok, i) =>
+    dokument(i + 1, d.urkundsdatum, dok.klasse, dok.typ, dok.datei, dok.signatur)).join("");
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <tns:nachricht.gds.uebermittlungSchriftgutobjekte.0005005 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.xjustiz.de xjustiz_0005_nachrichten_3_2.xsd" xmlns:tns="http://www.xjustiz.de">
 \t<tns:nachrichtenkopf xjustizVersion="3.6.2">
@@ -110,7 +108,7 @@ ${gericht(d.gericht_code, 5)}\t\t\t\t</tns:auswahl_kommunikationspartner>
 \t\t\t</tns:auswahl_aktenzeichen>
 \t\t</tns:empfaenger>
 \t\t<tns:herstellerinformation>
-\t\t\t<tns:nameDesProdukts>Erbausschlagung-XNP (Web)</tns:nameDesProdukts>
+\t\t\t<tns:nameDesProdukts>XNP Sonstige Anträge (Web)</tns:nameDesProdukts>
 \t\t\t<tns:herstellerDesProdukts>Notariat Woinar</tns:herstellerDesProdukts>
 \t\t\t<tns:version>${x(version)}</tns:version>
 \t\t</tns:herstellerinformation>
@@ -120,7 +118,7 @@ ${gericht(d.gericht_code, 5)}\t\t\t\t</tns:auswahl_kommunikationspartner>
 \t\t\t<tns:verfahrensnummer></tns:verfahrensnummer>
 \t\t\t<tns:instanzdaten>
 \t\t\t\t<tns:instanznummer>0</tns:instanznummer>
-${code("sachgebiet", CODES.sachgebiet, "2.3", null, 4)}\t\t\t\t<tns:auswahl_instanzbehoerde>
+${code("sachgebiet", d.sachgebiet, "2.3", null, 4)}\t\t\t\t<tns:auswahl_instanzbehoerde>
 ${gericht(d.gericht_code, 5)}\t\t\t\t</tns:auswahl_instanzbehoerde>
 \t\t\t\t<tns:aktenzeichen>
 \t\t\t\t\t<tns:auswahl_aktenzeichen>

@@ -1,4 +1,4 @@
-// Erstellt das Anschreiben an das Nachlassgericht als PDF (im Browser, mit pdf-lib).
+// Erstellt das Anschreiben an das Gericht als PDF (im Browser, mit pdf-lib).
 const { PDFDocument, StandardFonts } = window.PDFLib;
 
 const de = (iso) => (/^\d{4}-\d{2}-\d{2}$/.test(iso || "") ? iso.split("-").reverse().join(".") : iso || "");
@@ -33,7 +33,8 @@ function umbrechen(text, font, groesse, breite) {
   return zeilen;
 }
 
-export async function erstellen(d, notar, gerichtName) {
+// a = Antragsart, text = Brieftext, anlagen = Bezeichnungen der beigefügten Dokumente
+export async function erstellen(d, notar, gerichtName, a, text, anlagen = []) {
   const doc = await PDFDocument.create();
   const seite = doc.addPage([595, 842]);
   const normal = await doc.embedFont(StandardFonts.Helvetica);
@@ -53,23 +54,27 @@ export async function erstellen(d, notar, gerichtName) {
   schreiben(`${titel} ${notar.vorname} ${notar.nachname} · ${notar.strasse} · ${notar.plz} ${notar.ort}`, { groesse: 8, abstand: 12 });
   y = 700;
   schreiben(gerichtName.replace(/^AG /, "Amtsgericht "));
-  schreiben("- Nachlassgericht -");
+  if (a.abteilung) schreiben(`- ${a.abteilung} -`);
   y = 600;
   const heute = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
   schreiben(`${notar.ort}, ${heute}`, { rechts: true });
   y -= 20;
-  schreiben(`Nachlasssache ${erblasserText(d)}`, { font: fett });
+  schreiben(`${a.betreff} ${a.nachlass ? erblasserText(d) : d.parteien}`.trim(), { font: fett });
   if (d.gericht_aktenzeichen) schreiben(`Ihr Az.: ${d.gericht_aktenzeichen}`, { font: fett });
   schreiben(`Mein Zeichen: UVZ-Nr. ${d.uvz_nr}/${d.uvz_jahr}`, { font: fett });
   y -= 20;
   schreiben("Sehr geehrte Damen und Herren,");
   y -= 15;
-  schreiben("ich übersende beiliegende Erbausschlagungserklärung in elektronisch beglaubigter Form " +
-    "als Bote für die Beteiligten zur weiteren Verwendung.");
+  schreiben(text);
   y -= 15;
   schreiben("Mit freundlichen Grüßen");
   y -= 45;
   schreiben(`${notar.vorname} ${notar.nachname}`);
   schreiben(titel);
+  if (anlagen.length) {
+    y -= 30;
+    schreiben("Anlagen:", { groesse: 10, abstand: 13 });
+    for (const b of anlagen) schreiben(`- ${b}`, { groesse: 10, abstand: 13 });
+  }
   return doc.save();
 }
