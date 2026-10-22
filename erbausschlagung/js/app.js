@@ -5,7 +5,7 @@ import { nachricht, aktenzeichen } from "./xjustiz.js";
 import { GERICHTE, vorschlagen, merken } from "./gerichte.js";
 import { erstellen as anschreibenErstellen } from "./anschreiben.js";
 
-export const VERSION = "1.4 (22.10.2026)";
+export const VERSION = "1.5 (22.10.2026)";
 pdfjs.GlobalWorkerOptions.workerSrc = new URL("../vendor/pdf.worker.min.mjs", import.meta.url).href;
 
 const $ = (s) => document.querySelector(s);
@@ -128,10 +128,8 @@ function maskeFuellen(d) {
     ? d.kinder.map((k) => `${k.vorname} ${k.nachname}, geb. ${k.geburtsdatum}`).join("\n")
     : "–";
   gerichtVorschlagen(true);
-  if (d.gericht_ort && GERICHTE[`AG ${d.gericht_ort}`]) {
-    $("#gericht").value = `AG ${d.gericht_ort}`;
-    $("#gericht").classList.remove("leer");
-  }
+  // Vorrang hat das Gericht des letzten Aufenthalts; das anschreibende Gericht nur, wenn dafür nichts bekannt ist (gelb lassen)
+  if (!$("#gericht").value && d.gericht_ort && GERICHTE[`AG ${d.gericht_ort}`]) $("#gericht").value = `AG ${d.gericht_ort}`;
 }
 
 function personZeile(p = {}) {
