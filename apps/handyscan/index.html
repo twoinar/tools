@@ -20,7 +20,7 @@
 <script>
   // Adresse des Büro-PCs, auf dem Handy-Scan läuft. Ändert sich die Adresse, nur hier anpassen –
   // der QR-Code auf der Apps-Seite bleibt gleich.
-  const ZIEL = 'http://WOI-WKS-009:8765/';
+  const ZIEL = 'http://10.100.100.104:8765/';
   const a = document.getElementById('link');
   a.href = ZIEL; a.textContent = ZIEL;
   location.replace(ZIEL);
