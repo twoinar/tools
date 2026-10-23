@@ -57,3 +57,12 @@ body.gesperrt { overflow: hidden; }
 .editor canvas { touch-action: none; max-width: 100%; }
 .zeile.mitte { justify-content: center; }
 .editor button:not(.haupt) { background: #2a2f36; color: #fff; border-color: #444; }
+.live { position: fixed; inset: 0; background: #000; color: #fff; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: space-between; touch-action: none; }
+.live canvas { max-width: 100%; transition: opacity .15s; }
+.live canvas.blitz { opacity: .3; }
+.live-leiste { width: 100%; padding: 8px 16px 16px; text-align: center; }
+.live-status { margin: 0; font-size: 16px; min-height: 22px; }
+.live-anzahl { margin: 2px 0 8px; font-size: 14px; color: #3fb950; min-height: 18px; }
+.live .zeile.mitte { gap: 32px; align-items: center; }
+button.rund { width: 68px; height: 68px; border-radius: 50%; background: #fff; border: 5px solid #888; padding: 0; }
+.unsichtbar { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }

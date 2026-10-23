@@ -11,7 +11,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '1.1'
+$Version = '1.2'
 
 # ---------------------------------------------------------------- Einstellungen
 $cfg = [ordered]@{ Basisordner = 'Y:\Vorgänge'; Port = 8765; Pin = '' }

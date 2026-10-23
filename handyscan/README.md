@@ -23,8 +23,13 @@ Das Foto wird auf dem Handy mit OpenCV.js (`web/opencv.js`, @techstark/opencv-js
 ausgewertet: Blatt als größtes Viereck suchen (Kanten in drei Empfindlichkeiten, helle Fläche
 global und örtlich), Ecken zum Prüfen/Verschieben anzeigen, perspektivisch gerade ziehen,
 Schatten herausrechnen („Dokument“) oder harte Schwelle („Schwarzweiß“).
-Die Kamera-Livevorschau des Browsers steht ohne HTTPS nicht zur Verfügung; deshalb wird das
-Foto über die normale Kamera-App aufgenommen und danach ausgewertet.
+**Live-Sucher** („Scannen“, ab 1.2): Kamerabild per `getUserMedia`, Blatterkennung laufend auf
+480 px, blau umrandet; liegt ein sauberes Viereck sechs Erkennungen lang ruhig, löst die Seite
+selbst aus, sucht die Ecken im großen Bild genau und wartet dann auf das nächste Blatt.
+`getUserMedia` braucht einen sicheren Ursprung. Weil der Server nur HTTP spricht, wird die
+Adresse einmalig in Chrome auf dem Handy freigeschaltet: `chrome://flags` →
+„Insecure origins treated as secure“ → `http://<IP des PCs>:8765` → Enabled → Relaunch.
+Ohne Freischaltung bleibt „Foto“ (Kamera-App) mit anschließender Erkennung.
 
 ## Einrichten (einmalig, am Büro-PC)
 
