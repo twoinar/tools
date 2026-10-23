@@ -13,6 +13,11 @@ Jedes Tool liegt in einem eigenen Unterordner und läuft vollständig im Browser
   in der Vorgangsablage am Büro-PC speichern. Läuft auf dem Büro-PC im Büro-WLAN, nicht auf GitHub
   Pages (siehe `handyscan/README.md`). Download als `apps/handyscan/Handy-Scan.zip` – nach
   Änderungen in `handyscan/` neu packen.
+- `boegen/` – Bögen für Notariate in Brandenburg: allgemeine Kopie von Vorgesprächsbogen (mit Erbspiegel,
+  Grundstückswert, Geschäftswert, Kostenberechnung) und Vollzugsbogen aus `twoinar/boegen`. Name, Anschrift,
+  Kontakt und Mitarbeiter trägt jedes Notariat unter „Notardaten“ ein (`boegen/notar.js`, nur im Browser,
+  Export/Import als `Notardaten.json`). Die eigenen Bögen in `twoinar/boegen` bleiben unverändert;
+  Verbesserungen dort bei Bedarf hierher übernehmen, ohne feste Notardaten.
 - `apps/` – Handy-Apps mit QR-Code und Anleitung: Handy-Scan, Sprachnachricht (APK aus
   `twoinar/sprachnachricht`, Release „neueste“).
 
