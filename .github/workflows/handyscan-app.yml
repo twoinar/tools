@@ -1,0 +1,47 @@
+# Baut die Android-App Handy-Scan (android/handyscan) und stellt die APK als Download bereit:
+# https://github.com/twoinar/tools/releases/download/handyscan-app/Handy-Scan.apk
+name: Handy-Scan App
+
+on:
+  push:
+    branches: [main]
+    paths: ['android/handyscan/**', '.github/workflows/handyscan-app.yml']
+  pull_request:
+    paths: ['android/handyscan/**', '.github/workflows/handyscan-app.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: APK bauen
+        run: gradle -p android/handyscan assembleRelease --no-daemon
+      - name: APK umbenennen
+        run: |
+          cp android/handyscan/app/build/outputs/apk/release/app-release.apk Handy-Scan.apk
+          v=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' android/handyscan/app/build.gradle.kts)
+          cp Handy-Scan.apk "Handy-Scan-$v.apk"   # eigener Name je Version, damit das Handy keine alte Datei erwischt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Handy-Scan-apk
+          path: Handy-Scan*.apk
+      - name: Download aktualisieren
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: handyscan-app
+          name: Handy-Scan App (Android)
+          body: Aktuelle Version der Android-App Handy-Scan. Installation siehe https://twoinar.github.io/tools/apps/
+          files: Handy-Scan*.apk
+          make_latest: true
