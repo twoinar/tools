@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Büro-Portal</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  header, main { max-width: 900px; }
+  .kacheln { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 14px 0; }
+  .kachel { display: block; text-decoration: none; color: var(--text); background: var(--flaeche); border: 1px solid var(--rand); border-radius: 10px; padding: 14px; }
+  .kachel:hover { border-color: var(--akzent); }
+  .kachel b { display: block; font-size: 17px; margin-bottom: 4px; }
+  .kachel span { color: var(--leise); font-size: 14px; }
+  .kachel.aus { opacity: .5; pointer-events: none; }
+  .gruppe h3 { font-size: 15px; margin: 16px 0 4px; color: var(--leise); }
+  .gruppe ul { list-style: none; margin: 0; padding: 0; }
+  .gruppe li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--rand); }
+  .gruppe li a { color: var(--akzent); text-decoration: none; overflow-wrap: anywhere; }
+  .gruppe li small { color: var(--leise); white-space: nowrap; }
+  .handy { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  .handy img { width: 160px; height: 160px; image-rendering: pixelated; background: #fff; padding: 6px; border-radius: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Büro-Portal</h1>
+  <p class="unter">Handbuch, Anleitungen und Werkzeuge. Nur im Büronetz erreichbar.</p>
+</header>
+<main>
+  <div class="kacheln">
+    <a class="kachel aus" id="handbuch" href="#"><b>📘 Handbuch</b><span>Handbuch (PDF)</span></a>
+    <a class="kachel" href="scan"><b>📷 Handy-Scan</b><span>Dokumente scannen und im Vorgang ablegen</span></a>
+    <a class="kachel" href="vermerk"><b>📝 Claude-Vermerk</b><span>Antwort von Claude als Aktenvermerk in den Vorgang</span></a>
+    <a class="kachel" href="https://twoinar.github.io/tools/"><b>🧰 Web-Tools</b><span>XNP, Geldwäscheprüfung und weitere</span></a>
+  </div>
+
+  <section>
+    <h2>Anleitungen</h2>
+    <label>Suchen <input id="suche" type="search" autocomplete="off" placeholder="z. B. Verteilerzettel"></label>
+    <div id="meldung" class="hinweis" hidden></div>
+    <div id="liste"></div>
+  </section>
+
+  <section>
+    <h2>Aufs Handy</h2>
+    <div class="handy">
+      <div id="qr"></div>
+      <p class="hilfe">QR-Code mit der Handy-Kamera scannen (Handy im Büro-WLAN). Dann in Chrome ⋮ → „Zum Startbildschirm hinzufügen“. <span id="adresse"></span></p>
+    </div>
+  </section>
+
+  <p class="fuss leise" id="fuss"></p>
+</main>
+<script src="qrcode.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const HANDBUCH = 'handbuch';   // erste PDF, deren Name mit „Handbuch“ beginnt
+let dateien = [];
+
+function link(pfad) { return 'anleitung/' + pfad.split('/').map(encodeURIComponent).join('/'); }
+function titel(pfad) { return pfad.split('/').pop().replace(/\.[^.]+$/, ''); }
+function groesse(b) { return b > 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
+function datum(s) { const [d] = s.split(' '); const [j, m, t] = d.split('-'); return `${t}.${m}.${j}`; }
+
+function zeigen() {
+  const such = $('suche').value.trim().toLowerCase();
+  const gruppen = new Map();
+  for (const d of dateien) {
+    if (such && !d.pfad.toLowerCase().includes(such)) continue;
+    const teile = d.pfad.split('/');
+    const gruppe = teile.length > 1 ? teile.slice(0, -1).join(' › ') : 'Allgemein';
+    if (!gruppen.has(gruppe)) gruppen.set(gruppe, []);
+    gruppen.get(gruppe).push(d);
+  }
+  const box = $('liste');
+  box.textContent = '';
+  if (!gruppen.size) { box.innerHTML = '<p class="hilfe">Keine Anleitung gefunden.</p>'; return; }
+  for (const [name, liste] of [...gruppen].sort((a, b) => a[0].localeCompare(b[0], 'de'))) {
+    const g = document.createElement('div');
+    g.className = 'gruppe';
+    g.innerHTML = '<h3></h3><ul></ul>';
+    g.querySelector('h3').textContent = name;
+    for (const d of liste.sort((a, b) => titel(a.pfad).localeCompare(titel(b.pfad), 'de'))) {
+      const li = document.createElement('li');
+      li.innerHTML = '<a target="_blank"></a><small></small>';
+      li.querySelector('a').href = link(d.pfad);
+      li.querySelector('a').textContent = titel(d.pfad);
+      li.querySelector('small').textContent = `${datum(d.geaendert)} · ${groesse(d.groesse)}`;
+      g.querySelector('ul').append(li);
+    }
+    box.append(g);
+  }
+}
+
+fetch('api/anleitungen').then(r => r.json()).then(d => {
+  dateien = d.dateien || [];
+  if (d.aus) { $('meldung').hidden = false; $('meldung').textContent = 'Kein Anleitungsordner eingestellt. Einmal „Büro-Portal einrichten.cmd“ am PC starten.'; }
+  if (!d.ok) { $('meldung').hidden = false; $('meldung').className = 'hinweis schlecht'; $('meldung').textContent = d.fehler; }
+  const hb = dateien.find(x => titel(x.pfad).toLowerCase().startsWith(HANDBUCH) && x.pfad.toLowerCase().endsWith('.pdf'));
+  if (hb) {
+    $('handbuch').href = link(hb.pfad);
+    $('handbuch').target = '_blank';
+    $('handbuch').classList.remove('aus');
+    $('handbuch').querySelector('span').textContent = `${titel(hb.pfad)}, Stand ${datum(hb.geaendert)}`;
+  }
+  zeigen();
+}).catch(() => { $('liste').textContent = 'Anleitungen konnten nicht geladen werden.'; });
+
+fetch('api/info').then(r => r.json()).then(d => {
+  $('fuss').textContent = `Büro-Portal ${d.version} · PC ${d.rechner} · Ablage ${d.basis} · Anleitungen ${d.anleitungen || '–'}`;
+  const url = (d.adressen && d.adressen[0] ? d.adressen[0] : location.origin + '/') + 'scan';
+  const q = qrcode(0, 'M');
+  q.addData(url);
+  q.make();
+  $('qr').innerHTML = q.createImgTag(5, 0);
+  $('adresse').textContent = 'Adresse: ' + url;
+}).catch(() => {});
+
+$('suche').addEventListener('input', zeigen);
+</script>
+</body>
+</html>
