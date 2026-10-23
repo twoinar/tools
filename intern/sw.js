@@ -5,10 +5,11 @@
 const BASIS = new URL("./", self.location).href;          // …/intern/
 const APP = BASIS + "app/";
 let inhaltCache = null;                                    // {schluessel, dateien}
+let schluesselCache = null;                                // geladener CryptoKey
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", e => e.waitUntil(self.clients.claim()));
-self.addEventListener("message", e => { if (e.data === "abmelden" || e.data === "neu") inhaltCache = null; });
+self.addEventListener("message", e => { if (e.data === "abmelden" || e.data === "neu") { inhaltCache = null; schluesselCache = null; } });
 
 function db() {
   return new Promise((ok, fehler) => {
@@ -18,11 +19,17 @@ function db() {
     r.onerror = () => fehler(r.error);
   });
 }
+async function schluesselLoeschen() {
+  schluesselCache = null; inhaltCache = null;
+  const d = await db();
+  return new Promise(ok => { const t = d.transaction("k", "readwrite"); t.objectStore("k").delete("schluessel"); t.oncomplete = ok; t.onerror = ok; });
+}
 async function schluesselHolen() {
+  if (schluesselCache) return schluesselCache;
   const d = await db();
   return new Promise(ok => {
     const r = d.transaction("k").objectStore("k").get("schluessel");
-    r.onsuccess = () => ok(r.result || null);
+    r.onsuccess = () => { schluesselCache = r.result || null; ok(schluesselCache); };
     r.onerror = () => ok(null);
   });
 }
@@ -32,8 +39,9 @@ async function entschluesseln(schluessel, puffer) {
 }
 async function inhalt(schluessel) {
   if (inhaltCache && inhaltCache.schluessel === schluessel) return inhaltCache;
-  const r = await fetch(BASIS + "daten/inhalt.bin", { cache: "no-cache" });
-  if (!r.ok) throw new Error("inhalt");
+  let r;
+  try { r = await fetch(BASIS + "daten/inhalt.bin", { cache: "no-cache" }); } catch { throw new Error("netz"); }
+  if (!r.ok) throw new Error("netz");
   const json = JSON.parse(new TextDecoder().decode(await entschluesseln(schluessel, await r.arrayBuffer())));
   inhaltCache = { schluessel, dateien: json.dateien };
   return inhaltCache;
@@ -58,7 +66,11 @@ self.addEventListener("fetch", e => {
     if (!schluessel) return zurAnmeldung(e.request, pfad);
     let verz;
     try { verz = await inhalt(schluessel); }
-    catch { return zurAnmeldung(e.request, pfad); }   // Passwort geändert o. Ä.
+    catch (err) {
+      if (err.message === "netz") return seite(503, "Keine Verbindung");
+      await schluesselLoeschen();                     // Passwort geändert: alter Schlüssel passt nicht mehr
+      return zurAnmeldung(e.request, pfad);
+    }
     if (pfad === "" || pfad.endsWith("/")) pfad += "index.html";
     let eintrag = verz.dateien[pfad];
     if (!eintrag && verz.dateien[pfad + "/index.html"]) {
@@ -66,8 +78,15 @@ self.addEventListener("fetch", e => {
       return Response.redirect(url.href, 301);
     }
     if (!eintrag) return seite(404, "Nicht gefunden");
-    const r = await fetch(BASIS + "daten/" + eintrag.id + ".bin");
-    if (!r.ok) return seite(502, "Datei nicht abrufbar");
+    let r = await fetch(BASIS + "daten/" + eintrag.id + ".bin").catch(() => null);
+    if (r && r.status === 404) {                      // Bereich wurde inzwischen neu gebaut: Verzeichnis neu laden
+      inhaltCache = null;
+      try { verz = await inhalt(schluessel); } catch { return seite(503, "Keine Verbindung"); }
+      eintrag = verz.dateien[pfad];
+      if (!eintrag) return seite(404, "Nicht gefunden");
+      r = await fetch(BASIS + "daten/" + eintrag.id + ".bin").catch(() => null);
+    }
+    if (!r || !r.ok) return seite(502, "Datei nicht abrufbar");
     try {
       const klar = await entschluesseln(schluessel, await r.arrayBuffer());
       const kopf = { "Content-Type": eintrag.typ, "Cache-Control": "no-store" };

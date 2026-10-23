@@ -88,8 +88,24 @@ function weiter() {
     history.replaceState(null, "", location.pathname);
     return;
   }
-  if (await holen()) { await swBereit(); weiter(); }
+  const gespeichert = await holen();
+  if (gespeichert) {
+    // Nur weiterleiten, wenn der gespeicherte Schlüssel noch passt (nach einem Passwortwechsel nicht mehr)
+    if (await passt(gespeichert)) { await swBereit(); weiter(); return; }
+    await ablegen(null);
+    const reg = await navigator.serviceWorker.getRegistration();
+    reg && reg.active && reg.active.postMessage("abmelden");
+    meldung.textContent = "Das Passwort wurde geändert. Bitte mit dem neuen Passwort anmelden.";
+  }
 })();
+
+async function passt(schluessel) {
+  try {
+    const b = new Uint8Array(await (await fetch("daten/inhalt.bin", { cache: "no-cache" })).arrayBuffer());
+    await crypto.subtle.decrypt({ name: "AES-GCM", iv: b.slice(0, 12) }, schluessel, b.slice(12));
+    return true;
+  } catch { return false; }
+}
 
 document.getElementById("form").addEventListener("submit", async e => {
   e.preventDefault();
@@ -100,9 +116,7 @@ document.getElementById("form").addEventListener("submit", async e => {
     const salz = new Uint8Array(cfg.salz.match(/../g).map(h => parseInt(h, 16)));
     const schluessel = await crypto.subtle.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt: salz, iterations: cfg.iterationen },
       roh, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
-    const b = new Uint8Array(await (await fetch("daten/inhalt.bin", { cache: "no-cache" })).arrayBuffer());
-    try { await crypto.subtle.decrypt({ name: "AES-GCM", iv: b.slice(0, 12) }, schluessel, b.slice(12)); }
-    catch { throw new Error("falsch"); }
+    if (!(await passt(schluessel))) throw new Error("falsch");
     await ablegen(schluessel);
     await swBereit();
     weiter();
@@ -112,6 +126,6 @@ document.getElementById("form").addEventListener("submit", async e => {
   }
 });
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.1 · Stand 23.10.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.2 · Stand 23.10.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
