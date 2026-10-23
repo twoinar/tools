@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vermerk ablegen</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Claude-Vermerk ablegen</h1>
+  <p class="unter">Frage und Antwort aus Claude hier einfügen. Daraus wird ein Aktenvermerk als PDF im Vorgangsordner. Die Vorgangsnummer bleibt am Büro-PC, Claude erfährt sie nicht.</p>
+</header>
+<main>
+  <section>
+    <h2>1. Vorgang und Thema</h2>
+    <label>Vorgangsnummer
+      <input id="nr" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="z. B. 22834">
+    </label>
+    <div class="chips" id="arten"></div>
+    <label>Thema
+      <input id="thema" autocomplete="off" placeholder="Thema antippen oder eintippen">
+    </label>
+    <p class="hilfe">Dateiname: <strong id="dateiname">–</strong></p>
+  </section>
+
+  <section>
+    <h2>2. Text aus Claude</h2>
+    <label>Meine Frage <span class="leise">(kann leer bleiben, wenn sie in der Antwort steht)</span>
+      <textarea id="frage" rows="4" spellcheck="false"></textarea>
+    </label>
+    <div class="zeile"><button id="frage-holen" hidden>📋 Aus Zwischenablage</button></div>
+    <label>Antwort von Claude
+      <textarea id="antwort" rows="14" spellcheck="false" placeholder="In Claude unter der Antwort auf „Kopieren“ tippen und hier einfügen (Strg+V)"></textarea>
+    </label>
+    <div class="zeile"><button id="antwort-holen" hidden>📋 Aus Zwischenablage</button></div>
+    <p class="hilfe">Tipp: In Claude „Aktenvermerk“ schreiben, dann fasst Claude Frage, Ergebnis und Rechtsgrundlagen kurz zusammen. Keine Namen oder Anschriften an Claude geben.</p>
+  </section>
+
+  <section>
+    <div class="zeile">
+      <button id="vorschau">Vorschau</button>
+      <button id="ablegen" class="haupt wachs" disabled>Im Vorgang ablegen</button>
+    </div>
+    <div id="meldung" class="hinweis" hidden></div>
+  </section>
+
+  <p class="fuss leise"><a href="./">Zum Handy-Scan</a> · <span id="fuss"></span></p>
+</main>
+
+<script src="pdf-lib.min.js"></script>
+<script src="vermerk.js"></script>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 2.0 · Stand 23.10.2026</p><style>@media print{.stand-version{display:none}}</style>
+</body>
+</html>

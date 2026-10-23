@@ -9,8 +9,15 @@ Jedes Tool liegt in einem eigenen Unterordner und läuft vollständig im Browser
   Importordner für XNP „Sonstige Anträge“ (siehe `xnp/README.md`). `erbausschlagung/` leitet dorthin um.
 - `geldwaesche/` – Geldwäscheprüfung Kaufvertrag: liest einen Kaufvertrag und erstellt eine
   Prüfliste nach GwG und GwGMeldV-Immobilien samt Vermerk (siehe `geldwaesche/README.md`).
-- `apps/` – Handy-Apps mit QR-Code und Anleitung: Sprachnachricht (APK aus
+- `handyscan/` – Handy-Scan: Dokumente beim Vorgespräch mit dem Handy fotografieren und als PDF
+  in der Vorgangsablage am Büro-PC speichern. Läuft auf dem Büro-PC im Büro-WLAN, nicht auf GitHub
+  Pages (siehe `handyscan/README.md`). Download als `apps/handyscan/Handy-Scan.zip` – nach
+  Änderungen in `handyscan/` neu packen.
+- `apps/` – Handy-Apps mit QR-Code und Anleitung: Handy-Scan, Sprachnachricht (APK aus
   `twoinar/sprachnachricht`, Release „neueste“).
+
+Jede Seite zeigt unten klein „Version … · Stand …“ (`python3 werkzeuge/stand.py <datei> <version>`).
+Bei jeder inhaltlichen Änderung die Version erhöhen.
 
 ## Intern (`intern/`, verschlüsselt)
 

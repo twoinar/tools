@@ -1,0 +1,19 @@
+{
+  "Basisordner": "",
+  "Vorgangsordner": false,
+  "NurZiffern": true,
+  "Dokumentarten": [
+    "Geburtsurkunde",
+    "Heiratsurkunde",
+    "Sterbeurkunde",
+    "Personalausweis",
+    "Reisepass",
+    "Erbschein",
+    "Testament",
+    "Vollmacht",
+    "Vertrag",
+    "Sonstiges"
+  ],
+  "Port": 8765,
+  "Pin": ""
+}
