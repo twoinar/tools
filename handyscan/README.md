@@ -31,6 +31,16 @@ Adresse einmalig in Chrome auf dem Handy freigeschaltet: `chrome://flags` →
 „Insecure origins treated as secure“ → `http://<IP des PCs>:8765` → Enabled → Relaunch.
 Ohne Freischaltung bleibt „Foto“ (Kamera-App) mit anschließender Erkennung.
 
+## Claude-Vermerk ablegen
+
+Seite `http://localhost:8765/vermerk` (am PC; im Büro-WLAN auch vom Handy): Frage und Antwort
+aus Claude einfügen, Vorgangsnummer und Thema wählen → Aktenvermerk-PDF
+`<Basisordner>\<Nr> Claude <Thema>.pdf` mit Kopf (Vorgang, Datum, Hinweis „KI-Auskunft, vom
+Notar zu prüfen“), Frage, Antwort und Prüfzeile. Das PDF wird im Browser gesetzt (pdf-lib,
+Markdown von Claude: Überschriften, Fett/Kursiv, Listen, Tabellen) und über `/api/ablegen`
+abgelegt. Die Vorgangsnummer geht nur an den Büro-PC, nie an Claude. An Claude nur ohne Namen
+und Anschriften fragen (§ 26a BNotO). Verknüpfung für den Desktop: `Claude-Vermerk ablegen.url`.
+
 ## Einrichten (einmalig, am Büro-PC)
 
 1. Ordner z. B. nach `C:\Users\<Name>\Documents\Handy-Scan` kopieren.
@@ -45,6 +55,7 @@ Ohne Freischaltung bleibt „Foto“ (Kamera-App) mit anschließender Erkennung.
 ## Dateien
 
 - `Handy-Scan-Server.ps1` – Server (`/api/ablegen`, `/api/info`, Seiten aus `web/`)
-- `web/` – Handy-Seite (`index.html`, `app.js`) und Einrichtungsseite `start.html` mit QR-Code;
+- `web/` – Handy-Seite (`index.html`, `app.js`), Einrichtungsseite `start.html` mit QR-Code,
+  Claude-Vermerk (`vermerk.html`, `vermerk.js`);
   `pdf-lib.min.js`, `opencv.js`, `qrcode.js` (qrcode-generator 1.4.4) lokal mitgeliefert
 - `einstellungen.json` – Basisordner, Port, PIN
