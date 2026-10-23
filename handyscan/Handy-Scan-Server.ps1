@@ -1,7 +1,7 @@
 ﻿# Handy-Scan – kleiner Webserver für das Büro-WLAN.
 # Das Handy öffnet die Scan-Seite, fotografiert die Seiten, baut daraus ein PDF
-# und schickt es hierher. Der Server legt es im Vorgangsordner unter
-# <Basisordner>\<Nummer> <Bezeichnung>\ ab. Nichts verlässt das Büronetz.
+# und schickt es hierher. Der Server legt es als <Basisordner>\<Nummer> <Bezeichnung>.pdf
+# ab (keine Unterordner). Nichts verlässt das Büronetz.
 #
 # Start: "Handy-Scan starten.cmd" (läuft unsichtbar im Hintergrund).
 # Einmalig vorher als Administrator: "Einrichten.cmd" (Port-Freigabe, Firewall, Autostart).
@@ -11,7 +11,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '1.0'
+$Version = '1.1'
 
 # ---------------------------------------------------------------- Einstellungen
 $cfg = [ordered]@{ Basisordner = 'Y:\Vorgänge'; Port = 8765; Pin = '' }
@@ -69,20 +69,11 @@ function Get-Nummer([string]$s) {
     return $s
 }
 
-function Find-Vorgangsordner([string]$nr) {
-    # Ordner, deren Name mit genau dieser Nummer beginnt (auch mit führenden Nullen),
-    # gefolgt von Ende oder einem Nicht-Ziffer-Zeichen. Neuester zuerst.
-    if (-not (Test-Path -LiteralPath $Basis)) { return @() }
-    $muster = '^0*' + [regex]::Escape($nr) + '(\D|$)'
-    return @(Get-ChildItem -LiteralPath $Basis -Directory -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -match $muster } | Sort-Object LastWriteTime -Descending)
-}
-
-function Send-Antwort($ctx, [int]$status, [string]$typ, [byte[]]$daten) {
+function Send-Antwort($ctx, [int]$status, [string]$typ, [byte[]]$daten, [string]$cache = 'no-store') {
     $res = $ctx.Response
     $res.StatusCode = $status
     $res.ContentType = $typ
-    $res.Headers['Cache-Control'] = 'no-store'
+    $res.Headers['Cache-Control'] = $cache
     $res.ContentLength64 = $daten.Length
     $res.OutputStream.Write($daten, 0, $daten.Length)
     $res.OutputStream.Close()
@@ -119,18 +110,6 @@ $Typen = @{
 }
 
 # ---------------------------------------------------------------- Anfragen
-function Invoke-Ordner($ctx, $q) {
-    if (-not (Test-Pin $ctx)) { return }
-    $nr = Get-Nummer $q['nr']
-    if (-not $nr) { Send-Json $ctx 400 @{ ok = $false; fehler = 'Bitte eine Vorgangsnummer (nur Ziffern) eingeben.' }; return }
-    if (-not (Test-Path -LiteralPath $Basis)) {
-        Send-Json $ctx 500 @{ ok = $false; fehler = "Basisordner $Basis ist am PC nicht erreichbar." }; return
-    }
-    $treffer = Find-Vorgangsordner $nr
-    Send-Json $ctx 200 @{ ok = $true; nr = $nr; gefunden = ($treffer.Count -gt 0)
-        ordner = @($treffer | ForEach-Object { $_.Name }) }
-}
-
 function Invoke-Ablegen($ctx, $q) {
     if (-not (Test-Pin $ctx)) { return }
     $req = $ctx.Request
@@ -148,34 +127,22 @@ function Invoke-Ablegen($ctx, $q) {
         Send-Json $ctx 400 @{ ok = $false; fehler = 'Es kam kein PDF an.' }; return
     }
 
-    # Zielordner: vorhandenen nehmen (gewählter Name oder neuester), sonst neu anlegen
-    $treffer = Find-Vorgangsordner $nr
-    $wunsch = [string]$q['ordner']
-    $ziel = $null
-    if ($wunsch -ne '') { $ziel = $treffer | Where-Object { $_.Name -eq $wunsch } | Select-Object -First 1 }
-    if (-not $ziel -and $treffer.Count -gt 0) { $ziel = $treffer[0] }
-    if ($ziel) {
-        $zielPfad = $ziel.FullName
-    } else {
-        if (-not (Test-Path -LiteralPath $Basis)) {
-            Send-Json $ctx 500 @{ ok = $false; fehler = "Basisordner $Basis ist am PC nicht erreichbar." }; return
-        }
-        $bez = Get-Sauber $q['bez'] 80
-        $name = if ($bez -ne '') { "$nr $bez" } else { $nr }
-        $zielPfad = Join-Path $Basis $name
-        New-Item -ItemType Directory -Path $zielPfad -Force | Out-Null
+    if (-not (Test-Path -LiteralPath $Basis)) {
+        Send-Json $ctx 500 @{ ok = $false; fehler = "Ablageordner $Basis ist am PC nicht erreichbar." }; return
     }
 
-    # Dateiname: <Name>.pdf, bei Gleichstand " (2)", " (3)" ...
-    $datei = Get-Sauber $q['datei'] 100
-    if ($datei -eq '') { $datei = 'Scan ' + (Get-Date -Format 'yyyy-MM-dd HH-mm') }
-    $pfad = Join-Path $zielPfad "$datei.pdf"
+    # Dateiname: <Nummer> <Bezeichnung>.pdf, bei Gleichstand " (2)", " (3)" ...
+    $bez = Get-Sauber $q['datei'] 120
+    if ($bez -match ('^0*' + [regex]::Escape($nr) + '\b')) { $bez = ($bez -replace ('^0*' + [regex]::Escape($nr)), '').Trim() }
+    if ($bez -eq '') { $bez = 'Scan ' + (Get-Date -Format 'yyyy-MM-dd HH-mm') }
+    $datei = "$nr $bez"
+    $pfad = Join-Path $Basis "$datei.pdf"
     $i = 2
-    while (Test-Path -LiteralPath $pfad) { $pfad = Join-Path $zielPfad "$datei ($i).pdf"; $i++ }
+    while (Test-Path -LiteralPath $pfad) { $pfad = Join-Path $Basis "$datei ($i).pdf"; $i++ }
     [IO.File]::WriteAllBytes($pfad, $daten)
 
     Protokoll ("abgelegt  V{0}  {1:N0} KB  {2}" -f $nr, ($daten.Length / 1KB), (Split-Path $pfad -Leaf))
-    Send-Json $ctx 200 @{ ok = $true; ordner = (Split-Path $zielPfad -Leaf); datei = (Split-Path $pfad -Leaf) }
+    Send-Json $ctx 200 @{ ok = $true; datei = (Split-Path $pfad -Leaf) }
 }
 
 function Invoke-Info($ctx) {
@@ -194,7 +161,9 @@ function Invoke-Datei($ctx, [string]$pfad) {
     if (-not (Test-Path -LiteralPath $voll -PathType Leaf)) { Send-Json $ctx 404 @{ ok = $false; fehler = 'Nicht gefunden.' }; return }
     $ext = [IO.Path]::GetExtension($voll).ToLower()
     $typ = if ($Typen.ContainsKey($ext)) { $Typen[$ext] } else { 'application/octet-stream' }
-    Send-Antwort $ctx 200 $typ ([IO.File]::ReadAllBytes($voll))
+    # Große Bibliotheken darf das Handy eine Woche zwischenspeichern
+    $cache = if ($name -in @('opencv.js', 'pdf-lib.min.js', 'qrcode.js')) { 'max-age=604800' } else { 'no-store' }
+    Send-Antwort $ctx 200 $typ ([IO.File]::ReadAllBytes($voll)) $cache
 }
 
 # ---------------------------------------------------------------- Hauptschleife
@@ -215,7 +184,6 @@ while ($listener.IsListening) {
         $pfad = $req.Url.AbsolutePath
         $q = Get-Query $req
         if ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/info') { Invoke-Info $ctx }
-        elseif ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/ordner') { Invoke-Ordner $ctx $q }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/ablegen') { Invoke-Ablegen $ctx $q }
         elseif ($req.HttpMethod -eq 'GET') { Invoke-Datei $ctx $pfad }
         else { Send-Json $ctx 405 @{ ok = $false } }

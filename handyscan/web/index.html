@@ -10,42 +10,25 @@
 <body>
 <header>
   <h1>Handy-Scan</h1>
-  <p class="unter">Vorgelegte Dokumente fotografieren und direkt im Vorgangsordner ablegen. Läuft nur im Büro-WLAN.</p>
+  <p class="unter">Vorgelegte Dokumente scannen und direkt am Büro-PC ablegen. Läuft nur im Büro-WLAN.</p>
 </header>
 <main>
-  <!-- Schritt 1: Vorgang -->
-  <section id="s-vorgang">
-    <h2>1. Vorgang</h2>
-    <div class="zeile">
-      <label class="wachs">Vorgangsnummer
-        <input id="nr" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="z. B. 22834">
-      </label>
-      <button id="nr-ok" class="haupt">Weiter</button>
-    </div>
-    <div id="ordner-info" class="hinweis" hidden></div>
-    <label id="bez-feld" hidden>Bezeichnung für den neuen Ordner (nach der Nummer)
-      <input id="bez" autocomplete="off" placeholder="z. B. Müller Kaufvertrag">
+  <section>
+    <h2>1. Vorgang und Dokument</h2>
+    <label>Vorgangsnummer
+      <input id="nr" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="z. B. 22834">
     </label>
-    <label id="ordner-wahl-feld" hidden>Mehrere Ordner passen – bitte wählen
-      <select id="ordner-wahl"></select>
-    </label>
-  </section>
-
-  <!-- Schritt 2: Dokument -->
-  <section id="s-dokument" hidden>
-    <h2>2. Dokument</h2>
     <div class="chips" id="arten"></div>
-    <label>Zusatz (z. B. Name)
-      <input id="zusatz" autocomplete="off" placeholder="z. B. Max Müller">
+    <label>Bezeichnung
+      <input id="zusatz" autocomplete="off" placeholder="Dokumentart antippen, dann z. B. Name ergänzen">
     </label>
     <p class="hilfe">Dateiname: <strong id="dateiname">–</strong></p>
   </section>
 
-  <!-- Schritt 3: Seiten -->
-  <section id="s-seiten" hidden>
-    <h2>3. Seiten</h2>
+  <section>
+    <h2>2. Seiten scannen</h2>
     <div class="zeile">
-      <label class="knopf haupt">📷 Seite fotografieren
+      <label class="knopf haupt">📷 Seite scannen
         <input id="kamera" type="file" accept="image/*" capture="environment" hidden>
       </label>
       <label class="knopf">🖼 Aus Galerie
@@ -60,19 +43,30 @@
         <button data-f="farbe">Farbe</button>
       </div>
     </div>
-    <label class="haken"><input type="checkbox" id="zuschneiden" checked> Rand automatisch abschneiden</label>
-    <p class="hilfe">Tipp: Dokument auf dunkle Unterlage legen, gerade von oben fotografieren, Blatt füllt das Bild.</p>
+    <label class="haken"><input type="checkbox" id="pruefen" checked> Erkannte Ecken vor dem Übernehmen zeigen</label>
+    <p class="hilfe">Das Blatt wird automatisch erkannt, zugeschnitten und gerade gezogen. Am besten klappt es, wenn sich das Blatt deutlich von der Unterlage abhebt und alle vier Ecken im Bild sind.</p>
     <div id="seiten" class="seiten"></div>
   </section>
 
-  <!-- Schritt 4: Ablegen -->
-  <section id="s-ablegen" hidden>
-    <button id="ablegen" class="haupt gross" disabled>Im Vorgangsordner ablegen</button>
+  <section>
+    <button id="ablegen" class="haupt gross" disabled>Ablegen</button>
     <div id="meldung" class="hinweis" hidden></div>
   </section>
 
   <p class="fuss leise" id="fuss"></p>
 </main>
+
+<!-- Ecken prüfen -->
+<div id="editor" class="editor" hidden>
+  <p class="editor-titel">Ecken prüfen – bei Bedarf die blauen Punkte auf die Blattecken ziehen</p>
+  <canvas id="editor-bild"></canvas>
+  <div id="editor-knoepfe" class="zeile mitte">
+    <button id="editor-weg">Verwerfen</button>
+    <button id="editor-ganz">Ganzes Foto</button>
+    <button id="editor-ok" class="haupt">Übernehmen</button>
+  </div>
+</div>
+
 <script src="pdf-lib.min.js"></script>
 <script src="app.js"></script>
 </body>
