@@ -139,7 +139,8 @@ class MainActivity : AppCompatActivity() {
         })
         spalte.addView(kopf)
         spalte.addView(TextView(this).apply {
-            text = "Dokument scannen und am Büro-PC ablegen. Nur im Büro-WLAN."
+            text = "Dokument scannen und am Büro-PC ablegen. Nur im Büro-WLAN.  ·  Version " +
+                packageManager.getPackageInfo(packageName, 0).versionName
             alpha = 0.7f
         })
 
