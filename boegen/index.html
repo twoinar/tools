@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bögen fürs Notariat</title>
+<style>
+  :root { --text:#1d1d1f; --muted:#5f6368; --bg:#ffffff; --card:#f5f5f7; --link:#0b57d0; }
+  @media (prefers-color-scheme: dark) { :root { --text:#e8eaed; --muted:#9aa0a6; --bg:#1f1f1f; --card:#2a2a2a; --link:#8ab4f8; } }
+  body { margin:0; font:16px/1.5 system-ui, sans-serif; color:var(--text); background:var(--bg); }
+  main { max-width:640px; margin:40px auto; padding:0 16px; }
+  a.karte { display:block; padding:16px 18px; margin:12px 0; border-radius:10px; background:var(--card); color:var(--link); text-decoration:none; font-weight:600; }
+  a.karte small { display:block; color:var(--muted); font-weight:400; }
+</style>
+</head>
+<body>
+<main>
+  <p style="margin:0 0 8px"><a href="../" style="color:var(--link)">← Tools</a></p>
+  <h1>Bögen</h1>
+  <p style="color:var(--muted);margin-top:0">Vorlagen für Notariate in Brandenburg. Beim ersten Öffnen eines Bogens tragen Sie unter „Notardaten“ Ihren Namen, Ihre Anschrift und Ihre Mitarbeiter ein. Die Daten bleiben in Ihrem Browser; mit „Exportieren“ und „Importieren“ übertragen Sie sie auf weitere Arbeitsplätze. Bewertung und Grundsteuer rechnen mit den Daten des Landes Brandenburg.</p>
+  <a class="karte" href="vorgespraech.html">Vorgesprächsbogen<small>mit Bedarfsbewertung und GNotKG-Kostenrechner</small></a>
+  <a class="karte" href="vollzug.html">Vollzugsbogen<small>interne Anweisung an die Mitarbeiter zur Behandlung der Urkunde</small></a>
+  <a class="karte" href="erbspiegel.html">Erbspiegel<small>eigenständig, ohne Vorgesprächsbogen</small></a>
+  <a class="karte" href="geschaeftswert.html">Geschäftswert<small>mit Grundstückswert und Kostenberechnung</small></a>
+  <a class="karte" href="bewertung.html">Grundstückswert<small>Bedarfsbewertung und Verkehrswert</small></a>
+  <a class="karte" href="kosten.html">Kostenberechnung<small>GNotKG, Werte aus der Bewertung übernehmen</small></a>
+  <a class="karte" href="https://twoinar.github.io/kostenrechner/">GNotKG-Kostenrechner<small>eigenständig</small></a>
+</main>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.0 · Stand 23.10.2026</p><style>@media print{.stand-version{display:none}}</style>
+</body>
+</html>
