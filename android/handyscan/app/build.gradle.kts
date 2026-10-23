@@ -11,8 +11,8 @@ android {
         applicationId = "de.notarwoinar.handyscan"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "2.0"
+        versionCode = 2
+        versionName = "2.1"
     }
 
     // Fester Schlüssel im Repo, damit sich jede neue Version über die alte installieren lässt.
@@ -46,4 +46,5 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.activity:activity-ktx:1.9.2")
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 }

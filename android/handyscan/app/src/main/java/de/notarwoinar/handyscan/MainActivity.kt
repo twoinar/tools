@@ -11,9 +11,11 @@ import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
+import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -27,7 +29,17 @@ import com.google.android.material.textfield.TextInputLayout
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -36,6 +48,8 @@ import kotlin.concurrent.thread
 // Handy-Scan als App: Google-Dokumentenscanner (läuft auf dem Handy, ohne Cloud) erkennt und
 // schneidet die Seiten zu; das fertige PDF geht an den Handy-Scan-Server auf dem Büro-PC, der es
 // als <Basisordner>\<Vorgangsnummer> <Bezeichnung>.pdf ablegt.
+// Wer gescannt hat, steht als Zeile unter jeder Seite und als Autor im PDF (wichtig für spätere
+// Beglaubigungen: hat der Notar das Original selbst gesehen?).
 class MainActivity : AppCompatActivity() {
 
     private val arten = listOf(
@@ -49,7 +63,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var dateiname: TextView
     private lateinit var meldung: TextView
     private lateinit var scannen: MaterialButton
+    private lateinit var personWahl: Spinner
     private var art = ""
+
+    private val keinePerson = "– bitte wählen –"
+    private val personenVorgabe = listOf(
+        "Notar Thomas Woinar", "Notarassessor", "C. Schulz", "F. Hillebrand", "M. Senechal",
+        "A. Daßdorff", "E. Gießler", "A. Lamprecht", "S. Schumann",
+    )
 
     private val prefs by lazy { getSharedPreferences("handyscan", Context.MODE_PRIVATE) }
     private var server: String
@@ -58,6 +79,12 @@ class MainActivity : AppCompatActivity() {
     private var pin: String
         get() = prefs.getString("pin", "") ?: ""
         set(v) = prefs.edit().putString("pin", v).apply()
+    private var personen: List<String>
+        get() = (prefs.getString("personen", null)?.lines() ?: personenVorgabe).map { it.trim() }.filter { it.isNotEmpty() }
+        set(v) = prefs.edit().putString("personen", v.joinToString("\n")).apply()
+    private var person: String
+        get() = prefs.getString("person", "") ?: ""
+        set(v) = prefs.edit().putString("person", v).apply()
 
     private val scanner = registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
         if (r.resultCode != Activity.RESULT_OK) { zeige("Scan abgebrochen.", false); return@registerForActivityResult }
@@ -69,6 +96,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        PDFBoxResourceLoader.init(applicationContext)
         setContentView(oberflaeche())
         aktualisieren()
     }
@@ -127,6 +155,25 @@ class MainActivity : AppCompatActivity() {
         val (l2, e2) = feld("Bezeichnung (Dokumentart + Name)", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
         bez = e2; spalte.addView(l2)
 
+        spalte.addView(TextView(this).apply {
+            text = "Gescannt von"
+            alpha = 0.7f
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) }
+        })
+        personWahl = Spinner(this).apply {
+            layoutParams = LinearLayout.LayoutParams(-1, dp(52))
+            onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(p: android.widget.AdapterView<*>?, v: View?, pos: Int, id: Long) {
+                    val wahl = selectedItem?.toString() ?: ""
+                    person = if (wahl == keinePerson) "" else wahl
+                    aktualisieren()
+                }
+                override fun onNothingSelected(p: android.widget.AdapterView<*>?) {}
+            }
+        }
+        spalte.addView(personWahl)
+        personenLaden()
+
         dateiname = TextView(this).apply {
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) }
             alpha = 0.8f
@@ -168,6 +215,14 @@ class MainActivity : AppCompatActivity() {
         return ScrollView(this).apply { addView(spalte) }
     }
 
+    private fun personenLaden() {
+        val liste = listOf(keinePerson) + personen
+        val a = ArrayAdapter(this, android.R.layout.simple_spinner_item, liste)
+        a.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        personWahl.adapter = a
+        personWahl.setSelection(liste.indexOf(person).coerceAtLeast(0))
+    }
+
     // Dokumentart setzt den Anfang der Bezeichnung; dahinter Getipptes bleibt stehen
     private fun artWaehlen(a: String, an: Boolean) {
         var rest = bez.text?.toString() ?: ""
@@ -186,7 +241,7 @@ class MainActivity : AppCompatActivity() {
     private fun aktualisieren() {
         dateiname.text = if (nummer().isEmpty()) "Dateiname: –"
         else "Dateiname: ${nummer()} ${bezeichnung().ifEmpty { "Scan" }}.pdf"
-        scannen.isEnabled = nummer().isNotEmpty()
+        scannen.isEnabled = nummer().isNotEmpty() && person.isNotEmpty()
     }
 
     private fun zeige(text: String, gut: Boolean?) {
@@ -199,6 +254,7 @@ class MainActivity : AppCompatActivity() {
     // ------------------------------------------------------------------ Scannen
     private fun scanStarten() {
         if (nummer().isEmpty()) { zeige("Bitte zuerst die Vorgangsnummer eingeben.", false); return }
+        if (person.isEmpty()) { zeige("Bitte auswählen, wer scannt.", false); return }
         val optionen = GmsDocumentScannerOptions.Builder()
             .setGalleryImportAllowed(false)
             .setPageLimit(30)
@@ -212,12 +268,13 @@ class MainActivity : AppCompatActivity() {
 
     // ------------------------------------------------------------------ Ablegen am Büro-PC
     private fun hochladen(uri: Uri, seiten: Int) {
-        val n = nummer(); val b = bezeichnung()
+        val n = nummer(); val b = bezeichnung(); val wer = person
         zeige("$seiten Seite(n) – wird am Büro-PC abgelegt …", null)
         scannen.isEnabled = false
         thread {
             val ergebnis = try {
-                val daten = contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+                val roh = contentResolver.openInputStream(uri)!!.use { it.readBytes() }
+                val daten = vermerken(roh, wer)
                 val url = URL(server.trimEnd('/') + "/api/ablegen?nr=" + URLEncoder.encode(n, "UTF-8") +
                     "&datei=" + URLEncoder.encode(b, "UTF-8").replace("+", "%20"))
                 val c = url.openConnection() as HttpURLConnection
@@ -246,7 +303,7 @@ class MainActivity : AppCompatActivity() {
                     code == 403 -> { zeige("PIN falsch oder fehlt. Bitte unter ⚙ die PIN eintragen und erneut scannen.", false); einstellungen() }
                     code in 200..299 -> {
                         val datei = Regex("\"datei\"\\s*:\\s*\"([^\"]*)\"").find(text)?.groupValues?.get(1) ?: "PDF"
-                        zeige("✓ Abgelegt: $datei", true)
+                        zeige("✓ Abgelegt: $datei\nGescannt von $wer", true)
                         bez.setText(""); art = ""
                         for (i in 0 until chips.childCount) (chips.getChildAt(i) as Chip).isChecked = false
                     }
@@ -259,19 +316,70 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // ------------------------------------------------------------------ Vermerk im PDF
+    // Unter jede Seite kommt ein schmaler Streifen mit „Gescannt von … am …“ – die Seite wird dafür
+    // nach unten verlängert, der Scan selbst bleibt unverdeckt. Dazu Autor und Betreff im PDF.
+    private fun vermerken(pdf: ByteArray, wer: String): ByteArray {
+        val jetzt = Date()
+        val zeit = SimpleDateFormat("dd.MM.yyyy 'um' HH:mm 'Uhr'", Locale.GERMANY).format(jetzt)
+        val zeile = latin1("Gescannt von $wer am $zeit mit Handy-Scan")
+        PDDocument.load(pdf).use { doc ->
+            for (seite in doc.pages) {
+                val box = seite.mediaBox
+                val streifen = 22f
+                val neu = PDRectangle(box.lowerLeftX, box.lowerLeftY - streifen, box.width, box.height + streifen)
+                seite.mediaBox = neu
+                seite.cropBox = neu
+                PDPageContentStream(doc, seite, PDPageContentStream.AppendMode.APPEND, true, true).use { cs ->
+                    cs.setNonStrokingColor(1f, 1f, 1f)
+                    cs.addRect(neu.lowerLeftX, neu.lowerLeftY, neu.width, streifen)
+                    cs.fill()
+                    cs.setNonStrokingColor(0.25f, 0.25f, 0.25f)
+                    cs.beginText()
+                    cs.setFont(PDType1Font.HELVETICA, 8f)
+                    cs.newLineAtOffset(neu.lowerLeftX + 10f, neu.lowerLeftY + 8f)
+                    cs.showText(zeile)
+                    cs.endText()
+                }
+            }
+            val info = doc.documentInformation
+            info.author = latin1(wer)
+            info.subject = zeile
+            info.creator = "Handy-Scan"
+            info.creationDate = Calendar.getInstance().apply { time = jetzt }
+            val aus = ByteArrayOutputStream()
+            doc.save(aus)
+            return aus.toByteArray()
+        }
+    }
+
+    // Die Standardschrift kennt nur westeuropäische Zeichen (Umlaute und ß gehen)
+    private fun latin1(s: String) = s.map { if (it.code in 32..255) it else '?' }.joinToString("")
+
     // ------------------------------------------------------------------ Einstellungen
     private fun einstellungen() {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(8), dp(20), 0) }
         val s = EditText(this).apply { setText(server); hint = "http://10.100.100.104:8765/"; inputType = InputType.TYPE_TEXT_VARIATION_URI }
-        val p = EditText(this).apply { setText(pin); hint = "PIN"; inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD }
-        box.addView(TextView(this).apply { text = "Adresse des Büro-PCs" })
+        val p = EditText(this).apply { setText(pin); hint = "leer lassen"; inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD }
+        val l = EditText(this).apply {
+            setText(personen.joinToString("\n"))
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_CAP_WORDS
+            minLines = 4
+        }
+        box.addView(TextView(this).apply { text = "Wer scannt (ein Name pro Zeile)" })
+        box.addView(l)
+        box.addView(TextView(this).apply { text = "Adresse des Büro-PCs"; setPadding(0, dp(12), 0, 0) })
         box.addView(s)
-        box.addView(TextView(this).apply { text = "PIN"; setPadding(0, dp(12), 0, 0) })
+        box.addView(TextView(this).apply { text = "PIN (nur falls am PC eine vergeben ist)"; setPadding(0, dp(12), 0, 0) })
         box.addView(p)
         AlertDialog.Builder(this)
             .setTitle("Einstellungen")
-            .setView(box)
-            .setPositiveButton("Speichern") { _, _ -> server = s.text.toString().trim(); pin = p.text.toString().trim() }
+            .setView(ScrollView(this).apply { addView(box) })
+            .setPositiveButton("Speichern") { _, _ ->
+                server = s.text.toString().trim(); pin = p.text.toString().trim()
+                personen = l.text.toString().lines().map { it.trim() }.filter { it.isNotEmpty() }
+                personenLaden()
+            }
             .setNegativeButton("Abbrechen", null)
             .show()
     }
