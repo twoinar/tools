@@ -91,7 +91,7 @@ class MainActivity : AppCompatActivity() {
         val ergebnis = GmsDocumentScanningResult.fromActivityResultIntent(r.data)
         val pdf = ergebnis?.pdf
         if (pdf == null) { zeige("Kein PDF vom Scanner erhalten.", false); return@registerForActivityResult }
-        hochladen(pdf.uri, pdf.pageCount)
+        hochladen(pdf.uri, pdf.pageCount, Date())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -267,14 +267,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ------------------------------------------------------------------ Ablegen am Büro-PC
-    private fun hochladen(uri: Uri, seiten: Int) {
+    private fun hochladen(uri: Uri, seiten: Int, scanZeit: Date) {
         val n = nummer(); val b = bezeichnung(); val wer = person
         zeige("$seiten Seite(n) – wird am Büro-PC abgelegt …", null)
         scannen.isEnabled = false
         thread {
             val ergebnis = try {
                 val roh = contentResolver.openInputStream(uri)!!.use { it.readBytes() }
-                val daten = vermerken(roh, wer)
+                val daten = vermerken(roh, wer, scanZeit)
                 val url = URL(server.trimEnd('/') + "/api/ablegen?nr=" + URLEncoder.encode(n, "UTF-8") +
                     "&datei=" + URLEncoder.encode(b, "UTF-8").replace("+", "%20"))
                 val c = url.openConnection() as HttpURLConnection
@@ -318,9 +318,8 @@ class MainActivity : AppCompatActivity() {
 
     // ------------------------------------------------------------------ Vermerk im PDF
     // Unter jede Seite kommt ein schmaler Streifen mit „Gescannt von … am …“ – die Seite wird dafür
-    // nach unten verlängert, der Scan selbst bleibt unverdeckt. Dazu Autor und Betreff im PDF.
-    private fun vermerken(pdf: ByteArray, wer: String): ByteArray {
-        val jetzt = Date()
+    // nach unten verlängert, der Scan selbst bleibt unverdeckt. Zeitpunkt = Ende des Scannens. Dazu Autor und Betreff im PDF.
+    private fun vermerken(pdf: ByteArray, wer: String, jetzt: Date): ByteArray {
         val zeit = SimpleDateFormat("dd.MM.yyyy 'um' HH:mm 'Uhr'", Locale.GERMANY).format(jetzt)
         val zeile = latin1("Gescannt von $wer am $zeit mit Handy-Scan")
         PDDocument.load(pdf).use { doc ->
