@@ -2,9 +2,11 @@ package de.notarwoinar.handyscan
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
@@ -21,6 +23,7 @@ import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
@@ -40,6 +43,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -65,6 +69,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var scannen: MaterialButton
     private lateinit var personWahl: Spinner
     private lateinit var erneut: MaterialButton
+    private lateinit var update: MaterialButton
+    private var updateUrl = ""
+    private var updateVersion = ""
     private var art = ""
 
     private val keinePerson = "– bitte wählen –"
@@ -100,6 +107,7 @@ class MainActivity : AppCompatActivity() {
         PDFBoxResourceLoader.init(applicationContext)
         setContentView(oberflaeche())
         aktualisieren()
+        updatePruefen()
     }
 
     override fun onResume() {
@@ -143,6 +151,13 @@ class MainActivity : AppCompatActivity() {
                 packageManager.getPackageInfo(packageName, 0).versionName
             alpha = 0.7f
         })
+        update = MaterialButton(this).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+            layoutParams = LinearLayout.LayoutParams(-1, dp(56)).apply { topMargin = dp(8) }
+            visibility = View.GONE
+            setOnClickListener { updateInstallieren() }
+        }
+        spalte.addView(update)
 
         val (l1, e1) = feld("Vorgangsnummer", InputType.TYPE_CLASS_NUMBER)
         nr = e1; spalte.addView(l1)
@@ -438,6 +453,84 @@ class MainActivity : AppCompatActivity() {
 
     // Die Standardschrift kennt nur westeuropäische Zeichen (Umlaute und ß gehen)
     private fun latin1(s: String) = s.map { if (it.code in 32..255) it else '?' }.joinToString("")
+
+    // ------------------------------------------------------------------ App-Update
+    // Beim Start fragt die App bei GitHub nach, ob es eine neuere Handy-Scan-<Version>.apk gibt, und
+    // zeigt dann oben einen Knopf. Ein Tipp lädt sie und übergibt sie an Android zum Installieren.
+    private val releaseApi = "https://api.github.com/repos/twoinar/tools/releases/tags/handyscan-app"
+    private fun eigeneVersion() = packageManager.getPackageInfo(packageName, 0).versionName ?: "0"
+
+    private fun neuer(a: String, b: String): Boolean {
+        val x = a.split('.').map { it.toIntOrNull() ?: 0 }; val y = b.split('.').map { it.toIntOrNull() ?: 0 }
+        for (i in 0 until maxOf(x.size, y.size)) {
+            val d = x.getOrElse(i) { 0 } - y.getOrElse(i) { 0 }
+            if (d != 0) return d > 0
+        }
+        return false
+    }
+
+    private fun updatePruefen() {
+        thread {
+            try {
+                val c = URL(releaseApi).openConnection() as HttpURLConnection
+                c.connectTimeout = 6000; c.readTimeout = 10000
+                c.setRequestProperty("Accept", "application/vnd.github+json")
+                c.setRequestProperty("User-Agent", "Handy-Scan")
+                if (c.responseCode != 200) return@thread
+                val assets = JSONObject(c.inputStream.bufferedReader().readText()).getJSONArray("assets")
+                var bestV = ""; var bestUrl = ""
+                for (i in 0 until assets.length()) {
+                    val a = assets.getJSONObject(i)
+                    val v = Regex("^Handy-Scan-([0-9.]+)\\.apk$").find(a.getString("name"))?.groupValues?.get(1) ?: continue
+                    if (bestV.isEmpty() || neuer(v, bestV)) { bestV = v; bestUrl = a.getString("browser_download_url") }
+                }
+                if (bestV.isNotEmpty() && neuer(bestV, eigeneVersion())) {
+                    updateVersion = bestV; updateUrl = bestUrl
+                    runOnUiThread {
+                        update.text = "Neue Version $bestV installieren"
+                        update.visibility = View.VISIBLE
+                    }
+                }
+            } catch (_: Exception) { /* kein Internet: kein Hinweis */ }
+        }
+    }
+
+    private fun updateInstallieren() {
+        if (!packageManager.canRequestPackageInstalls()) {
+            zeige("Einmalig nötig: Im nächsten Fenster „Aus dieser Quelle zulassen“ einschalten, zurückgehen und erneut auf „Neue Version installieren“ tippen.", null)
+            startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+            return
+        }
+        update.isEnabled = false
+        update.text = "Version $updateVersion wird geladen …"
+        thread {
+            val datei = try {
+                val ordner = File(cacheDir, "update").apply { mkdirs(); listFiles()?.forEach { it.delete() } }
+                val ziel = File(ordner, "Handy-Scan-$updateVersion.apk")
+                val c = URL(updateUrl).openConnection() as HttpURLConnection
+                c.instanceFollowRedirects = true
+                c.connectTimeout = 10000; c.readTimeout = 60000
+                c.setRequestProperty("User-Agent", "Handy-Scan")
+                if (c.responseCode != 200) throw Exception("Download-Fehler ${c.responseCode}")
+                c.inputStream.use { ein -> ziel.outputStream().use { ein.copyTo(it) } }
+                ziel
+            } catch (e: Exception) {
+                runOnUiThread {
+                    update.isEnabled = true; update.text = "Neue Version $updateVersion installieren"
+                    zeige("Update konnte nicht geladen werden: ${e.message}", false)
+                }
+                null
+            } ?: return@thread
+            runOnUiThread {
+                update.isEnabled = true; update.text = "Neue Version $updateVersion installieren"
+                val uri = FileProvider.getUriForFile(this, "$packageName.dateien", datei)
+                startActivity(Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/vnd.android.package-archive")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                })
+            }
+        }
+    }
 
     // ------------------------------------------------------------------ Einstellungen
     private fun einstellungen() {
