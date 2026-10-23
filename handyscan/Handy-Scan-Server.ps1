@@ -2,6 +2,7 @@
 # Das Handy öffnet die Scan-Seite, fotografiert die Seiten, baut daraus ein PDF
 # und schickt es hierher. Der Server legt es als <Basisordner>\<Nummer> <Bezeichnung>.pdf
 # ab (keine Unterordner). Nichts verlässt das Büronetz.
+# Unter /vermerk lassen sich Frage und Antwort aus Claude als Aktenvermerk-PDF ablegen.
 #
 # Start: "Handy-Scan starten.cmd" (läuft unsichtbar im Hintergrund).
 # Einmalig vorher als Administrator: "Einrichten.cmd" (Port-Freigabe, Firewall, Autostart).
@@ -11,7 +12,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '1.1'
+$Version = '1.3'
 
 # ---------------------------------------------------------------- Einstellungen
 $cfg = [ordered]@{ Basisordner = 'Y:\Vorgänge'; Port = 8765; Pin = '' }
@@ -154,6 +155,7 @@ function Invoke-Info($ctx) {
 function Invoke-Datei($ctx, [string]$pfad) {
     if ($pfad -eq '/' -or $pfad -eq '') { $pfad = '/index.html' }
     if ($pfad -eq '/start') { $pfad = '/start.html' }
+    if ($pfad -eq '/vermerk') { $pfad = '/vermerk.html' }
     $name = $pfad.TrimStart('/')
     # Nur einfache Dateinamen direkt im web-Ordner
     if ($name -notmatch '^[A-Za-z0-9._-]+$' -or $name.Contains('..')) { Send-Json $ctx 404 @{ ok = $false }; return }

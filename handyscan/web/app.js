@@ -126,7 +126,10 @@ function blattFinden(cv, foto) {
   // Echte Vierecke vor Notlösungen, dann die größte Fläche
   kandidaten.sort((x, y) => (y.echt - x.echt) || (y.a - x.a));
   const p = kandidaten[0].p.map(([x, y]) => [Math.max(0, Math.min(foto.width, x)), Math.max(0, Math.min(foto.height, y))]);
-  return sortiereEcken(p);
+  const e = sortiereEcken(p);
+  e.echt = kandidaten[0].echt;                  // sauberes Viereck (nicht nur Notlösung)
+  e.anteil = kandidaten[0].a / flaeche;         // Anteil des Blatts am Bild
+  return e;
 }
 
 // Blatt anhand der vier Ecken gerade ziehen
@@ -389,6 +392,156 @@ async function bilderHinzu(dateien) {
   }
 }
 
+// ------------------------------------------------------------------ Live-Scan (Sucher mit Automatik)
+// Kamera läuft im Sucher, das Blatt wird laufend gesucht und blau umrandet. Liegt es ruhig und
+// ist gut zu sehen, löst die Seite selbst aus, schneidet zu und wartet auf das nächste Blatt.
+const LIVE_KANTE = 480;          // Erkennung im Sucher auf kleinem Bild (schnell)
+const RUHIG_BILDER = 6;          // so viele Erkennungen hintereinander ruhig → auslösen
+const RUHIG_TOLERANZ = 0.025;    // erlaubte Eckbewegung (Anteil der Bilddiagonale)
+
+function liveMoeglich() {
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+}
+
+function liveHinweis() {
+  meldung($('meldung'),
+    'Der Live-Sucher braucht eine einmalige Einstellung in Chrome (siehe Anleitung „Live-Sucher freischalten“). ' +
+    'Bis dahin bitte „Foto“ benutzen.', 'schlecht');
+}
+
+async function liveScan() {
+  if (!liveMoeglich()) { liveHinweis(); return; }
+  const box = $('live'), video = $('live-video'), bild = $('live-bild'), g = bild.getContext('2d');
+  let strom;
+  try {
+    strom = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } },
+    });
+  } catch (e) {
+    meldung($('meldung'), 'Kamera nicht verfügbar: ' + (e.message || e.name) + '. Bitte „Foto“ benutzen.', 'schlecht');
+    return;
+  }
+  box.hidden = false;
+  document.body.classList.add('gesperrt');
+  video.srcObject = strom;
+  await video.play().catch(() => {});
+
+  let cv = null;
+  try { cv = await cvLaden(); } catch { /* ohne Erkennung nur Auslöser von Hand */ }
+
+  const klein = document.createElement('canvas');
+  let ecken = null, vorher = null, ruhig = 0, gesperrt = false, laeuft = true, zaehler = 0, ausloesen = false;
+  const status = t => { $('live-status').textContent = t; };
+  const anzahl = () => { $('live-anzahl').textContent = zaehler ? `${zaehler} Seite${zaehler > 1 ? 'n' : ''} übernommen` : ''; };
+  status(cv ? 'Blatt ins Bild halten …' : 'Blatterkennung lädt nicht – bitte von Hand auslösen.');
+  anzahl();
+
+  const zeichnen = () => {
+    if (!laeuft) return;
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (vw) {
+      const breite = box.clientWidth, hoehe = box.clientHeight - $('live-leiste').offsetHeight;
+      const f = Math.min(breite / vw, hoehe / vh);
+      if (bild.width !== Math.round(vw * f)) { bild.width = Math.round(vw * f); bild.height = Math.round(vh * f); }
+      g.drawImage(video, 0, 0, bild.width, bild.height);
+      if (ecken) {
+        const s = bild.width / ecken.breite;
+        g.beginPath();
+        ecken.p.forEach(([x, y], i) => (i ? g.lineTo(x * s, y * s) : g.moveTo(x * s, y * s)));
+        g.closePath();
+        g.fillStyle = gesperrt ? 'rgba(26,127,55,.25)' : 'rgba(68,147,248,.18)';
+        g.fill();
+        g.lineWidth = 4;
+        g.strokeStyle = gesperrt ? '#3fb950' : (ruhig > 1 ? '#4493f8' : '#9ec5ff');
+        g.stroke();
+      }
+    }
+    requestAnimationFrame(zeichnen);
+  };
+  requestAnimationFrame(zeichnen);
+
+  // Volles Kamerabild als Foto (für die fertige Seite)
+  const foto = () => {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const f = Math.min(1, MAX_KANTE / Math.max(vw, vh));
+    const c = document.createElement('canvas');
+    c.width = Math.round(vw * f); c.height = Math.round(vh * f);
+    c.getContext('2d').drawImage(video, 0, 0, c.width, c.height);
+    return c;
+  };
+
+  const aufnehmen = async (eckenKlein) => {
+    const c = foto();
+    let e = ganzesBild(c);
+    if (cv) {
+      // Auf dem großen Bild noch einmal genau suchen; sonst die Sucher-Ecken hochrechnen
+      const genau = blattFinden(cv, c);
+      if (genau && genau.echt) e = genau;
+      else if (eckenKlein) { const s = c.width / eckenKlein.breite; e = eckenKlein.p.map(([x, y]) => [x * s, y * s]); }
+    }
+    const s = { foto: c, ecken: e, drehung: 0, bild: '' };
+    if (navigator.vibrate) navigator.vibrate(60);
+    bild.classList.add('blitz');
+    setTimeout(() => bild.classList.remove('blitz'), 180);
+    await seiteRendern(s);
+    zustand.seiten.push(s);
+    zaehler++;
+    anzahl();
+    seitenZeigen();
+  };
+
+  const erkennen = async () => {
+    if (!laeuft) return;
+    try {
+      if (ausloesen) {
+        ausloesen = false;
+        status('Seite wird übernommen …');
+        await aufnehmen(ecken && ecken.echt ? ecken : null);
+        gesperrt = true; ruhig = 0;
+        status('✓ Übernommen. Nächstes Blatt hinlegen oder „Fertig“.');
+      } else if (cv && video.videoWidth) {
+        const f = LIVE_KANTE / Math.max(video.videoWidth, video.videoHeight);
+        klein.width = Math.round(video.videoWidth * f); klein.height = Math.round(video.videoHeight * f);
+        klein.getContext('2d').drawImage(video, 0, 0, klein.width, klein.height);
+        const e = blattFinden(cv, klein);
+        const gut = e && e.echt && e.anteil > 0.15;
+        if (!gut) {
+          ecken = e ? { p: e, breite: klein.width, echt: false } : null;
+          ruhig = 0;
+          if (gesperrt && !e) gesperrt = false;          // Blatt weg → bereit fürs nächste
+          if (!gesperrt) status('Blatt ins Bild halten …');
+        } else {
+          const diag = Math.hypot(klein.width, klein.height);
+          const bewegung = vorher ? Math.max(...e.map((q, i) => abstand(q, vorher[i]))) / diag : 1;
+          if (gesperrt) {
+            // Erst wieder auslösen, wenn ein anderes Blatt (deutliche Bewegung) da ist
+            if (bewegung > 0.12) { gesperrt = false; ruhig = 0; }
+          } else {
+            ruhig = bewegung < RUHIG_TOLERANZ ? ruhig + 1 : 0;
+            status(ruhig ? 'Ruhig halten …' : 'Blatt erkannt');
+            if (ruhig >= RUHIG_BILDER) ausloesen = true;
+          }
+          vorher = e;
+          ecken = { p: e, breite: klein.width, echt: true };
+        }
+      }
+    } catch (err) { console.warn(err); }
+    setTimeout(erkennen, ausloesen ? 0 : 90);
+  };
+  setTimeout(erkennen, 300);
+
+  await new Promise(fertig => {
+    $('live-ausloesen').onclick = () => { gesperrt = false; ausloesen = true; };
+    $('live-fertig').onclick = fertig;
+  });
+  laeuft = false;
+  strom.getTracks().forEach(t => t.stop());
+  video.srcObject = null;
+  box.hidden = true;
+  document.body.classList.remove('gesperrt');
+}
+
 function seitenZeigen() {
   const box = $('seiten');
   box.innerHTML = '';
@@ -465,6 +618,7 @@ $('zusatz').addEventListener('input', () => {
   }
   anzeigen();
 });
+$('live-start').addEventListener('click', () => liveScan());
 $('kamera').addEventListener('change', e => { bilderHinzu([...e.target.files]); e.target.value = ''; });
 $('galerie').addEventListener('change', e => { bilderHinzu([...e.target.files]); e.target.value = ''; });
 $('filter').addEventListener('click', async e => {

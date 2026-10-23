@@ -28,7 +28,8 @@
   <section>
     <h2>2. Seiten scannen</h2>
     <div class="zeile">
-      <label class="knopf haupt">📷 Seite scannen
+      <button id="live-start" class="haupt">📷 Scannen</button>
+      <label class="knopf">Foto
         <input id="kamera" type="file" accept="image/*" capture="environment" hidden>
       </label>
       <label class="knopf">🖼 Aus Galerie
@@ -43,8 +44,8 @@
         <button data-f="farbe">Farbe</button>
       </div>
     </div>
-    <label class="haken"><input type="checkbox" id="pruefen" checked> Erkannte Ecken vor dem Übernehmen zeigen</label>
-    <p class="hilfe">Das Blatt wird automatisch erkannt, zugeschnitten und gerade gezogen. Am besten klappt es, wenn sich das Blatt deutlich von der Unterlage abhebt und alle vier Ecken im Bild sind.</p>
+    <p class="hilfe"><b>Scannen</b>: Kamera über das Blatt halten. Sobald es blau umrandet ist und ruhig liegt, löst die Kamera selbst aus und schneidet zu. Dann einfach das nächste Blatt hinlegen, am Ende „Fertig“. Am besten klappt es, wenn sich das Blatt von der Unterlage abhebt und alle vier Ecken im Bild sind.</p>
+    <label class="haken"><input type="checkbox" id="pruefen" checked> Bei „Foto“ und „Galerie“ die erkannten Ecken zeigen</label>
     <div id="seiten" class="seiten"></div>
   </section>
 
@@ -53,8 +54,22 @@
     <div id="meldung" class="hinweis" hidden></div>
   </section>
 
-  <p class="fuss leise" id="fuss"></p>
+  <p class="fuss leise"><span id="fuss"></span> · <a href="vermerk">Claude-Vermerk ablegen</a></p>
 </main>
+
+<!-- Live-Sucher -->
+<div id="live" class="live" hidden>
+  <video id="live-video" class="unsichtbar" playsinline muted></video>
+  <canvas id="live-bild"></canvas>
+  <div id="live-leiste" class="live-leiste">
+    <p id="live-status" class="live-status"></p>
+    <p id="live-anzahl" class="live-anzahl"></p>
+    <div class="zeile mitte">
+      <button id="live-ausloesen" class="rund" aria-label="Von Hand auslösen"></button>
+      <button id="live-fertig" class="haupt">Fertig</button>
+    </div>
+  </div>
+</div>
 
 <!-- Ecken prüfen -->
 <div id="editor" class="editor" hidden>

@@ -23,8 +23,8 @@ h2 { font-size: 17px; margin: 18px 0 8px; }
 section { border-top: 1px solid var(--rand); padding-bottom: 8px; }
 label { display: flex; flex-direction: column; font-size: 14px; color: var(--leise); gap: 3px; margin: 6px 0; }
 .wachs { flex: 1; margin: 0; }
-input, select { font: inherit; font-size: 18px; color: var(--text); background: var(--hinter); border: 1px solid var(--rand); border-radius: 8px; padding: 9px 10px; min-width: 0; width: 100%; }
-input:focus, select:focus { outline: 2px solid var(--akzent); outline-offset: 0; }
+input, select, textarea { font: inherit; font-size: 18px; color: var(--text); background: var(--hinter); border: 1px solid var(--rand); border-radius: 8px; padding: 9px 10px; min-width: 0; width: 100%; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--akzent); outline-offset: 0; }
 .zeile { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 8px 0; }
 button, .knopf { font: inherit; border: 1px solid var(--rand); background: var(--flaeche); color: var(--text); border-radius: 8px; padding: 10px 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: 0; font-size: 16px; }
 .haupt { background: var(--akzent); border-color: var(--akzent); color: var(--akzent-text); font-weight: 600; }
@@ -57,3 +57,13 @@ body.gesperrt { overflow: hidden; }
 .editor canvas { touch-action: none; max-width: 100%; }
 .zeile.mitte { justify-content: center; }
 .editor button:not(.haupt) { background: #2a2f36; color: #fff; border-color: #444; }
+.live { position: fixed; inset: 0; background: #000; color: #fff; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: space-between; touch-action: none; }
+.live canvas { max-width: 100%; transition: opacity .15s; }
+.live canvas.blitz { opacity: .3; }
+.live-leiste { width: 100%; padding: 8px 16px 16px; text-align: center; }
+.live-status { margin: 0; font-size: 16px; min-height: 22px; }
+.live-anzahl { margin: 2px 0 8px; font-size: 14px; color: #3fb950; min-height: 18px; }
+.live .zeile.mitte { gap: 32px; align-items: center; }
+button.rund { width: 68px; height: 68px; border-radius: 50%; background: #fff; border: 5px solid #888; padding: 0; }
+.unsichtbar { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+textarea { font-size: 15px; resize: vertical; line-height: 1.4; }
