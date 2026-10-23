@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f5f99">
+<title>Handy-Scan</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Handy-Scan</h1>
+  <p class="unter">Vorgelegte Dokumente fotografieren und direkt im Vorgangsordner ablegen. Läuft nur im Büro-WLAN.</p>
+</header>
+<main>
+  <!-- Schritt 1: Vorgang -->
+  <section id="s-vorgang">
+    <h2>1. Vorgang</h2>
+    <div class="zeile">
+      <label class="wachs">Vorgangsnummer
+        <input id="nr" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="z. B. 22834">
+      </label>
+      <button id="nr-ok" class="haupt">Weiter</button>
+    </div>
+    <div id="ordner-info" class="hinweis" hidden></div>
+    <label id="bez-feld" hidden>Bezeichnung für den neuen Ordner (nach der Nummer)
+      <input id="bez" autocomplete="off" placeholder="z. B. Müller Kaufvertrag">
+    </label>
+    <label id="ordner-wahl-feld" hidden>Mehrere Ordner passen – bitte wählen
+      <select id="ordner-wahl"></select>
+    </label>
+  </section>
+
+  <!-- Schritt 2: Dokument -->
+  <section id="s-dokument" hidden>
+    <h2>2. Dokument</h2>
+    <div class="chips" id="arten"></div>
+    <label>Zusatz (z. B. Name)
+      <input id="zusatz" autocomplete="off" placeholder="z. B. Max Müller">
+    </label>
+    <p class="hilfe">Dateiname: <strong id="dateiname">–</strong></p>
+  </section>
+
+  <!-- Schritt 3: Seiten -->
+  <section id="s-seiten" hidden>
+    <h2>3. Seiten</h2>
+    <div class="zeile">
+      <label class="knopf haupt">📷 Seite fotografieren
+        <input id="kamera" type="file" accept="image/*" capture="environment" hidden>
+      </label>
+      <label class="knopf">🖼 Aus Galerie
+        <input id="galerie" type="file" accept="image/*" multiple hidden>
+      </label>
+    </div>
+    <div class="zeile">
+      <span class="leise">Darstellung:</span>
+      <div class="chips klein" id="filter">
+        <button data-f="grau" class="an">Dokument</button>
+        <button data-f="sw">Schwarzweiß</button>
+        <button data-f="farbe">Farbe</button>
+      </div>
+    </div>
+    <label class="haken"><input type="checkbox" id="zuschneiden" checked> Rand automatisch abschneiden</label>
+    <p class="hilfe">Tipp: Dokument auf dunkle Unterlage legen, gerade von oben fotografieren, Blatt füllt das Bild.</p>
+    <div id="seiten" class="seiten"></div>
+  </section>
+
+  <!-- Schritt 4: Ablegen -->
+  <section id="s-ablegen" hidden>
+    <button id="ablegen" class="haupt gross" disabled>Im Vorgangsordner ablegen</button>
+    <div id="meldung" class="hinweis" hidden></div>
+  </section>
+
+  <p class="fuss leise" id="fuss"></p>
+</main>
+<script src="pdf-lib.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
