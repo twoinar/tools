@@ -4,6 +4,8 @@
 # ab oder – mit "Vorgangsordner": true – als <Basisordner>\<Vorgangsordner>\<Bezeichnung>.pdf.
 # Einstellungen in einstellungen.json (siehe README.md). Nichts verlässt das Büronetz.
 # Unter /vermerk lassen sich Frage und Antwort aus Claude als Aktenvermerk-PDF ablegen.
+# Die Startseite / ist das Büro-Portal: Handbuch und Anleitungen (nur lesend aus dem
+# "Anleitungsordner", falls eingestellt), Handy-Scan (/scan), Claude-Vermerk und QR-Code fürs Handy.
 #
 # Start: "Handy-Scan starten.cmd" (läuft unsichtbar im Hintergrund).
 # Einmalig vorher als Administrator: "Einrichten.cmd" (Port-Freigabe, Firewall, Autostart).
@@ -13,13 +15,13 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '2.0'
+$Version = '2.1'
 
 # ---------------------------------------------------------------- Einstellungen
 $StandardArten = @('Geburtsurkunde', 'Heiratsurkunde', 'Sterbeurkunde', 'Personalausweis', 'Reisepass',
     'Erbschein', 'Testament', 'Vollmacht', 'Vertrag', 'Sonstiges')
 $cfg = [ordered]@{ Basisordner = ''; Vorgangsordner = $false; NurZiffern = $true; Dokumentarten = $StandardArten
-    Port = 8765; Pin = '' }
+    Anleitungsordner = ''; Port = 8765; Pin = '' }
 if (Test-Path -LiteralPath $Einstellungen) {
     $j = Get-Content -LiteralPath $Einstellungen -Raw -Encoding UTF8 | ConvertFrom-Json
     foreach ($k in @($cfg.Keys)) {
@@ -32,6 +34,13 @@ $NurZiffern = [bool]$cfg.NurZiffern
 $Arten = @($cfg.Dokumentarten | ForEach-Object { "$_".Trim() } | Where-Object { $_ -ne '' })
 $Port = [int]$cfg.Port
 $Pin = [string]$cfg.Pin
+$Anleitungen = [string]$cfg.Anleitungsordner
+# Diese Dateiarten zeigt das Portal aus dem Anleitungsordner (nur lesen)
+$AnleitungsTypen = @{
+    '.pdf' = 'application/pdf'; '.mp4' = 'video/mp4'; '.png' = 'image/png'; '.jpg' = 'image/jpeg'
+    '.docx' = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    '.xlsx' = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+}
 $Web = Join-Path $PSScriptRoot 'web'
 $MaxBytes = 60MB
 
@@ -179,11 +188,57 @@ function Invoke-Info($ctx) {
     $adr = @(Get-LanAdressen | ForEach-Object { "http://${_}:$Port/" })
     Send-Json $ctx 200 @{ ok = $true; version = $Version; adressen = $adr; rechner = $env:COMPUTERNAME
         basis = $Basis; basisOk = ($Basis -ne '' -and (Test-Path -LiteralPath $Basis)); pin = ($Pin -ne '')
-        vorgangsordner = $MitVorgangsordner; nurZiffern = $NurZiffern; arten = $Arten; port = $Port }
+        vorgangsordner = $MitVorgangsordner; nurZiffern = $NurZiffern; arten = $Arten; port = $Port
+        anleitungen = $Anleitungen; anleitungenOk = ($Anleitungen -ne '' -and (Test-Path -LiteralPath $Anleitungen)) }
+}
+
+function Get-AnleitungsListe {
+    # Alle zeigbaren Dateien im Anleitungsordner, Pfade relativ mit / getrennt
+    $wurzel = [IO.Path]::GetFullPath($Anleitungen).TrimEnd('\')
+    Get-ChildItem -LiteralPath $wurzel -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object { $AnleitungsTypen.ContainsKey($_.Extension.ToLower()) -and -not $_.Name.StartsWith('~$') } |
+        Select-Object -First 2000 |
+        ForEach-Object {
+            [ordered]@{ pfad = $_.FullName.Substring($wurzel.Length + 1).Replace('\', '/')
+                groesse = $_.Length; geaendert = $_.LastWriteTime.ToString('yyyy-MM-dd HH:mm') }
+        }
+}
+
+function Invoke-AnleitungsListe($ctx) {
+    if ($Anleitungen -eq '') { Send-Json $ctx 200 @{ ok = $true; aus = $true; dateien = @() }; return }
+    if (-not (Test-Path -LiteralPath $Anleitungen)) {
+        Send-Json $ctx 200 @{ ok = $false; fehler = "Anleitungsordner $Anleitungen ist nicht erreichbar."; dateien = @() }; return
+    }
+    Send-Json $ctx 200 @{ ok = $true; ordner = $Anleitungen; dateien = @(Get-AnleitungsListe) }
+}
+
+function Invoke-Anleitung($ctx, [string]$rel) {
+    # /anleitung/<relativer Pfad>: nur Dateien innerhalb des Anleitungsordners, nur bekannte Typen
+    if ($Anleitungen -eq '') { Send-Json $ctx 404 @{ ok = $false }; return }
+    $rel = [Uri]::UnescapeDataString($rel).Replace('/', '\')
+    $wurzel = [IO.Path]::GetFullPath($Anleitungen).TrimEnd('\')
+    $voll = [IO.Path]::GetFullPath((Join-Path $wurzel $rel))
+    $ext = [IO.Path]::GetExtension($voll).ToLower()
+    if (-not $voll.StartsWith($wurzel + '\', [StringComparison]::OrdinalIgnoreCase) -or -not $AnleitungsTypen.ContainsKey($ext) -or
+        -not (Test-Path -LiteralPath $voll -PathType Leaf)) {
+        Send-Json $ctx 404 @{ ok = $false; fehler = 'Nicht gefunden.' }; return
+    }
+    $res = $ctx.Response
+    $res.StatusCode = 200
+    $res.ContentType = $AnleitungsTypen[$ext]
+    $res.Headers['Cache-Control'] = 'no-cache'
+    $name = [IO.Path]::GetFileName($voll)
+    $res.Headers['Content-Disposition'] = "inline; filename*=UTF-8''" + [Uri]::EscapeDataString($name)
+    $fs = [IO.File]::OpenRead($voll)
+    try {
+        $res.ContentLength64 = $fs.Length
+        $fs.CopyTo($res.OutputStream)
+    } finally { $fs.Close(); $res.OutputStream.Close() }
 }
 
 function Invoke-Datei($ctx, [string]$pfad) {
-    if ($pfad -eq '/' -or $pfad -eq '') { $pfad = '/index.html' }
+    if ($pfad -eq '/' -or $pfad -eq '') { $pfad = '/portal.html' }
+    if ($pfad -eq '/scan') { $pfad = '/index.html' }
     if ($pfad -eq '/start') { $pfad = '/start.html' }
     if ($pfad -eq '/vermerk') { $pfad = '/vermerk.html' }
     $name = $pfad.TrimStart('/')
@@ -217,6 +272,8 @@ while ($listener.IsListening) {
         $q = Get-Query $req
         if ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/info') { Invoke-Info $ctx }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/ablegen') { Invoke-Ablegen $ctx $q }
+        elseif ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/anleitungen') { Invoke-AnleitungsListe $ctx }
+        elseif ($req.HttpMethod -eq 'GET' -and $pfad.StartsWith('/anleitung/')) { Invoke-Anleitung $ctx $req.RawUrl.Split([char]0x3F)[0].Substring(11) }
         elseif ($req.HttpMethod -eq 'GET') { Invoke-Datei $ctx $pfad }
         else { Send-Json $ctx 405 @{ ok = $false } }
     } catch {

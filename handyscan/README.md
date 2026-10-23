@@ -25,6 +25,7 @@ Je nach Einstellung
 | `Vorgangsordner` | `false` = PDFs direkt im Basisordner, `true` = im Ordner des Vorgangs |
 | `NurZiffern` | `true` = Vorgangsnummer nur Ziffern, `false` = Aktenzeichen mit Buchstaben, `-`, `/` (wird zu `-`) |
 | `Dokumentarten` | Liste der Knöpfe auf dem Handy, z. B. `["Geburtsurkunde", "Reisepass"]` |
+| `Anleitungsordner` | Ordner mit Handbuch und Anleitungen fürs Büro-Portal, z. B. `Y:\\Anleitungen` (leer = aus) |
 | `Port` | Netzwerkport, Vorgabe `8765` |
 | `Pin` | PIN für das Handy, leer = ohne PIN |
 
@@ -47,6 +48,27 @@ selbst aus, sucht die Ecken im großen Bild genau und wartet dann auf das nächs
 Adresse einmalig in Chrome auf dem Handy freigeschaltet: `chrome://flags` →
 „Insecure origins treated as secure“ → `http://<IP des PCs>:8765` → Enabled → Relaunch.
 Ohne Freischaltung bleibt „Foto“ (Kamera-App) mit anschließender Erkennung.
+
+## Büro-Portal
+
+Startseite `http://<PC>:8765/` (am PC `http://localhost:8765/`), die Scan-Seite liegt unter `/scan`.
+Kacheln für Handbuch, Handy-Scan, Claude-Vermerk und Web-Tools, darunter alle Dateien aus dem
+`Anleitungsordner` (nur lesend; PDF, MP4, Bilder, DOCX, XLSX) mit Suche, und ein QR-Code fürs Handy.
+Als Handbuch gilt die erste PDF, deren Name mit „Handbuch“ beginnt. Einrichten:
+`Büro-Portal einrichten.cmd` (fragt den Ordner ab, Vorgabe `Y:\Anleitungen`, legt eine
+Desktop-Verknüpfung an, startet den Server neu). Ohne `Anleitungsordner` bleibt die Liste leer.
+
+## Webspace (Handbuch und Anleitungen von überall)
+
+`Webspace einrichten.cmd` (einmalig): FTP-Zugang zum Webspace eintragen (Passwort verschlüsselt
+in `webspace.json`, nur für den Windows-Benutzer lesbar, nicht im Repo), geplante Aufgabe
+„Handy-Scan Webspace-Abgleich“ täglich 2:30 Uhr. `Webspace-Abgleich.ps1` lädt PDFs, Videos und
+Bilder aus dem Anleitungsordner per FTPS hoch (nur Geändertes, Gelöschtes wird entfernt, Namen
+ohne Umlaute/Leerzeichen) und schreibt eine Übersicht `index.html`. **Vorher prüft es, dass die
+Web-Adresse ein Passwort verlangt (HTTP 401); sonst wird nichts hochgeladen.** Den
+Verzeichnisschutz richtet man beim Webhoster ein. Protokoll: `%LOCALAPPDATA%\Handy-Scan\webspace.txt`.
+Sofort abgleichen: `Webspace jetzt abgleichen.cmd`. Handbuch und Anleitungen gehören nicht in
+dieses (öffentliche) Repo.
 
 ## Claude-Vermerk ablegen
 
