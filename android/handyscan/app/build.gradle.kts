@@ -11,8 +11,8 @@ android {
         applicationId = "de.notarwoinar.handyscan"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "2.1"
+        versionCode = 3
+        versionName = "2.2"
     }
 
     // Fester Schlüssel im Repo, damit sich jede neue Version über die alte installieren lässt.

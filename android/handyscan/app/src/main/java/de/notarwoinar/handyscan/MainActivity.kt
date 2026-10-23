@@ -64,6 +64,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var meldung: TextView
     private lateinit var scannen: MaterialButton
     private lateinit var personWahl: Spinner
+    private lateinit var erneut: MaterialButton
     private var art = ""
 
     private val keinePerson = "– bitte wählen –"
@@ -99,6 +100,11 @@ class MainActivity : AppCompatActivity() {
         PDFBoxResourceLoader.init(applicationContext)
         setContentView(oberflaeche())
         aktualisieren()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        offenAnzeigen()
     }
 
     // ------------------------------------------------------------------ Oberfläche
@@ -196,10 +202,19 @@ class MainActivity : AppCompatActivity() {
         }
         spalte.addView(meldung)
 
+        erneut = MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+            layoutParams = LinearLayout.LayoutParams(-1, dp(56)).apply { topMargin = dp(8) }
+            visibility = View.GONE
+            setOnClickListener { alleSenden() }
+            setOnLongClickListener { offeneVerwerfen(); true }
+        }
+        spalte.addView(erneut)
+
         spalte.addView(TextView(this).apply {
             text = "Der Scanner erkennt das Blatt selbst, schneidet zu und richtet es gerade. " +
                 "Mehrere Seiten nacheinander aufnehmen, dann „Fertig“. Die Bilder werden nur auf dem Handy " +
-                "verarbeitet und nach dem Ablegen gelöscht."
+                "verarbeitet und nach dem Ablegen gelöscht. Wartende Scans löschen: „Erneut senden“ lange drücken."
             alpha = 0.6f
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(24) }
@@ -267,53 +282,121 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ------------------------------------------------------------------ Ablegen am Büro-PC
+    // Jeder Scan wird erst mit Vermerk im App-eigenen Speicher gesichert (offen/<zeit>.pdf + .txt mit
+    // Nummer, Bezeichnung, Person) und dann gesendet. Erst wenn der PC die Ablage bestätigt, wird er
+    // gelöscht. Klappt das Senden nicht (z. B. nicht im Büro-WLAN), bleibt er für „Erneut senden“.
+    private val offenOrdner by lazy { File(filesDir, "offen").apply { mkdirs() } }
+    private fun offene() = offenOrdner.listFiles { f -> f.name.endsWith(".pdf") }?.sortedBy { it.name } ?: emptyList()
+
     private fun hochladen(uri: Uri, seiten: Int, scanZeit: Date) {
         val n = nummer(); val b = bezeichnung(); val wer = person
         zeige("$seiten Seite(n) – wird am Büro-PC abgelegt …", null)
         scannen.isEnabled = false
         thread {
-            val ergebnis = try {
+            val gesichert = try {
                 val roh = contentResolver.openInputStream(uri)!!.use { it.readBytes() }
-                val daten = vermerken(roh, wer, scanZeit)
-                val url = URL(server.trimEnd('/') + "/api/ablegen?nr=" + URLEncoder.encode(n, "UTF-8") +
-                    "&datei=" + URLEncoder.encode(b, "UTF-8").replace("+", "%20"))
-                val c = url.openConnection() as HttpURLConnection
-                c.requestMethod = "POST"
-                c.connectTimeout = 8000; c.readTimeout = 30000
-                c.doOutput = true
-                c.setRequestProperty("Content-Type", "application/pdf")
-                c.setRequestProperty("X-Pin", pin)
-                c.setFixedLengthStreamingMode(daten.size)
-                c.outputStream.use { it.write(daten) }
-                val code = c.responseCode
-                val text = (if (code < 400) c.inputStream else c.errorStream)?.bufferedReader()?.readText() ?: ""
-                Triple(code, text, null as String?)
+                val name = SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.GERMANY).format(scanZeit)
+                File(offenOrdner, "$name.txt").writeText("$n\n$b\n$wer\n$seiten", Charsets.UTF_8)
+                File(offenOrdner, "$name.pdf").apply { writeBytes(vermerken(roh, wer, scanZeit)) }
             } catch (e: Exception) {
-                Triple(0, "", e.message ?: e.javaClass.simpleName)
+                runOnUiThread { scannen.isEnabled = true; zeige("Scan konnte nicht verarbeitet werden: ${e.message}", false) }
+                null
             } finally {
-                // Scan-Dateien nicht auf dem Handy liegen lassen
+                // Dateien des Scanners nicht liegen lassen
                 try { uri.path?.let { File(it).takeIf { f -> f.exists() }?.delete() } } catch (_: Exception) {}
                 try { cacheDir.listFiles()?.forEach { if (it.name.endsWith(".pdf") || it.name.endsWith(".jpg")) it.delete() } } catch (_: Exception) {}
             }
-            runOnUiThread {
-                scannen.isEnabled = true
-                val (code, text, fehler) = ergebnis
-                when {
-                    fehler != null -> zeige("Nicht abgelegt: Der Büro-PC antwortet nicht. Ist das Handy im Büro-WLAN und läuft Handy-Scan am PC?\n($fehler)", false)
-                    code == 403 -> { zeige("PIN falsch oder fehlt. Bitte unter ⚙ die PIN eintragen und erneut scannen.", false); einstellungen() }
-                    code in 200..299 -> {
-                        val datei = Regex("\"datei\"\\s*:\\s*\"([^\"]*)\"").find(text)?.groupValues?.get(1) ?: "PDF"
-                        zeige("✓ Abgelegt: $datei\nGescannt von $wer", true)
+            if (gesichert != null) {
+                val ok = senden(gesichert)
+                runOnUiThread {
+                    scannen.isEnabled = true
+                    if (ok) {
                         bez.setText(""); art = ""
                         for (i in 0 until chips.childCount) (chips.getChildAt(i) as Chip).isChecked = false
                     }
-                    else -> {
-                        val msg = Regex("\"fehler\"\\s*:\\s*\"([^\"]*)\"").find(text)?.groupValues?.get(1) ?: "Fehler $code"
-                        zeige("Nicht abgelegt: $msg", false)
-                    }
+                    offenAnzeigen()
                 }
             }
         }
+    }
+
+    // Sendet einen gesicherten Scan; true, wenn der PC ihn abgelegt hat. Läuft im Hintergrund.
+    private fun senden(pdf: File): Boolean {
+        val meta = File(pdf.path.removeSuffix(".pdf") + ".txt")
+        val (n, b, wer) = (meta.readText(Charsets.UTF_8).split("\n") + listOf("", "", "")).take(3)
+        val (code, text, fehler) = try {
+            val daten = pdf.readBytes()
+            val url = URL(server.trimEnd('/') + "/api/ablegen?nr=" + URLEncoder.encode(n, "UTF-8") +
+                "&datei=" + URLEncoder.encode(b, "UTF-8").replace("+", "%20"))
+            val c = url.openConnection() as HttpURLConnection
+            c.requestMethod = "POST"
+            c.connectTimeout = 8000; c.readTimeout = 30000
+            c.doOutput = true
+            c.setRequestProperty("Content-Type", "application/pdf")
+            c.setRequestProperty("X-Pin", pin)
+            c.setFixedLengthStreamingMode(daten.size)
+            c.outputStream.use { it.write(daten) }
+            val code = c.responseCode
+            val text = (if (code < 400) c.inputStream else c.errorStream)?.bufferedReader()?.readText() ?: ""
+            Triple(code, text, null as String?)
+        } catch (e: Exception) {
+            Triple(0, "", e.message ?: e.javaClass.simpleName)
+        }
+        val ok = fehler == null && code in 200..299
+        if (ok) { pdf.delete(); meta.delete() }
+        runOnUiThread {
+            when {
+                ok -> {
+                    val datei = Regex("\"datei\"\\s*:\\s*\"([^\"]*)\"").find(text)?.groupValues?.get(1) ?: "PDF"
+                    zeige("✓ Abgelegt: $datei\nGescannt von $wer", true)
+                }
+                fehler != null -> zeige("Noch nicht abgelegt: Der Büro-PC ist nicht erreichbar (nicht im Büro-WLAN?). " +
+                    "Der Scan ist auf dem Handy gesichert. Im Büro „Erneut senden“ tippen.", false)
+                code == 403 -> { zeige("PIN falsch oder fehlt. Bitte unter ⚙ eintragen, dann „Erneut senden“.", false); einstellungen() }
+                else -> {
+                    val msg = Regex("\"fehler\"\\s*:\\s*\"([^\"]*)\"").find(text)?.groupValues?.get(1) ?: "Fehler $code"
+                    zeige("Noch nicht abgelegt: $msg\nDer Scan ist auf dem Handy gesichert.", false)
+                }
+            }
+        }
+        return ok
+    }
+
+    private fun alleSenden() {
+        val liste = offene()
+        if (liste.isEmpty()) { offenAnzeigen(); return }
+        erneut.isEnabled = false; scannen.isEnabled = false
+        zeige("${liste.size} Scan(s) werden am Büro-PC abgelegt …", null)
+        thread {
+            var gut = 0
+            for (f in liste) { if (senden(f)) gut++ else break }
+            runOnUiThread {
+                scannen.isEnabled = true
+                if (gut == liste.size && gut > 1) zeige("✓ Alle $gut Scans abgelegt.", true)
+                offenAnzeigen()
+            }
+        }
+    }
+
+    private fun offenAnzeigen() {
+        val zahl = offene().size
+        erneut.visibility = if (zahl > 0) View.VISIBLE else View.GONE
+        erneut.isEnabled = true
+        erneut.text = if (zahl == 1) "Erneut senden (1 Scan wartet)" else "Erneut senden ($zahl Scans warten)"
+        aktualisieren()
+    }
+
+    private fun offeneVerwerfen() {
+        AlertDialog.Builder(this)
+            .setTitle("Wartende Scans löschen?")
+            .setMessage("Die ${offene().size} noch nicht abgelegten Scans werden vom Handy gelöscht.")
+            .setPositiveButton("Löschen") { _, _ ->
+                offenOrdner.listFiles()?.forEach { it.delete() }
+                zeige("Wartende Scans gelöscht.", null)
+                offenAnzeigen()
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
     }
 
     // ------------------------------------------------------------------ Vermerk im PDF
