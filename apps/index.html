@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Apps – Notariat Woinar</title>
+<title>Apps fürs Handy</title>
 <style>
   :root { --text:#1d1d1f; --muted:#5f6368; --bg:#ffffff; --card:#f5f5f7; --link:#0b57d0; --rand:#d0d7de; }
   @media (prefers-color-scheme: dark) { :root { --text:#e8eaed; --muted:#9aa0a6; --bg:#1f1f1f; --card:#2a2a2a; --link:#8ab4f8; --rand:#3d444d; } }
@@ -28,36 +28,20 @@
 <main>
   <p class="zurueck"><a href="../">← Tools</a></p>
   <h1>Apps fürs Handy</h1>
-  <p class="unter">QR-Code mit der Handy-Kamera scannen, App öffnen, dann in Chrome über ⋮ „Zum Startbildschirm hinzufügen“. So liegt die App wie jede andere auf dem Handy.</p>
+  <p class="unter">QR-Code mit der Handy-Kamera scannen oder auf dem Handy „App herunterladen“ tippen.</p>
 
   <section class="app">
-    <div class="qr"><img data-qr="handyscan/" alt="QR-Code Handy-Scan">Handy-Scan</div>
+    <div class="qr"><img data-qr="sprachnachricht/Sprachnachricht.apk" alt="QR-Code Sprachnachricht">Sprachnachricht</div>
     <div>
-      <h2>Handy-Scan</h2>
-      <p>Vorgelegte Dokumente beim Vorgespräch scannen (Geburtsurkunde, Ausweis …). Das Blatt wird erkannt, gerade gezogen und als PDF am Büro-PC abgelegt: <code>Y:\Vorgänge\&lt;Vorgangsnummer&gt; &lt;Bezeichnung&gt;.pdf</code>. Läuft nur im Büro-WLAN, nichts geht über das Internet.</p>
+      <h2>Sprachnachricht</h2>
+      <p>Kurze Nachrichten an Mitarbeiter einsprechen und per E-Mail verschicken: Empfänger antippen, sprechen, „Senden“. Für Android.</p>
       <ol>
-        <li>Vorgangsnummer eingeben.</li>
-        <li>Dokumentart antippen, Namen dahinter ergänzen.</li>
-        <li>„Scannen“ und die Kamera über das Blatt halten: Sie löst selbst aus und schneidet zu. Nächstes Blatt hinlegen, am Ende „Fertig“.</li>
-        <li>„Ablegen“.</li>
+        <li>App herunterladen und die Datei <code>Sprachnachricht.apk</code> öffnen. Android fragt einmal, ob Apps aus dieser Quelle installiert werden dürfen.</li>
+        <li>In der App über das Zahnrad eigenen Namen, eigene E-Mail-Adresse und die Mitarbeiter mit ihren Adressen eintragen.</li>
+        <li>Empfänger antippen, aufs Mikrofon tippen, sprechen, „Senden“. Die Mail öffnet sich fertig in Outlook.</li>
       </ol>
-      <p><a href="Anleitung%20Handy-Scan.pdf">Anleitung (PDF)</a> · <a href="handyscan/">App öffnen</a></p>
-      <p class="hinweis">Voraussetzung: Handy-Scan ist am Büro-PC eingerichtet, und der Live-Sucher ist einmalig in Chrome freigeschaltet (chrome://flags → „Insecure origins treated as secure“ → http://10.100.100.104:8765 → Enabled). Beides steht in der Anleitung.</p>
-    </div>
-  </section>
-
-  <section class="app">
-    <div class="qr"><img data-qr="https://claude.ai/artifact/TXN7hGFeL2MqgvNcnwsAHi" alt="QR-Code Handbuch-Diktat">Handbuch-Diktat</div>
-    <div>
-      <h2>Handbuch-Diktat</h2>
-      <p>Hinweise, Tricks und Anweisungen für das Mitarbeiter-Handbuch unterwegs einsprechen oder eintippen. Die Einträge werden werktags abends ins Handbuch Notariat Woinar einsortiert.</p>
-      <ol>
-        <li>App öffnen (Anmeldung bei Claude nötig, am besten in Chrome).</li>
-        <li>„Sprechen“ antippen und diktieren, zum Beenden nochmal tippen. Tippen geht auch.</li>
-        <li>Text prüfen, Art und „Wohin“ wählen, „Absenden“.</li>
-      </ol>
-      <p><a href="https://claude.ai/artifact/TXN7hGFeL2MqgvNcnwsAHi">App öffnen</a></p>
-      <p class="hinweis">Keine Mandantendaten diktieren.</p>
+      <p><a href="sprachnachricht/Sprachnachricht.apk">App herunterladen</a> · <a href="Anleitung%20Sprachnachricht.pdf">Anleitung (PDF)</a></p>
+      <p class="hinweis">Die Spracherkennung läuft über das Handy (meist Google). Keine Mandantendaten diktieren.</p>
     </div>
   </section>
 </main>
