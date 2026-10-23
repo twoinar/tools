@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apps – Notariat Woinar</title>
+<style>
+  :root { --text:#1d1d1f; --muted:#5f6368; --bg:#ffffff; --card:#f5f5f7; --link:#0b57d0; --rand:#d0d7de; }
+  @media (prefers-color-scheme: dark) { :root { --text:#e8eaed; --muted:#9aa0a6; --bg:#1f1f1f; --card:#2a2a2a; --link:#8ab4f8; --rand:#3d444d; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.5 system-ui, sans-serif; color:var(--text); background:var(--bg); }
+  main { max-width:820px; margin:40px auto; padding:0 16px; }
+  a { color:var(--link); }
+  .zurueck { font-size:14px; }
+  .unter { color:var(--muted); margin-top:0; }
+  .app { display:grid; grid-template-columns:200px 1fr; gap:20px; padding:20px; margin:16px 0; border-radius:12px; background:var(--card); }
+  @media (max-width:600px) { .app { grid-template-columns:1fr; } .qr { justify-self:center; } }
+  .app h2 { margin:0 0 4px; font-size:20px; }
+  .app p { margin:6px 0; }
+  .qr { text-align:center; font-size:13px; color:var(--muted); }
+  .qr img { width:180px; height:180px; background:#fff; padding:8px; border-radius:8px; image-rendering:pixelated; display:block; margin:0 auto 6px; }
+  ol { margin:8px 0; padding-left:22px; } li { margin:3px 0; }
+  .hinweis { font-size:14px; color:var(--muted); }
+  code { font-size:14px; }
+</style>
+</head>
+<body>
+<main>
+  <p class="zurueck"><a href="../">← Tools</a></p>
+  <h1>Apps fürs Handy</h1>
+  <p class="unter">QR-Code mit der Handy-Kamera scannen, App öffnen, dann in Chrome über ⋮ „Zum Startbildschirm hinzufügen“. So liegt die App wie jede andere auf dem Handy.</p>
+
+  <section class="app">
+    <div class="qr"><img data-qr="handyscan/" alt="QR-Code Handy-Scan">Handy-Scan</div>
+    <div>
+      <h2>Handy-Scan</h2>
+      <p>Vorgelegte Dokumente beim Vorgespräch scannen (Geburtsurkunde, Ausweis …). Das Blatt wird erkannt, gerade gezogen und als PDF am Büro-PC abgelegt: <code>Y:\Vorgänge\&lt;Vorgangsnummer&gt; &lt;Bezeichnung&gt;.pdf</code>. Läuft nur im Büro-WLAN, nichts geht über das Internet.</p>
+      <ol>
+        <li>Vorgangsnummer eingeben.</li>
+        <li>Dokumentart antippen, Namen dahinter ergänzen.</li>
+        <li>„Seite scannen“, Ecken prüfen, „Übernehmen“ – für jede Seite.</li>
+        <li>„Ablegen“.</li>
+      </ol>
+      <p><a href="Anleitung%20Handy-Scan.pdf">Anleitung (PDF)</a> · <a href="handyscan/">App öffnen</a></p>
+      <p class="hinweis">Voraussetzung: Handy-Scan ist am Büro-PC eingerichtet (einmalig, siehe Anleitung).</p>
+    </div>
+  </section>
+
+  <section class="app">
+    <div class="qr"><img data-qr="https://claude.ai/artifact/TXN7hGFeL2MqgvNcnwsAHi" alt="QR-Code Handbuch-Diktat">Handbuch-Diktat</div>
+    <div>
+      <h2>Handbuch-Diktat</h2>
+      <p>Hinweise, Tricks und Anweisungen für das Mitarbeiter-Handbuch unterwegs einsprechen oder eintippen. Die Einträge werden werktags abends ins Handbuch Notariat Woinar einsortiert.</p>
+      <ol>
+        <li>App öffnen (Anmeldung bei Claude nötig, am besten in Chrome).</li>
+        <li>„Sprechen“ antippen und diktieren, zum Beenden nochmal tippen. Tippen geht auch.</li>
+        <li>Text prüfen, Art und „Wohin“ wählen, „Absenden“.</li>
+      </ol>
+      <p><a href="https://claude.ai/artifact/TXN7hGFeL2MqgvNcnwsAHi">App öffnen</a></p>
+      <p class="hinweis">Keine Mandantendaten diktieren.</p>
+    </div>
+  </section>
+</main>
+<script src="qrcode.js"></script>
+<script>
+  for (const img of document.querySelectorAll('img[data-qr]')) {
+    const url = new URL(img.dataset.qr, location.href).href;
+    const q = qrcode(0, 'M');
+    q.addData(url);
+    q.make();
+    img.src = q.createDataURL(6, 0);
+    img.title = url;
+  }
+</script>
+</body>
+</html>

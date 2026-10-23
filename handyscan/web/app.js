@@ -1,18 +1,268 @@
-// Handy-Scan: Seiten fotografieren, auf dem Handy zu einem PDF zusammensetzen und an den
-// Büro-PC schicken. Der PC (Handy-Scan-Server.ps1) legt das PDF im Vorgangsordner ab.
+// Handy-Scan: Seiten fotografieren, Blatt erkennen und gerade ziehen, auf dem Handy zu einem
+// PDF zusammensetzen und an den Büro-PC schicken. Der PC (Handy-Scan-Server.ps1) legt das PDF
+// als „<Vorgangsnummer> <Bezeichnung>.pdf“ im Ablageordner ab.
 'use strict';
 
 const ARTEN = ['Geburtsurkunde', 'Heiratsurkunde', 'Sterbeurkunde', 'Personalausweis', 'Reisepass',
   'Erbschein', 'Testament', 'Vollmacht', 'Vertrag', 'Sonstiges'];
-const MAX_KANTE = 2200;      // längste Bildkante in Pixeln (reicht für gut lesbare A4-Scans)
+const MAX_KANTE = 2400;      // längste Kante des Fotos, mit dem gearbeitet wird
+const MAX_SEITE = 2200;      // längste Kante der fertigen Seite (gut lesbar bei A4)
+const ERKENNUNG_KANTE = 800; // Blatterkennung auf verkleinertem Bild (schneller, robuster)
 const JPEG_QUALITAET = 0.82;
 
 const $ = id => document.getElementById(id);
 const zustand = {
-  nr: '', ordner: [], gewaehlt: '', art: '', filter: 'grau',
-  zuschneiden: true,
-  seiten: [],                // { quelle: Canvas (verkleinert), drehung: 0..3, bild: dataURL }
+  nr: '', art: '', filter: 'grau',
+  seiten: [],                // { foto: Canvas, ecken: [[x,y]×4], drehung: 0..3, bild: dataURL }
 };
+
+// ------------------------------------------------------------------ OpenCV (Blatterkennung)
+let cvVersprechen = null;
+function cvLaden() {
+  if (cvVersprechen) return cvVersprechen;
+  cvVersprechen = new Promise((ok, fehler) => {
+    const s = document.createElement('script');
+    s.src = 'opencv.js';
+    s.async = true;
+    s.onerror = () => fehler(new Error('Blatterkennung konnte nicht geladen werden.'));
+    s.onload = async () => {
+      try {
+        let c = window.cv;
+        // Emscripten-Modul ist „thenable“ und löst sich mit sich selbst auf – ein direktes
+        // await würde endlos laufen, daher then entfernen
+        if (!c.Mat) c = await new Promise(r => c.then(m => { delete m.then; r(m); }));
+        else if (typeof c.then === 'function') delete c.then;
+        window.cv = c;
+        ok(c);
+      } catch (e) { fehler(e); }
+    };
+    document.head.append(s);
+  });
+  return cvVersprechen;
+}
+
+function abstand(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
+
+// Ecken sortieren: oben links, oben rechts, unten rechts, unten links
+function sortiereEcken(p) {
+  const summe = p.map(q => q[0] + q[1]), diff = p.map(q => q[1] - q[0]);
+  return [
+    p[summe.indexOf(Math.min(...summe))], p[diff.indexOf(Math.min(...diff))],
+    p[summe.indexOf(Math.max(...summe))], p[diff.indexOf(Math.max(...diff))],
+  ];
+}
+
+function ganzesBild(c) {
+  return [[0, 0], [c.width, 0], [c.width, c.height], [0, c.height]];
+}
+
+// Sucht das Blatt als größtes Viereck. Zwei Wege: Kanten (Canny) und helle Fläche (Otsu).
+function blattFinden(cv, foto) {
+  const f = Math.min(1, ERKENNUNG_KANTE / Math.max(foto.width, foto.height));
+  const klein = document.createElement('canvas');
+  klein.width = Math.round(foto.width * f);
+  klein.height = Math.round(foto.height * f);
+  klein.getContext('2d').drawImage(foto, 0, 0, klein.width, klein.height);
+  const flaeche = klein.width * klein.height;
+
+  const src = cv.imread(klein), grau = new cv.Mat(), weich = new cv.Mat();
+  cv.cvtColor(src, grau, cv.COLOR_RGBA2GRAY);
+  cv.GaussianBlur(grau, weich, new cv.Size(5, 5), 0);
+  const kandidaten = [];
+
+  const auswerten = maske => {
+    const konturen = new cv.MatVector(), hier = new cv.Mat();
+    cv.findContours(maske, konturen, hier, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+    for (let i = 0; i < konturen.size(); i++) {
+      const k = konturen.get(i);
+      const a = cv.contourArea(k);
+      if (a > flaeche * 0.12 && a < flaeche * 0.995) {
+        const huelle = new cv.Mat(), naeherung = new cv.Mat();
+        cv.convexHull(k, huelle);
+        const umfang = cv.arcLength(huelle, true);
+        for (const eps of [0.02, 0.03, 0.05]) {
+          cv.approxPolyDP(huelle, naeherung, eps * umfang, true);
+          if (naeherung.rows === 4) {
+            const p = [];
+            for (let j = 0; j < 4; j++) p.push([naeherung.data32S[j * 2] / f, naeherung.data32S[j * 2 + 1] / f]);
+            kandidaten.push({ a, p, echt: true });
+            break;
+          }
+        }
+        if (naeherung.rows !== 4) {
+          // Kein sauberes Viereck: kleinstes umschließendes Rechteck als Notlösung
+          const r = cv.minAreaRect(huelle);
+          const pts = cv.RotatedRect.points(r).map(q => [q.x / f, q.y / f]);
+          kandidaten.push({ a: a * 0.9, p: pts, echt: false });
+        }
+        huelle.delete(); naeherung.delete();
+      }
+      k.delete();
+    }
+    konturen.delete(); hier.delete();
+  };
+
+  // Weg 1: Kanten, mit mehreren Empfindlichkeiten (helle Unterlage braucht feine Kanten)
+  const kanten = new cv.Mat(), dick = new cv.Mat();
+  const kern = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+  for (const [u, o] of [[60, 180], [30, 90], [12, 36]]) {
+    cv.Canny(weich, kanten, u, o);
+    cv.dilate(kanten, dick, kern);
+    auswerten(dick);
+  }
+  // Weg 2: helle Fläche (Papier heller als Unterlage), auch mit örtlicher Schwelle gegen Schatten
+  const otsu = new cv.Mat();
+  cv.threshold(weich, otsu, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+  cv.morphologyEx(otsu, otsu, cv.MORPH_OPEN, kern);
+  auswerten(otsu);
+  const ort = new cv.Mat();
+  cv.adaptiveThreshold(weich, ort, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY, 151, -4);
+  cv.morphologyEx(ort, ort, cv.MORPH_OPEN, kern);
+  auswerten(ort);
+  ort.delete();
+
+  [src, grau, weich, kanten, dick, otsu, kern].forEach(m => m.delete());
+  if (!kandidaten.length) return null;
+  // Echte Vierecke vor Notlösungen, dann die größte Fläche
+  kandidaten.sort((x, y) => (y.echt - x.echt) || (y.a - x.a));
+  const p = kandidaten[0].p.map(([x, y]) => [Math.max(0, Math.min(foto.width, x)), Math.max(0, Math.min(foto.height, y))]);
+  return sortiereEcken(p);
+}
+
+// Blatt anhand der vier Ecken gerade ziehen
+function entzerren(cv, foto, ecken) {
+  const [tl, tr, br, bl] = ecken;
+  let w = Math.max(abstand(tl, tr), abstand(bl, br));
+  let h = Math.max(abstand(tl, bl), abstand(tr, br));
+  const f = Math.min(1, MAX_SEITE / Math.max(w, h));
+  w = Math.max(1, Math.round(w * f)); h = Math.max(1, Math.round(h * f));
+  const src = cv.imread(foto), ziel = new cv.Mat();
+  const von = cv.matFromArray(4, 1, cv.CV_32FC2, [].concat(tl, tr, br, bl));
+  const nach = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, w, 0, w, h, 0, h]);
+  const m = cv.getPerspectiveTransform(von, nach);
+  cv.warpPerspective(src, ziel, m, new cv.Size(w, h), cv.INTER_LINEAR, cv.BORDER_REPLICATE);
+  const c = document.createElement('canvas');
+  cv.imshow(c, ziel);
+  [src, ziel, von, nach, m].forEach(x => x.delete());
+  return c;
+}
+
+// „Dokument“: Schatten herausrechnen, Papier weiß. „Schwarzweiß“: zusätzlich harte Schwelle.
+function aufhellen(cv, c, filter) {
+  if (filter === 'farbe') return c;
+  const src = cv.imread(c), grau = new cv.Mat(), hg = new cv.Mat(), erg = new cv.Mat();
+  cv.cvtColor(src, grau, cv.COLOR_RGBA2GRAY);
+  const k = Math.max(15, Math.round(Math.max(c.width, c.height) / 60)) | 1;
+  const kern = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(k, k));
+  cv.dilate(grau, hg, kern);              // Hintergrund = Papierhelligkeit ohne Schrift
+  cv.medianBlur(hg, hg, 21);
+  cv.divide(grau, hg, erg, 255);          // Schrift relativ zum Papier → Papier gleichmäßig weiß
+  cv.normalize(erg, erg, 0, 255, cv.NORM_MINMAX);
+  if (filter === 'sw') {
+    cv.threshold(erg, erg, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+  } else {
+    // etwas mehr Kontrast: helle Grautöne ganz weiß, Schrift kräftiger
+    erg.convertTo(erg, -1, 1.25, -45);
+  }
+  const aus = document.createElement('canvas');
+  cv.imshow(aus, erg);
+  [src, grau, hg, erg, kern].forEach(x => x.delete());
+  return aus;
+}
+
+function drehen(c, drehung) {
+  if (!drehung) return c;
+  const quer = drehung % 2 === 1;
+  const d = document.createElement('canvas');
+  d.width = quer ? c.height : c.width;
+  d.height = quer ? c.width : c.height;
+  const g = d.getContext('2d');
+  g.translate(d.width / 2, d.height / 2);
+  g.rotate(drehung * Math.PI / 2);
+  g.drawImage(c, -c.width / 2, -c.height / 2);
+  return d;
+}
+
+async function seiteRendern(s) {
+  let c;
+  try {
+    const cv = await cvLaden();
+    c = aufhellen(cv, drehen(entzerren(cv, s.foto, s.ecken), s.drehung), zustand.filter);
+  } catch (e) {
+    console.warn(e);
+    c = drehen(s.foto, s.drehung);   // ohne Blatterkennung: Foto unverändert
+  }
+  s.bild = c.toDataURL('image/jpeg', JPEG_QUALITAET);
+}
+
+// ------------------------------------------------------------------ Ecken prüfen (Vollbild)
+function eckenPruefen(foto, ecken) {
+  return new Promise(fertig => {
+    const box = $('editor'), cnv = $('editor-bild'), g = cnv.getContext('2d');
+    box.hidden = false;
+    document.body.classList.add('gesperrt');
+    let p = ecken.map(q => q.slice()), aktiv = -1, f = 1;
+
+    const zeichnen = () => {
+      const breite = box.clientWidth - 24, hoehe = box.clientHeight - $('editor-knoepfe').offsetHeight - 60;
+      f = Math.min(breite / foto.width, hoehe / foto.height);
+      cnv.width = Math.round(foto.width * f);
+      cnv.height = Math.round(foto.height * f);
+      g.drawImage(foto, 0, 0, cnv.width, cnv.height);
+      g.fillStyle = 'rgba(0,0,0,.45)';
+      g.beginPath();
+      g.rect(0, 0, cnv.width, cnv.height);
+      p.forEach(([x, y], i) => (i ? g.lineTo(x * f, y * f) : g.moveTo(x * f, y * f)));
+      g.closePath();
+      g.fill('evenodd');
+      g.strokeStyle = '#4493f8'; g.lineWidth = 3;
+      g.beginPath();
+      p.forEach(([x, y], i) => (i ? g.lineTo(x * f, y * f) : g.moveTo(x * f, y * f)));
+      g.closePath(); g.stroke();
+      p.forEach(([x, y], i) => {
+        g.beginPath(); g.arc(x * f, y * f, i === aktiv ? 18 : 14, 0, Math.PI * 2);
+        g.fillStyle = 'rgba(68,147,248,.35)'; g.fill();
+        g.lineWidth = 3; g.strokeStyle = '#fff'; g.stroke();
+      });
+    };
+    const punkt = e => {
+      const r = cnv.getBoundingClientRect();
+      return [(e.clientX - r.left) * (cnv.width / r.width) / f, (e.clientY - r.top) * (cnv.height / r.height) / f];
+    };
+    const runter = e => {
+      const q = punkt(e);
+      let best = -1, bestD = 45 / f;
+      p.forEach((x, i) => { const d = abstand(x, q); if (d < bestD) { bestD = d; best = i; } });
+      aktiv = best;
+      if (aktiv >= 0) { cnv.setPointerCapture(e.pointerId); zeichnen(); }
+    };
+    const ziehen = e => {
+      if (aktiv < 0) return;
+      const [x, y] = punkt(e);
+      p[aktiv] = [Math.max(0, Math.min(foto.width, x)), Math.max(0, Math.min(foto.height, y))];
+      zeichnen();
+    };
+    const hoch = () => { aktiv = -1; zeichnen(); };
+    const ende = ergebnis => {
+      box.hidden = true;
+      document.body.classList.remove('gesperrt');
+      cnv.removeEventListener('pointerdown', runter);
+      cnv.removeEventListener('pointermove', ziehen);
+      cnv.removeEventListener('pointerup', hoch);
+      window.removeEventListener('resize', zeichnen);
+      $('editor-ok').onclick = $('editor-ganz').onclick = $('editor-weg').onclick = null;
+      fertig(ergebnis);
+    };
+    cnv.addEventListener('pointerdown', runter);
+    cnv.addEventListener('pointermove', ziehen);
+    cnv.addEventListener('pointerup', hoch);
+    window.addEventListener('resize', zeichnen);
+    $('editor-ok').onclick = () => ende(sortiereEcken(p));
+    $('editor-ganz').onclick = () => { p = ganzesBild(foto); zeichnen(); };
+    $('editor-weg').onclick = () => ende(null);
+    zeichnen();
+  });
+}
 
 // ------------------------------------------------------------------ Server
 function pin() { try { return localStorage.getItem('handyscan-pin') || ''; } catch { return ''; } }
@@ -40,77 +290,53 @@ async function api(pfad, optionen = {}) {
   throw new Error('PIN falsch.');
 }
 
-// ------------------------------------------------------------------ Schritt 1: Vorgang
+// ------------------------------------------------------------------ Anzeige
 function meldung(el, text, art) {
   el.hidden = !text;
   el.className = 'hinweis' + (art ? ' ' + art : '');
   el.textContent = text || '';
 }
 
-async function vorgangPruefen() {
-  const nr = $('nr').value.trim().replace(/\D/g, '');
-  $('nr').value = nr;
-  if (!nr) { meldung($('ordner-info'), 'Bitte die Vorgangsnummer eingeben.', 'schlecht'); return; }
-  $('nr-ok').disabled = true;
-  meldung($('ordner-info'), 'Suche Vorgangsordner …');
-  try {
-    const d = await api('/api/ordner?nr=' + encodeURIComponent(nr));
-    zustand.nr = d.nr;
-    zustand.ordner = d.ordner || [];
-    $('bez-feld').hidden = d.gefunden;
-    $('ordner-wahl-feld').hidden = zustand.ordner.length < 2;
-    if (zustand.ordner.length >= 2) {
-      $('ordner-wahl').innerHTML = '';
-      for (const o of zustand.ordner) $('ordner-wahl').add(new Option(o, o));
-      zustand.gewaehlt = zustand.ordner[0];
-      meldung($('ordner-info'), `Mehrere Ordner für Vorgang ${d.nr} gefunden.`, 'gut');
-    } else if (d.gefunden) {
-      zustand.gewaehlt = zustand.ordner[0];
-      meldung($('ordner-info'), `✓ Ablage in: ${zustand.gewaehlt}`, 'gut');
-    } else {
-      zustand.gewaehlt = '';
-      meldung($('ordner-info'), `Für Vorgang ${d.nr} gibt es noch keinen Ordner. Er wird beim Ablegen angelegt.`);
-      $('bez').focus();
-    }
-    for (const s of ['s-dokument', 's-seiten', 's-ablegen']) $(s).hidden = false;
-    dateinameZeigen();
-  } catch (e) {
-    meldung($('ordner-info'), e.message, 'schlecht');
-  } finally {
-    $('nr-ok').disabled = false;
-  }
-}
+function nummer() { return $('nr').value.trim().replace(/\D/g, '').replace(/^0+/, ''); }
 
-// ------------------------------------------------------------------ Schritt 2: Dokument
-function heute() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function bezeichnung() {
+  return $('zusatz').value.replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function dateiname() {
-  const teile = [zustand.art || 'Scan', $('zusatz').value.trim(), heute()].filter(Boolean);
-  return teile.join(' ').replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim();
+  return [nummer(), bezeichnung() || 'Scan'].filter(Boolean).join(' ');
 }
 
-function dateinameZeigen() {
-  $('dateiname').textContent = dateiname() + '.pdf';
-  $('ablegen').disabled = !zustand.nr || zustand.seiten.length === 0;
+function anzeigen() {
+  $('dateiname').textContent = nummer() ? dateiname() + '.pdf' : '–';
+  $('ablegen').disabled = !nummer() || zustand.seiten.length === 0 || zustand.arbeitet;
+}
+
+// Dokumentart setzt den Anfang der Bezeichnung; dahinter Getipptes bleibt stehen
+function artWaehlen(a) {
+  const alt = zustand.art;
+  let rest = $('zusatz').value;
+  if (alt && rest.startsWith(alt)) rest = rest.slice(alt.length);
+  rest = rest.trim();
+  zustand.art = zustand.art === a ? '' : a;
+  $('zusatz').value = zustand.art ? zustand.art + ' ' + rest : rest;
+  for (const x of $('arten').children) x.classList.toggle('an', x.textContent === zustand.art);
+  const z = $('zusatz');
+  z.focus();
+  z.setSelectionRange(z.value.length, z.value.length);
+  anzeigen();
 }
 
 function artenZeigen() {
   for (const a of ARTEN) {
     const b = document.createElement('button');
     b.textContent = a;
-    b.addEventListener('click', () => {
-      zustand.art = zustand.art === a ? '' : a;
-      for (const x of $('arten').children) x.classList.toggle('an', x.textContent === zustand.art);
-      dateinameZeigen();
-    });
+    b.addEventListener('click', () => artWaehlen(a));
     $('arten').append(b);
   }
 }
 
-// ------------------------------------------------------------------ Schritt 3: Seiten
+// ------------------------------------------------------------------ Seiten
 function bildLaden(datei) {
   return new Promise((ok, fehler) => {
     const url = URL.createObjectURL(datei);
@@ -130,91 +356,37 @@ function verkleinern(img) {
   return c;
 }
 
-// Graustufen mit automatischem Kontrast; „sw“ zusätzlich mit Schwelle
-function bearbeiten(quelle, drehung, filter) {
-  const quer = drehung % 2 === 1;
-  const c = document.createElement('canvas');
-  c.width = quer ? quelle.height : quelle.width;
-  c.height = quer ? quelle.width : quelle.height;
-  const g = c.getContext('2d');
-  g.translate(c.width / 2, c.height / 2);
-  g.rotate(drehung * Math.PI / 2);
-  g.drawImage(quelle, -quelle.width / 2, -quelle.height / 2);
-  g.setTransform(1, 0, 0, 1, 0, 0);
-  const z = zustand.zuschneiden ? zuschnitt(c) : c;
-  if (filter === 'farbe') return z;
-  return kontrast(z, filter);
-}
-
-// Helles Blatt auf dunkler Unterlage: dunklen Rand rundherum abschneiden
-function zuschnitt(c) {
-  const w = c.width, h = c.height;
-  const p = c.getContext('2d').getImageData(0, 0, w, h).data;
-  const hell = new Uint8Array(w * h);
-  let summe = 0;
-  for (let i = 0, j = 0; i < p.length; i += 4, j++) { hell[j] = (p[i] * 299 + p[i + 1] * 587 + p[i + 2] * 114) / 1000; summe += hell[j]; }
-  const schwelle = Math.min(200, Math.max(60, summe / (w * h)));
-  const zeilen = new Uint32Array(h), spalten = new Uint32Array(w);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (hell[y * w + x] > schwelle) { zeilen[y]++; spalten[x]++; }
-  const grenzen = (arr, laenge, anteil) => {
-    let a = 0, b = arr.length - 1;
-    while (a < b && arr[a] < laenge * anteil) a++;
-    while (b > a && arr[b] < laenge * anteil) b--;
-    return [a, b];
-  };
-  const [oben, unten] = grenzen(zeilen, w, 0.5);
-  const [links, rechts] = grenzen(spalten, h, 0.5);
-  const cw = rechts - links + 1, ch = unten - oben + 1;
-  // Nur zuschneiden, wenn klar ein Blatt erkannt wurde und wirklich Rand übrig ist
-  if (cw * ch < w * h * 0.25 || cw * ch > w * h * 0.97) return c;
-  const z = document.createElement('canvas');
-  z.width = cw; z.height = ch;
-  z.getContext('2d').drawImage(c, links, oben, cw, ch, 0, 0, cw, ch);
-  return z;
-}
-
-function kontrast(c, filter) {
-  const g = c.getContext('2d');
-  const bild = g.getImageData(0, 0, c.width, c.height);
-  const p = bild.data;
-  const hist = new Uint32Array(256);
-  for (let i = 0; i < p.length; i += 4) {
-    const y = (p[i] * 299 + p[i + 1] * 587 + p[i + 2] * 114) / 1000 | 0;
-    p[i] = y; hist[y]++;
+async function arbeit(text, fn) {
+  zustand.arbeitet = true;
+  meldung($('meldung'), text);
+  anzeigen();
+  try { return await fn(); } finally {
+    zustand.arbeitet = false;
+    if ($('meldung').textContent === text) meldung($('meldung'), '');
+    anzeigen();
   }
-  // Untere 1 % → Schwarz, obere 5 % → Weiß (Papier soll weiß werden)
-  const n = p.length / 4;
-  let lo = 0, hi = 255, summe = 0;
-  for (; lo < 255 && (summe += hist[lo]) < n * 0.01; lo++);
-  summe = 0;
-  for (; hi > 0 && (summe += hist[hi]) < n * 0.05; hi--);
-  if (hi - lo < 30) { lo = Math.max(0, lo - 15); hi = Math.min(255, hi + 15); }
-  const tab = new Uint8ClampedArray(256);
-  const schwelle = (lo + hi) / 2 + (hi - lo) * 0.1;
-  for (let v = 0; v < 256; v++) {
-    if (filter === 'sw') tab[v] = v < schwelle ? 0 : 255;
-    else tab[v] = Math.pow(Math.min(1, Math.max(0, (v - lo) / (hi - lo))), 1.2) * 255;
-  }
-  for (let i = 0; i < p.length; i += 4) { const v = tab[p[i]]; p[i] = p[i + 1] = p[i + 2] = v; }
-  g.putImageData(bild, 0, 0);
-  return c;
-}
-
-function seiteRendern(s) {
-  s.bild = bearbeiten(s.quelle, s.drehung, zustand.filter).toDataURL('image/jpeg', JPEG_QUALITAET);
 }
 
 async function bilderHinzu(dateien) {
   for (const datei of dateien) {
     try {
-      const s = { quelle: verkleinern(await bildLaden(datei)), drehung: 0, bild: '' };
-      seiteRendern(s);
+      const foto = verkleinern(await bildLaden(datei));
+      let ecken = ganzesBild(foto);
+      await arbeit('Blatt wird erkannt …', async () => {
+        try { ecken = blattFinden(await cvLaden(), foto) || ecken; } catch (e) { console.warn(e); }
+      });
+      if ($('pruefen').checked) {
+        ecken = await eckenPruefen(foto, ecken);
+        if (!ecken) continue;   // verworfen
+      }
+      const s = { foto, ecken, drehung: 0, bild: '' };
+      await arbeit('Seite wird aufbereitet …', () => seiteRendern(s));
       zustand.seiten.push(s);
+      seitenZeigen();
     } catch (e) {
       meldung($('meldung'), e.message, 'schlecht');
     }
   }
-  seitenZeigen();
 }
 
 function seitenZeigen() {
@@ -224,19 +396,30 @@ function seitenZeigen() {
     const el = document.createElement('div');
     el.className = 'seite';
     el.innerHTML = `<img alt="Seite ${i + 1}"><span class="nr">Seite ${i + 1}</span>
-      <div class="knoepfe"><button title="Nach vorne">◀</button><button title="Drehen">⟳</button><button title="Löschen">🗑</button></div>`;
+      <div class="knoepfe"><button title="Ecken ändern">⌗</button><button title="Nach vorne">◀</button><button title="Drehen">⟳</button><button title="Löschen">🗑</button></div>`;
     el.querySelector('img').src = s.bild;
-    const [vor, drehen, weg] = el.querySelectorAll('button');
+    const [ecken, vor, dreh, weg] = el.querySelectorAll('button');
+    ecken.onclick = async () => {
+      const neu = await eckenPruefen(s.foto, s.ecken);
+      if (!neu) return;
+      s.ecken = neu;
+      await arbeit('Seite wird aufbereitet …', () => seiteRendern(s));
+      seitenZeigen();
+    };
     vor.disabled = i === 0;
     vor.onclick = () => { zustand.seiten.splice(i - 1, 0, zustand.seiten.splice(i, 1)[0]); seitenZeigen(); };
-    drehen.onclick = () => { s.drehung = (s.drehung + 1) % 4; seiteRendern(s); seitenZeigen(); };
+    dreh.onclick = async () => {
+      s.drehung = (s.drehung + 1) % 4;
+      await arbeit('Seite wird gedreht …', () => seiteRendern(s));
+      seitenZeigen();
+    };
     weg.onclick = () => { if (confirm(`Seite ${i + 1} löschen?`)) { zustand.seiten.splice(i, 1); seitenZeigen(); } };
     box.append(el);
   });
-  dateinameZeigen();
+  anzeigen();
 }
 
-// ------------------------------------------------------------------ Schritt 4: PDF bauen und ablegen
+// ------------------------------------------------------------------ PDF bauen und ablegen
 async function pdfBauen() {
   const { PDFDocument } = PDFLib;
   const doc = await PDFDocument.create();
@@ -244,7 +427,7 @@ async function pdfBauen() {
   doc.setProducer('Handy-Scan Notariat');
   for (const s of zustand.seiten) {
     const jpg = await doc.embedJpg(s.bild);
-    // Längste Seite = A4-Länge (842 pt), Seitenverhältnis wie das Foto
+    // Längste Seite = A4-Länge (842 pt), Seitenverhältnis wie das Blatt
     const f = 842 / Math.max(jpg.width, jpg.height);
     const w = jpg.width * f, h = jpg.height * f;
     doc.addPage([w, h]).drawImage(jpg, { x: 0, y: 0, width: w, height: h });
@@ -253,63 +436,49 @@ async function pdfBauen() {
 }
 
 async function ablegen() {
-  const knopf = $('ablegen');
-  knopf.disabled = true;
-  meldung($('meldung'), 'PDF wird erstellt und übertragen …');
+  if (!nummer()) { meldung($('meldung'), 'Bitte zuerst die Vorgangsnummer eingeben.', 'schlecht'); return; }
   try {
-    const pdf = await pdfBauen();
-    const q = new URLSearchParams({ nr: zustand.nr, bez: $('bez').value.trim(), ordner: zustand.gewaehlt, datei: dateiname() });
-    const d = await api('/api/ablegen?' + q, { method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body: pdf });
-    meldung($('meldung'), `✓ Abgelegt: ${d.ordner} \\ ${d.datei}`, 'gut');
+    const d = await arbeit('PDF wird erstellt und übertragen …', async () => {
+      const pdf = await pdfBauen();
+      const q = new URLSearchParams({ nr: nummer(), datei: bezeichnung() });
+      return api('/api/ablegen?' + q, { method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body: pdf });
+    });
+    meldung($('meldung'), `✓ Abgelegt: ${d.datei}`, 'gut');
     // Nächstes Dokument im selben Vorgang
     zustand.seiten = [];
     zustand.art = '';
-    zustand.gewaehlt = d.ordner;
-    zustand.ordner = [d.ordner];
     $('zusatz').value = '';
-    $('bez-feld').hidden = true;
-    $('ordner-wahl-feld').hidden = true;
-    meldung($('ordner-info'), `✓ Ablage in: ${d.ordner}`, 'gut');
     for (const x of $('arten').children) x.classList.remove('an');
     seitenZeigen();
-    window.scrollTo({ top: $('s-dokument').offsetTop - 8, behavior: 'smooth' });
   } catch (e) {
     meldung($('meldung'), 'Nicht abgelegt: ' + e.message, 'schlecht');
-  } finally {
-    dateinameZeigen();
   }
 }
 
 // ------------------------------------------------------------------ Start
 artenZeigen();
-$('nr-ok').addEventListener('click', vorgangPruefen);
-$('nr').addEventListener('keydown', e => { if (e.key === 'Enter') vorgangPruefen(); });
-$('nr').addEventListener('input', () => {
-  if ($('nr').value.trim().replace(/\D/g, '') !== zustand.nr) {
-    zustand.nr = '';
-    for (const s of ['s-dokument', 's-seiten', 's-ablegen']) $(s).hidden = true;
-    meldung($('ordner-info'), '');
-    $('bez-feld').hidden = true;
-    $('ordner-wahl-feld').hidden = true;
+$('nr').addEventListener('input', anzeigen);
+$('zusatz').addEventListener('input', () => {
+  if (zustand.art && !$('zusatz').value.startsWith(zustand.art)) {
+    zustand.art = '';
+    for (const x of $('arten').children) x.classList.remove('an');
   }
+  anzeigen();
 });
-$('ordner-wahl').addEventListener('change', e => { zustand.gewaehlt = e.target.value; });
-$('zusatz').addEventListener('input', dateinameZeigen);
 $('kamera').addEventListener('change', e => { bilderHinzu([...e.target.files]); e.target.value = ''; });
 $('galerie').addEventListener('change', e => { bilderHinzu([...e.target.files]); e.target.value = ''; });
-$('filter').addEventListener('click', e => {
+$('filter').addEventListener('click', async e => {
   const f = e.target.dataset && e.target.dataset.f;
-  if (!f) return;
+  if (!f || f === zustand.filter) return;
   zustand.filter = f;
   for (const b of $('filter').children) b.classList.toggle('an', b.dataset.f === f);
-  zustand.seiten.forEach(seiteRendern);
-  seitenZeigen();
-});
-$('zuschneiden').addEventListener('change', e => {
-  zustand.zuschneiden = e.target.checked;
-  zustand.seiten.forEach(seiteRendern);
+  await arbeit('Seiten werden aufbereitet …', async () => { for (const s of zustand.seiten) await seiteRendern(s); });
   seitenZeigen();
 });
 $('ablegen').addEventListener('click', ablegen);
+try { $('pruefen').checked = localStorage.getItem('handyscan-pruefen') !== '0'; } catch { /* egal */ }
+$('pruefen').addEventListener('change', e => { try { localStorage.setItem('handyscan-pruefen', e.target.checked ? '1' : '0'); } catch { /* egal */ } });
 window.addEventListener('beforeunload', e => { if (zustand.seiten.length) { e.preventDefault(); e.returnValue = ''; } });
-api('/api/info').then(d => { $('fuss').textContent = `Handy-Scan ${d.version} · PC ${d.rechner}`; }).catch(() => {});
+api('/api/info').then(d => { $('fuss').textContent = `Handy-Scan ${d.version} · PC ${d.rechner} · Ablage ${d.basis}`; }).catch(() => {});
+cvLaden().catch(() => meldung($('meldung'), 'Blatterkennung nicht verfügbar – Fotos werden unverändert übernommen.', 'schlecht'));
+anzeigen();
