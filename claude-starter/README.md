@@ -14,7 +14,7 @@ Betreiber der Seite, nicht an eine KI).
   Übersicht gruppiert; die Bögen-Übersicht wird ausgepackt (jeder Bogen eine Kachel), Handy-Scan bleibt
   draußen, doppelte Einträge erscheinen nur einmal. Einmal „Tools intern verbinden“ und das Passwort eingeben; danach öffnen sie ohne
   Passwort. Technik: `web/intern/` (Kopie von Anmeldung und Service Worker aus `tools/intern`) lädt die
-  verschlüsselten Dateien von GitHub Pages und entschlüsselt sie im Browser; der Schlüssel liegt nicht
+  verschlüsselten Dateien vom IONOS-Server und entschlüsselt sie im Browser; der Schlüssel liegt nicht
   exportierbar in der IndexedDB von `localhost:8766`. Grundstückswert lokal = `boegen/bewertung.html` (sonst `boegen/vorgespraech.html?nur=bewertung`).
 - **Vorgesprächsbogen klassisch / Maske** – der bisherige Bogen aus Tools intern und die neue Klick-Maske
   (https://tools.notariat-woinar.de/boegen/vorgespraech-maske.html, Login fragt Edge einmal ab). Tools intern
