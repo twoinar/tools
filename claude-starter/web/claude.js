@@ -298,7 +298,7 @@ async function anfrage(korper) {
   let r;
   try {
     r = await fetch('/api/claude', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(korper) });
-  } catch { throw new Error('Der PC antwortet nicht. Bitte das Claude-Fenster schließen und über das Desktop-Symbol neu öffnen.'); }
+  } catch { throw new Error(WEB ? 'Der Server antwortet nicht (Internet?).' : 'Der PC antwortet nicht. Bitte das Claude-Fenster schließen und über das Desktop-Symbol neu öffnen.'); }
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error((d.error && d.error.message) || d.fehler || `Fehler ${r.status}`);
   return d;
@@ -467,9 +467,14 @@ const MARKEN = { ki: '🟠 KI – geht an Claude (USA)', pc: '🟢 bleibt am PC'
 // Die internen Tools (tools/intern, verschlüsselt auf GitHub Pages) laufen hier unter /intern/app/ über
 // einen eigenen Service Worker. Der Schlüssel liegt nach einmaliger Anmeldung (/intern/) als nicht
 // exportierbarer Schlüssel in der IndexedDB dieses PCs; danach kein Passwort mehr.
-const INTERN_DATEN = 'https://twoinar.github.io/tools/intern/';
+// Als Webseite auf dem IONOS-Server (browser-api.js) liegen Tools intern unter /tools/intern/ derselben Adresse.
+const WEB = window.CLAUDE_WEB || null;
+const INTERN_DATEN = WEB ? WEB.internDaten : 'https://twoinar.github.io/tools/intern/';
+const INTERN_SW = WEB ? WEB.internSw : '/intern/sw.js';
+const INTERN_APP = WEB ? WEB.internApp : location.origin + '/intern/app/';
+const INTERN_ANMELDUNG = WEB ? WEB.internAnmeldung : location.origin + '/intern/';
 let intern = { status: 'laedt', gruppen: [], dateien: {} };
-const VORGESPRAECH_MASKE = 'https://twoinar.github.io/boegen/vorgespraech-maske.html';
+const VORGESPRAECH_MASKE = (WEB ? location.origin : 'https://twoinar.github.io') + '/boegen/vorgespraech-maske.html';
 const ORDNER_ICONS = { xnp: '📨', geldwaesche: '🔍', erbausschlagung: '⚖️', apps: '📲' };
 const BOEGEN = {
   'vorgespraech.html': { icon: '📝', titel: 'Vorgesprächsbogen klassisch' }, 'vollzug.html': { icon: '📋' }, 'erbspiegel.html': { icon: '🌳' },
@@ -493,7 +498,7 @@ async function internEntschluesseln(k, puffer) {
 }
 async function internLaden() {
   try {
-    if (navigator.serviceWorker) await navigator.serviceWorker.register('/intern/sw.js');
+    if (navigator.serviceWorker) await navigator.serviceWorker.register(INTERN_SW);
     const k = await internSchluessel();
     if (!k) { intern.status = 'anmelden'; return; }
     const holen = async pfad => { const r = await fetch(INTERN_DATEN + pfad, { cache: 'no-cache' }); if (!r.ok) throw new Error('netz'); return r.arrayBuffer(); };
@@ -507,14 +512,14 @@ async function internLaden() {
       const d = intern.dateien[pfad];
       return d ? new DOMParser().parseFromString(new TextDecoder().decode(await internEntschluesseln(k, await holen('daten/' + d.id + '.bin'))), 'text/html') : null;
     };
-    const basis = location.origin + '/intern/app/';
+    const basis = INTERN_APP, appPfad = new URL(INTERN_APP).pathname;
     const gruppen = [], gesehen = new Set();
     let akt = null;
     const kachelAus = (el, ordner) => {
       const href = el.getAttribute('href');
       if (!href || /^(https?:|mailto:|#|\/|\?)/.test(href)) return null;
       const url = new URL(href, basis + ordner);
-      if (!url.href.startsWith(basis) || url.pathname.replace(/index\.html$/, '') === '/intern/app/') return null;
+      if (!url.href.startsWith(basis) || url.pathname.replace(/index\.html$/, '') === appPfad) return null;
       const small = el.querySelector('small');
       const text = small ? small.textContent.trim() : '';
       const ohne = el.cloneNode(true);
@@ -522,7 +527,7 @@ async function internLaden() {
       const titel = ohne.textContent.replace(/\s+/g, ' ').trim();
       if (!titel) return null;
       const m = titel.match(/^(\p{Extended_Pictographic}\uFE0F?)\s*(.*)$/u);
-      return { icon: m ? m[1] : '', titel: m ? m[2] : titel, text, art: 'pc', url: url.href, pfad: url.pathname.slice('/intern/app/'.length) };
+      return { icon: m ? m[1] : '', titel: m ? m[2] : titel, text, art: 'pc', url: url.href, pfad: url.pathname.slice(appPfad.length) };
     };
     const aufnehmen = (kachel, gruppe) => {
       if (/handy/i.test(kachel.titel + ' ' + kachel.pfad)) return;
@@ -568,7 +573,7 @@ async function internLaden() {
       if (da) da.kacheln.push(...g.kacheln); else intern.gruppen.push(g);
     }
     if (intern.dateien['boegen/bewertung.html'] && !rechner) rechner = basis + 'boegen/bewertung.html';
-    if (intern.dateien['boegen/vorgespraech.html'] && !rechner) rechner = location.origin + '/intern/app/boegen/vorgespraech.html?nur=bewertung';
+    if (intern.dateien['boegen/vorgespraech.html'] && !rechner) rechner = basis + 'boegen/vorgespraech.html?nur=bewertung';
     intern.status = 'ok';
   } catch { intern.status = 'netz'; }
 }
@@ -587,14 +592,15 @@ function gruppen() {
     liste.push(...g);
   } else {
     const text = { laedt: 'wird geladen …', anmelden: 'einmal mit Passwort verbinden, danach ohne', netz: 'gerade nicht erreichbar (Internet?)' }[intern.status];
-    liste.push({ titel: 'Tools intern', kacheln: [{ icon: '🔒', titel: 'Tools intern verbinden', text, art: 'pc', url: location.origin + '/intern/', selbst: true }] });
+    liste.push({ titel: 'Tools intern', kacheln: [{ icon: '🔒', titel: 'Tools intern verbinden', text, art: 'pc', url: INTERN_ANMELDUNG, selbst: true }] });
   }
   liste.push({ titel: 'Ablage', kacheln: [
     { icon: '📥', titel: 'Download in den Vorgang', text: 'z. B. abgerufene Bilanz; oder PDF ins Fenster ziehen', art: 'pc', aktion: downloadsZeigen },
   ] });
   liste.push({ titel: 'Karten und Register', kacheln: [
     { icon: '🗺️', titel: 'BrandenburgViewer', text: 'springt zum Grundstück des Vorgangs', art: 'web', aktion: karteOeffnen },
-    { icon: '🏛️', titel: 'Registerabruf', text: 'Auszüge, Gesellschaftsvertrag, Gesellschafterliste in den Vorgang', art: 'web', aktion: () => hrOeffnen() },
+    // Registerabruf nur am PC: die Abrufgrenze des Registerportals gilt je Internetanschluss
+    ...(WEB ? [] : [{ icon: '🏛️', titel: 'Registerabruf', text: 'Auszüge, Gesellschaftsvertrag, Gesellschafterliste in den Vorgang', art: 'web', aktion: () => hrOeffnen() }]),
     { icon: '🏢', titel: 'Bilanzen und Firmendaten', text: '', art: 'web', firma: true },
     { icon: '📜', titel: 'Gesetze im Internet', text: 'Bundesrecht', art: 'web', url: 'https://www.gesetze-im-internet.de/' },
   ] });
