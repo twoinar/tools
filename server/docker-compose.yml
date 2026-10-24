@@ -1,0 +1,21 @@
+# Tools des Notariats auf dem IONOS-Server. Wird von aktualisieren.sh nach /opt/tools/konfig/ kopiert
+# und dort gestartet; Einrichtung siehe README.md in diesem Ordner.
+name: tools
+
+services:
+  tools-web:
+    image: caddy:2.10
+    restart: unless-stopped
+    env_file: .env
+    # Kein veröffentlichter Port: erreichbar nur für den Caddy der Buchhaltung über das Netz „werkzeuge“.
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../web:/srv/web:ro
+    networks:
+      - werkzeuge
+
+networks:
+  werkzeuge:
+    # Legt die Buchhaltung an (deploy/synology/mietserver.yml); hier nur mitbenutzt.
+    name: werkzeuge
+    external: true
