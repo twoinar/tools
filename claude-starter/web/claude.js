@@ -198,6 +198,14 @@ async function objektLaden(nr) {
       objekt = { adresse: S.anschrift, lat: S.lat || null, lon: S.lon || null, lage, quelle: name };
       return;
     }
+    // Vorgesprächsmaske: Grundstücke mit Datenabruf per Adresse
+    const mk = lies('WoinarMaske');
+    const g0 = mk && Array.isArray(mk.grundstuecke) ? mk.grundstuecke.find(g => g && g.anschrift) : null;
+    if (g0) {
+      const lage = [g0.gemarkung && 'Gemarkung ' + g0.gemarkung, g0.flur && 'Flur ' + (+g0.flur || g0.flur), g0.flurstueck && 'Flurstück ' + g0.flurstueck].filter(Boolean).join(', ');
+      objekt = { adresse: g0.anschrift, lat: g0.lat || null, lon: g0.lon || null, lage, quelle: name };
+      return;
+    }
     const gw = lies('WoinarGeschaeftswert');
     const pos = gw && Array.isArray(gw.pos) ? gw.pos.find(p => p.bez && /\d/.test(p.bez) && (p.art === 'grund' || p.typ === 'grund' || /stra|weg|platz|flur|gemarkung/i.test(p.bez))) : null;
     if (pos) objekt = { adresse: pos.bez, lat: null, lon: null, lage: '', quelle: name };
@@ -461,9 +469,10 @@ const MARKEN = { ki: '🟠 KI – geht an Claude (USA)', pc: '🟢 bleibt am PC'
 // exportierbarer Schlüssel in der IndexedDB dieses PCs; danach kein Passwort mehr.
 const INTERN_DATEN = 'https://twoinar.github.io/tools/intern/';
 let intern = { status: 'laedt', gruppen: [], dateien: {} };
+const VORGESPRAECH_MASKE = 'https://twoinar.github.io/boegen/vorgespraech-maske.html';
 const ORDNER_ICONS = { xnp: '📨', geldwaesche: '🔍', erbausschlagung: '⚖️', apps: '📲' };
 const BOEGEN = {
-  'vorgespraech.html': { icon: '📝' }, 'vollzug.html': { icon: '📋' }, 'erbspiegel.html': { icon: '🌳' },
+  'vorgespraech.html': { icon: '📝', titel: 'Vorgesprächsbogen klassisch' }, 'vollzug.html': { icon: '📋' }, 'erbspiegel.html': { icon: '🌳' },
   'geschaeftswert.html': { icon: '💶' }, 'bewertung.html': { icon: '🧮', titel: 'Grundstückswert lokal' }, 'kosten.html': { icon: '🧾' },
 };
 function internDb() {
@@ -546,6 +555,11 @@ async function internLaden() {
         }
       }
       aufnehmen(kachel, akt);
+    }
+    // Neue Vorgesprächsmaske (öffentliche Bögen-Seite; Ablageordner merkt sich der Browser je Adresse)
+    for (const g of gruppen) {
+      const i = g.kacheln.findIndex(k => /boegen\/vorgespraech\.html$/.test(k.pfad));
+      if (i >= 0) { g.kacheln.splice(i + 1, 0, { icon: '🧭', titel: 'Vorgesprächsbogen Maske', text: 'zum Durchklicken: Beteiligte, Sachverhalt, …', art: 'pc', url: VORGESPRAECH_MASKE, pfad: '' }); break; }
     }
     intern.gruppen = [];
     for (const g of gruppen.filter(x => x.kacheln.length)) {

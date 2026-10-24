@@ -16,7 +16,9 @@ Betreiber der Seite, nicht an eine KI).
   Passwort. Technik: `web/intern/` (Kopie von Anmeldung und Service Worker aus `tools/intern`) lädt die
   verschlüsselten Dateien von GitHub Pages und entschlüsselt sie im Browser; der Schlüssel liegt nicht
   exportierbar in der IndexedDB von `localhost:8766`. Grundstückswert lokal = `boegen/bewertung.html` (sonst `boegen/vorgespraech.html?nur=bewertung`).
-- **BrandenburgViewer** – springt zum Grundstück des Vorgangs: Koordinaten aus dem Vorgesprächsbogen
+- **Vorgesprächsbogen klassisch / Maske** – der bisherige Bogen aus Tools intern und die neue Klick-Maske
+  (https://twoinar.github.io/boegen/vorgespraech-maske.html).
+- **BrandenburgViewer** – springt zum Grundstück des Vorgangs: Koordinaten aus dem Vorgesprächsbogen (bzw. der Maske, Info-Key `WoinarMaske` → `grundstuecke`)
   (`<Nr> … Vorgespräch….pdf` im Ablageordner, eingebettete Daten der Bögen) als `marker`, sonst
   Adresssuche (`query`). Öffnet gleich mit Luftbild und Topographie, Bodenrichtwerten Bauland, Fluren und
   Flurstücken (`layerIDs=7004,586,73,149`, IDs aus der `config.json` des Viewers; diese Schreibweise von Thomas getestet).
