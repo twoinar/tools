@@ -4,7 +4,12 @@
 
 $ErrorActionPreference = 'Stop'
 $pfad = Join-Path $PSScriptRoot 'claude.json'
-$cfg = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'einstellungen.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$cfgPfad = Join-Path $PSScriptRoot 'einstellungen.json'
+if (-not (Test-Path -LiteralPath $cfgPfad)) {
+    Write-Host "Falscher Ordner: Bitte die Dateien in den Handy-Scan-Ordner kopieren (dort liegt einstellungen.json) und von dort starten." -ForegroundColor Red
+    exit 1
+}
+$cfg = Get-Content -LiteralPath $cfgPfad -Raw -Encoding UTF8 | ConvertFrom-Json
 $port = if ($cfg.Port) { [int]$cfg.Port } else { 8765 }
 
 Write-Host "Claude einrichten" -ForegroundColor Cyan
