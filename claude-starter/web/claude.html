@@ -42,8 +42,18 @@
 <main class="start" id="start">
   <button id="k-frage"><span>💬</span>Frage an Claude</button>
   <button id="k-karte"><span>🗺️</span>BrandenburgViewer</button>
-  <button id="k-wert"><span>🏠</span>Grundstückswert</button>
+  <button id="k-wert"><span>🏠</span>Grundstückswert KI</button>
+  <button id="k-rechner"><span>🧮</span>Grundstückswert lokal</button>
   <p class="hilfe" id="start-hinweis">Keine Namen der Beteiligten eingeben. Für den Grundstückswert reichen Ort und Straße.</p>
+</main>
+
+<main class="start" id="einwilligung" hidden>
+  <h2>Grundstückswert KI</h2>
+  <p class="hilfe" style="text-align:left">Die Angaben zum Objekt (Lage, Größe, Baujahr usw., keine Namen) gehen an Claude (Anthropic, Server in den USA). Vorher die Beteiligten fragen.</p>
+  <label class="haken"><input type="checkbox" id="ew-haken"> Die Beteiligten sind damit einverstanden.</label>
+  <button id="ew-weiter" class="haupt" disabled>Weiter</button>
+  <button id="ew-zurueck">Abbrechen</button>
+  <p class="hilfe">Ohne Einverständnis: „Grundstückswert lokal“ nehmen, da bleibt alles am PC.</p>
 </main>
 
 <main class="chat" id="chat" hidden>

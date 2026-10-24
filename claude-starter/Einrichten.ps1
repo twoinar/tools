@@ -33,7 +33,7 @@ if ($sec.Length -gt 0) {
 }
 
 # 2. Ablageordner: Vorgabe aus der bisherigen Einstellung, sonst aus Handy-Scan, sonst Y:\Vorgänge
-$cfg = [ordered]@{ Ablageordner = ''; Vorgangsordner = $false; NurZiffern = $true; Kartenlink = 'https://bb-viewer.geobasis-bb.de/'; Port = 8766 }
+$cfg = [ordered]@{ Ablageordner = ''; Vorgangsordner = $false; NurZiffern = $true; Kartenlink = 'https://bb-viewer.geobasis-bb.de/'; Wertrechner = 'https://twoinar.github.io/boegen/vorgespraech.html?nur=bewertung'; Port = 8766 }
 if (Test-Path -LiteralPath $cfgPfad) {
     $j = Get-Content -LiteralPath $cfgPfad -Raw -Encoding UTF8 | ConvertFrom-Json
     foreach ($k in @($cfg.Keys)) { if ($null -ne $j.$k -and "$($j.$k)" -ne '') { $cfg[$k] = $j.$k } }

@@ -12,7 +12,7 @@ $Version = '1.0'
 
 # ---------------------------------------------------------------- Einstellungen
 $cfg = [ordered]@{ Ablageordner = ''; Vorgangsordner = $false; NurZiffern = $true
-    Kartenlink = 'https://bb-viewer.geobasis-bb.de/'; Port = 8766 }
+    Kartenlink = 'https://bb-viewer.geobasis-bb.de/'; Wertrechner = 'https://twoinar.github.io/boegen/vorgespraech.html?nur=bewertung'; Port = 8766 }
 $cfgPfad = Join-Path $PSScriptRoot 'einstellungen.json'
 if (Test-Path -LiteralPath $cfgPfad) {
     $j = Get-Content -LiteralPath $cfgPfad -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -24,6 +24,7 @@ $Basis = [string]$cfg.Ablageordner
 $MitVorgangsordner = [bool]$cfg.Vorgangsordner
 $NurZiffern = [bool]$cfg.NurZiffern
 $Kartenlink = [string]$cfg.Kartenlink
+$Wertrechner = [string]$cfg.Wertrechner
 $Port = [int]$cfg.Port
 $ClaudeDatei = Join-Path $PSScriptRoot 'claude.json'
 $Web = Join-Path $PSScriptRoot 'web'
@@ -153,7 +154,7 @@ function Invoke-Info($ctx) {
 }
 
 function Invoke-ClaudeStatus($ctx) {
-    Send-Json $ctx 200 @{ ok = $true; schluessel = (Test-Path -LiteralPath $ClaudeDatei); karte = $Kartenlink; lokal = $ctx.Request.IsLocal }
+    Send-Json $ctx 200 @{ ok = $true; schluessel = (Test-Path -LiteralPath $ClaudeDatei); karte = $Kartenlink; rechner = $Wertrechner; lokal = $ctx.Request.IsLocal }
 }
 
 # Die Anfrage an Claude dauert oft eine Minute oder länger. Sie läuft deshalb in einem eigenen

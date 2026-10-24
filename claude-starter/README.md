@@ -5,7 +5,11 @@ Eigenes Fenster für Claude auf dem Büro-PC, unabhängig von Handy-Scan. Deskto
 
 - **Frage an Claude** – schlichter Chat (mit Websuche), Antworten kurz und mit Vorschriften.
 - **BrandenburgViewer** – öffnet `Kartenlink` (Vorgabe https://bb-viewer.geobasis-bb.de/).
-- **Grundstückswert** – überschlägige Wertanalyse nach ImmoWertV (wie der Skill „Wertanalyse“).
+- **Grundstückswert KI** – überschlägige Wertanalyse nach ImmoWertV (wie der Skill „Wertanalyse“).
+  Vorher bestätigen, dass die Beteiligten mit der Übermittlung an Claude einverstanden sind; die
+  Bestätigung steht mit Zeitpunkt im PDF.
+- **Grundstückswert lokal** – öffnet den Grundstückswert-Rechner aus den Bögen (`Wertrechner`, Vorgabe
+  https://twoinar.github.io/boegen/vorgespraech.html?nur=bewertung). Rechnet nur im Browser, nichts geht an Claude.
 
 „Im Vorgang ablegen“ setzt den Chat als PDF und legt ihn im Ablageordner ab:
 `<Nr> Claude <Thema>.pdf` bzw. `<Nr> Wertanalyse.pdf`. An Claude geht nur der getippte Text, die
@@ -28,5 +32,5 @@ Protokoll: `%LOCALAPPDATA%\Claude-Starter\protokoll.txt`.
   reicht die Anfrage an `api.anthropic.com/v1/messages` weiter und hängt den Schlüssel an (eigener
   Runspace, das Fenster bleibt bedienbar). `POST /api/ablegen` schreibt das PDF in den Ablageordner.
 - `claude.json` – API-Schlüssel, DPAPI-verschlüsselt (nur dieser Windows-Benutzer). Nie ins Repo.
-- `einstellungen.json` – `Ablageordner`, `Vorgangsordner`, `NurZiffern`, `Kartenlink`, `Port`.
+- `einstellungen.json` – `Ablageordner`, `Vorgangsordner`, `NurZiffern`, `Kartenlink`, `Wertrechner`, `Port`.
 - `web/` – `claude.html`, `claude.js` (Chat, Systemprompts), `aktenvermerk.js` (PDF-Satz mit pdf-lib).

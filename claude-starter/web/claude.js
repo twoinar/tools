@@ -27,7 +27,7 @@ const MODULE = {
     hinweis: 'Auskunft eines KI-Assistenten (Claude, Anthropic). Angefragt ohne Namen und Anschriften der Beteiligten. Ergebnis vor Verwendung vom Notar zu prüfen.',
   },
   wert: {
-    titel: 'Grundstückswert',
+    titel: 'Grundstückswert KI',
     platzhalter: 'Objekt beschreiben: Ort und Straße, Objektart, Grundstücksfläche, Wohnfläche, Baujahr, Modernisierungen, Zustand, Rechte (Wohnungsrecht, Nießbrauch), Anlass. Oder den Erfassungsbogen einfügen. Keine Namen.',
     aufwand: 'high',
     system: GRUND + `
@@ -52,7 +52,7 @@ Bei Anlass Geschäftswert zusätzlich auf § 46 GNotKG hinweisen. Bei Rückfrage
     datei: () => 'Wertanalyse',
     ueberschrift: 'Wertanalyse',
     betreff: () => 'Überschlägige Verkehrswertschätzung (§ 194 BauGB, ImmoWertV)',
-    hinweis: 'Erstellt mit einem KI-Assistenten (Claude, Anthropic). Diese Wertanalyse ist eine überschlägige Schätzung auf Grundlage der eingegebenen Angaben und öffentlich zugänglicher Marktdaten. Sie ist kein Verkehrswertgutachten nach § 194 BauGB und ersetzt nicht die Begutachtung durch einen Sachverständigen oder den Gutachterausschuss.',
+    hinweis: 'Erstellt mit einem KI-Assistenten (Claude, Anthropic). Einverständnis der Beteiligten zur Übermittlung der Objektangaben (ohne Namen) lag vor (bestätigt EINWILLIGUNG). Diese Wertanalyse ist eine überschlägige Schätzung auf Grundlage der eingegebenen Angaben und öffentlich zugänglicher Marktdaten. Sie ist kein Verkehrswertgutachten nach § 194 BauGB und ersetzt nicht die Begutachtung durch einen Sachverständigen oder den Gutachterausschuss.',
   },
 };
 
@@ -61,6 +61,8 @@ let nachrichten = [];   // für die API: Rollen und Inhalte genau so, wie Claude
 let runden = [];        // für Anzeige und PDF: { frage, antwort, quellen }
 let laeuft = false;
 let karte = 'https://bb-viewer.geobasis-bb.de/';
+let rechner = 'https://twoinar.github.io/boegen/vorgespraech.html?nur=bewertung';
+let einwilligung = '';   // Zeitpunkt, zu dem das Einverständnis der Beteiligten bestätigt wurde
 let nurZiffern = true;
 
 // ------------------------------------------------------------------ Anzeige
@@ -244,7 +246,7 @@ async function ablegen() {
   try {
     const pdf = await aktenvermerkPdf({
       nummer: nummer(), bezeichnung: modul.datei(thema()), ueberschrift: modul.ueberschrift,
-      betreff: modul.betreff(thema()), hinweis: modul.hinweis, abschnitte: abschnitte(),
+      betreff: modul.betreff(thema()), hinweis: modul.hinweis.replace('EINWILLIGUNG', einwilligung), abschnitte: abschnitte(),
     });
     const q = new URLSearchParams({ nr: nummer(), datei: modul.datei(thema()) });
     const r = await fetch('/api/ablegen?' + q, { method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body: pdf });
@@ -260,7 +262,18 @@ async function ablegen() {
 
 // ------------------------------------------------------------------ Start
 $('k-frage').addEventListener('click', () => starten('frage'));
-$('k-wert').addEventListener('click', () => starten('wert'));
+$('k-wert').addEventListener('click', () => {
+  $('ew-haken').checked = false; $('ew-weiter').disabled = true;
+  $('start').hidden = true; $('einwilligung').hidden = false;
+});
+$('ew-haken').addEventListener('change', () => { $('ew-weiter').disabled = !$('ew-haken').checked; });
+$('ew-zurueck').addEventListener('click', () => { $('einwilligung').hidden = true; $('start').hidden = false; });
+$('ew-weiter').addEventListener('click', () => {
+  einwilligung = new Date().toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + ' Uhr';
+  $('einwilligung').hidden = true;
+  starten('wert');
+});
+$('k-rechner').addEventListener('click', () => window.open(rechner, '_blank'));
 $('k-karte').addEventListener('click', () => window.open(karte, '_blank'));
 $('zurueck').addEventListener('click', zurueck);
 $('neu').addEventListener('click', () => { const name = modul === MODULE.wert ? 'wert' : 'frage'; if (!runden.length || confirm('Neuen Chat beginnen?')) { runden = []; starten(name); } });
@@ -272,6 +285,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('chat')
 
 fetch('/api/claude').then(r => r.json()).then(d => {
   if (d.karte) karte = d.karte;
+  if (d.rechner) rechner = d.rechner;
   if (!d.lokal) { $('start-hinweis').textContent = 'Claude geht nur an diesem PC selbst.'; $('k-frage').disabled = $('k-wert').disabled = true; }
   else if (!d.schluessel) { $('start-hinweis').textContent = 'Noch kein API-Schlüssel: einmal „Einrichten.cmd“ im Claude-Ordner starten.'; $('k-frage').disabled = $('k-wert').disabled = true; }
 }).catch(() => { $('start-hinweis').textContent = 'Claude-Server läuft nicht. Fenster schließen und das Desktop-Symbol neu anklicken.'; });
