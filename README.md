@@ -1,6 +1,6 @@
 # Tools
 
-Werkzeuge fürs Notariat, als Webseite unter https://twoinar.github.io/tools/.
+Werkzeuge fürs Notariat, als Webseite unter https://tools.notariat-woinar.de/tools/ (IONOS-Server mit Login, siehe `server/`).
 Jedes Tool liegt in einem eigenen Unterordner und läuft vollständig im Browser.
 
 ## Öffentlich (zum Teilen mit Kollegen)

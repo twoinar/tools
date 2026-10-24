@@ -1623,13 +1623,14 @@ gwPosAufbauen(); gwTeileAnzeigen();
 "use strict";
 /* =====================================================================
    Kostenberechnung im Vorgesprächsbogen
-   Der GNotKG-Kostenrechner (https://twoinar.github.io/kostenrechner/) wird als
+   Der GNotKG-Kostenrechner (https://tools.notariat-woinar.de/kostenrechner/) wird als
    Rahmen eingebunden und über die Adresse vorbelegt: #reiter?feld=wert&…
    (Feld-IDs aus seiner index.html). Mit einbetten=1 meldet er jedes Ergebnis
    per postMessage zurück; es wird gedruckt und beim Ablegen als Seite an das
    PDF angehängt und dort gespeichert („Bogen öffnen“ stellt es wieder her).
    ===================================================================== */
-const KR_URL = "https://twoinar.github.io/kostenrechner/", KR_ORIGIN = "https://twoinar.github.io", KR_SCHLUESSEL = "WoinarKostenrechner";
+// Alle Seiten liegen unter einer Adresse (tools.notariat-woinar.de); als Datei geöffnet gilt diese Adresse
+const KR_ORIGIN = location.protocol.startsWith("http") ? location.origin : "https://tools.notariat-woinar.de", KR_URL = KR_ORIGIN + "/kostenrechner/", KR_SCHLUESSEL = "WoinarKostenrechner";
 const KR_REITER = [["kauf","Kaufvertrag"],["uebertragung","Übertragung"],["scheidung","Scheidung"],["ehevertrag","Ehevertrag"],
                    ["testament","Testament / Erbvertrag"],["vollmacht","Vorsorgevollmacht"],["tabelle","Tabelle B (einzelne Gebühr)"]];
 const KR_ZU = {"Kaufvertrag":"kauf","Übertragung":"uebertragung","Scheidung":"scheidung","Ehevertrag":"ehevertrag",
@@ -1947,6 +1948,6 @@ function kostenAusPdf(doc){
   if (nur==="kosten"){ krKasten.checked = true; krKasten.dispatchEvent(new Event("change")); weg(krKasten.closest("label")); }
 })();
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.0 · Stand 23.10.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.1 · Stand 25.10.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
