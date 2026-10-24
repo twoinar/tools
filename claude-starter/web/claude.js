@@ -613,8 +613,10 @@ function startZeigen() {
 // Firmensuche: Name eintippen, Knopf öffnet das Register; der Name liegt dann in der Zwischenablage
 // (Strg+V ins Suchfeld). Geht nur an die Register-Webseite, nicht an Claude.
 const REGISTER = [
-  { name: 'Unternehmensregister', text: 'Jahresabschlüsse ab 2022', url: 'https://www.unternehmensregister.de/de/search/register-information' },
-  { name: 'Handelsregister', text: 'Registerauszüge, Dokumente', url: 'https://www.handelsregister.de/rp_web/normalesuche.xhtml' },
+  { name: 'Unternehmensregister', text: 'Jahresabschlüsse ab 2022', url: 'https://www.unternehmensregister.de/de/search/register-information', weg: 'im Suchfeld Strg+V' },
+  // Das Handelsregister lässt keinen Direktaufruf der Suche zu (Sitzung nötig, sonst „Seite nicht gefunden“),
+  // daher Startseite, dort links „Normale Suche“.
+  { name: 'Handelsregister', text: 'Registerauszüge, Dokumente', url: 'https://www.handelsregister.de/', weg: 'links „Normale Suche“, dann im Feld Firma Strg+V' },
 ];
 function firmaKachel(k) {
   const d = document.createElement('div');
@@ -633,7 +635,7 @@ function firmaKachel(k) {
       const name = feld.value.trim();
       protokoll(`${r.name}: Suche${name ? ` nach „${name}“` : ''} geöffnet`);
       if (name) {
-        try { await navigator.clipboard.writeText(name); info.textContent = `„${name}“ kopiert – im Suchfeld Strg+V.`; }
+        try { await navigator.clipboard.writeText(name); info.textContent = `„${name}“ kopiert – ${r.weg}.`; }
         catch { info.textContent = `Bitte „${name}“ im Suchfeld eintippen.`; }
       }
       window.open(r.url, '_blank', 'noopener');

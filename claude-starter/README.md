@@ -23,7 +23,8 @@ Betreiber der Seite, nicht an eine KI).
 - **Download in den Vorgang** – zeigt die neuesten PDFs aus Downloads (24 Stunden), Anklicken kopiert sie
   in den Vorgang (z. B. eine abgerufene Bilanz). Eine PDF lässt sich auch einfach ins Fenster ziehen.
 - **Bilanzen und Firmendaten** – Firmenname eintippen, Unternehmensregister oder Handelsregister öffnen;
-  der Name liegt in der Zwischenablage (Strg+V ins Suchfeld).
+  der Name liegt in der Zwischenablage (Strg+V ins Suchfeld). Das Handelsregister öffnet auf der Startseite
+  (Direktaufruf der Suche ergibt ohne Sitzung „Seite nicht gefunden“), dort „Normale Suche“.
 
 **Vorgang:** Beim ersten Klick (und nach 30 Minuten Pause) fragt das Fenster nach der Vorgangsnummer;
 oben steht der aktuelle Vorgang mit „wechseln“. Alles wird im Vorgang hinterlegt: jeder Chat als PDF
