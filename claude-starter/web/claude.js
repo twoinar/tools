@@ -1,5 +1,5 @@
 // Claude-Starter: drei Knöpfe (Frage an Claude, BrandenburgViewer, Grundstückswert) und ein schlichter
-// Chat. Die Anfrage geht über den Handy-Scan-Server (POST /api/claude, nur am PC selbst) an die
+// Chat. Die Anfrage geht über den kleinen Server Claude-Server.ps1 (POST /api/claude, nur am PC selbst) an die
 // Anthropic-API; der Server hängt den API-Schlüssel an. An Claude geht nur, was im Chat getippt wird.
 // Die Vorgangsnummer bleibt im Browser und wird nur für die Ablage (/api/ablegen) verwendet.
 'use strict';
@@ -157,7 +157,7 @@ async function anfrage(korper) {
   let r;
   try {
     r = await fetch('/api/claude', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(korper) });
-  } catch { throw new Error('Der PC antwortet nicht. Läuft Handy-Scan?'); }
+  } catch { throw new Error('Der PC antwortet nicht. Bitte das Claude-Fenster schließen und über das Desktop-Symbol neu öffnen.'); }
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error((d.error && d.error.message) || d.fehler || `Fehler ${r.status}`);
   return d;
@@ -247,7 +247,7 @@ async function ablegen() {
       betreff: modul.betreff(thema()), hinweis: modul.hinweis, abschnitte: abschnitte(),
     });
     const q = new URLSearchParams({ nr: nummer(), datei: modul.datei(thema()) });
-    const r = await fetch('/api/ablegen?' + q, { method: 'POST', headers: { 'Content-Type': 'application/pdf', 'X-Pin': (() => { try { return localStorage.getItem('handyscan-pin') || ''; } catch { return ''; } })() }, body: pdf });
+    const r = await fetch('/api/ablegen?' + q, { method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body: pdf });
     const d = await r.json().catch(() => ({}));
     if (!r.ok || d.ok === false) throw new Error(d.fehler || `Fehler ${r.status}`);
     meldung(`✓ Abgelegt: ${d.datei}`, 'gut');
@@ -272,7 +272,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('chat')
 
 fetch('/api/claude').then(r => r.json()).then(d => {
   if (d.karte) karte = d.karte;
-  if (!d.lokal) { $('start-hinweis').textContent = 'Claude geht nur am PC mit Handy-Scan.'; $('k-frage').disabled = $('k-wert').disabled = true; }
-  else if (!d.schluessel) { $('start-hinweis').textContent = 'Noch kein API-Schlüssel: einmal „Claude einrichten.cmd“ starten.'; $('k-frage').disabled = $('k-wert').disabled = true; }
-}).catch(() => { $('start-hinweis').textContent = 'Handy-Scan läuft nicht.'; });
+  if (!d.lokal) { $('start-hinweis').textContent = 'Claude geht nur an diesem PC selbst.'; $('k-frage').disabled = $('k-wert').disabled = true; }
+  else if (!d.schluessel) { $('start-hinweis').textContent = 'Noch kein API-Schlüssel: einmal „Einrichten.cmd“ im Claude-Ordner starten.'; $('k-frage').disabled = $('k-wert').disabled = true; }
+}).catch(() => { $('start-hinweis').textContent = 'Claude-Server läuft nicht. Fenster schließen und das Desktop-Symbol neu anklicken.'; });
 fetch('/api/info').then(r => r.json()).then(d => { if (d.nurZiffern === false) nurZiffern = false; }).catch(() => {});

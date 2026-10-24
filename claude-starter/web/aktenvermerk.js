@@ -100,7 +100,7 @@ async function aktenvermerkPdf({ nummer = '', bezeichnung = '', betreff = '', ue
   const name = `${nummer || '–'} ${bezeichnung}`;
   doc.setTitle(name);
   doc.setSubject(winAnsi(`${ueberschrift}: ${betreff}`));
-  doc.setProducer('Handy-Scan Notariat – Claude-Vermerk');
+  doc.setProducer('Notariat – Claude');
   const F = {
     n: await doc.embedFont(StandardFonts.Helvetica),
     f: await doc.embedFont(StandardFonts.HelveticaBold),
