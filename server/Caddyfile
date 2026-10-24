@@ -1,0 +1,55 @@
+# Tools des Notariats auf dem IONOS-Server: https://tools.notariat-woinar.de/tools/ , /boegen/ , /kostenrechner/
+# (gleiche Pfade wie bei GitHub Pages). Dieser Caddy läuft im eigenen Container ohne veröffentlichten Port;
+# den Zugang von außen und das Zertifikat übernimmt der Caddy der Buchhaltung (twoinar/buchhaltung,
+# deploy/synology/weitere/tools.caddy), der hierher weiterleitet.
+# Werte aus /opt/tools/konfig/.env: TOOLS_BENUTZER, TOOLS_PASSWORT_HASH, ANTHROPIC_API_KEY.
+{
+	admin localhost:2019
+	auto_https off
+}
+
+:80 {
+	encode gzip
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy same-origin
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+
+	# Ein Login für alle Seiten und für Claude.
+	basic_auth {
+		{$TOOLS_BENUTZER} {$TOOLS_PASSWORT_HASH}
+	}
+
+	# Claude: die Seiten rufen /api/claude/v1/messages auf. Der Schlüssel liegt nur hier auf dem Server
+	# und wird beim Weiterleiten eingesetzt; Login-Daten und Cookies gehen nicht an Anthropic.
+	handle /api/claude/v1/messages {
+		uri strip_prefix /api/claude
+		request_body {
+			max_size 30MB
+		}
+		reverse_proxy https://api.anthropic.com {
+			header_up Host api.anthropic.com
+			header_up -Authorization
+			header_up -Cookie
+			header_up -Origin
+			header_up -Referer
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Host
+			header_up -Via
+			header_up -Anthropic-Dangerous-Direct-Browser-Access
+			header_up X-Api-Key {$ANTHROPIC_API_KEY}
+			header_up Anthropic-Version 2023-06-01
+		}
+	}
+	handle /api/* {
+		respond 404
+	}
+
+	redir / /tools/ 302
+	handle {
+		root * /srv/web
+		file_server
+	}
+}
