@@ -26,7 +26,8 @@ Betreiber der Seite, nicht an eine KI).
   der Name liegt in der Zwischenablage (Strg+V ins Suchfeld). Das Handelsregister öffnet auf der Startseite
   (Direktaufruf der Suche ergibt ohne Sitzung „Seite nicht gefunden“), dort „Normale Suche“.
 
-**Vorgang:** Beim ersten Klick (und nach 30 Minuten Pause) fragt das Fenster nach der Vorgangsnummer;
+**Vorgang:** Beim ersten Klick fragt das Fenster nach der Vorgangsnummer, danach alle 30 Minuten „Noch Vorgang …?“
+(beim nächsten Klick und von selbst, solange das Fenster offen ist; nach „Abbrechen“ 5 Minuten Ruhe);
 oben steht der aktuelle Vorgang mit „wechseln“. Alles wird im Vorgang hinterlegt: jeder Chat als PDF
 `<Nr> Claude Frage <Datum Zeit>.pdf` bzw. `<Nr> Wertanalyse KI <Datum Zeit>.pdf` (nach jeder Antwort
 fortgeschrieben), jeder geöffnete Link und jede Firmensuche als Zeile in `<Nr> Claude-Fenster Protokoll.txt`.

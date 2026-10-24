@@ -171,14 +171,18 @@ async function vorgangOk() {
   const w = vorgangWeiter; vorgangWeiter = null;
   if (w) w();
 }
-// Führt aktion aus, sobald ein Vorgang feststeht (beim ersten Klick bzw. nach langer Pause fragen)
+// Führt aktion aus, sobald ein Vorgang feststeht. zuletzt = letzte Bestätigung; alle 30 Minuten wird
+// nachgefragt (Wunsch Thomas): beim nächsten Klick und, falls das Fenster offen bleibt, auch von selbst.
+const NOCH = () => `Noch Vorgang ${vorgang}? Bestätigen oder neue Nummer eintragen.`;
 function mitVorgang(aktion) {
   if (!vorgang) return vorgangFragen(aktion);
-  if (Date.now() - zuletzt > PAUSE_MIN * 60000) return vorgangFragen(aktion, `Noch Vorgang ${vorgang}? Sonst neue Nummer eintragen.`);
-  zuletzt = Date.now();
-  vorgangMerken();
+  if (Date.now() - zuletzt > PAUSE_MIN * 60000) return vorgangFragen(aktion, NOCH());
   aktion();
 }
+let ruheBis = 0;   // nach „Abbrechen“ fragt der Zeitgeber erst 5 Minuten später wieder
+setInterval(() => {
+  if (vorgang && $('vg-dialog').hidden && Date.now() > ruheBis && Date.now() - zuletzt > PAUSE_MIN * 60000) vorgangFragen(null, NOCH());
+}, 20000);
 // Anschrift und Lage aus dem Vorgesprächsbogen des Vorgangs lesen (eingebettete Daten der Bögen)
 async function objektLaden(nr) {
   try {
@@ -690,7 +694,7 @@ $('text').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKe
 $('text').addEventListener('input', knoepfe);
 $('vg-wechseln').addEventListener('click', () => vorgangFragen(null, 'Neuer Vorgang:'));
 $('vg-ok').addEventListener('click', vorgangOk);
-$('vg-abbruch').addEventListener('click', () => { $('vg-dialog').hidden = true; vorgangWeiter = null; });
+$('vg-abbruch').addEventListener('click', () => { $('vg-dialog').hidden = true; vorgangWeiter = null; ruheBis = Date.now() + 5 * 60000; });
 $('vg-eingabe').addEventListener('keydown', e => { if (e.key === 'Enter') vorgangOk(); if (e.key === 'Escape') $('vg-abbruch').click(); });
 vorgangHolen();
 vorgangZeigen();
