@@ -6,6 +6,9 @@
 # Unter /vermerk lassen sich Frage und Antwort aus Claude als Aktenvermerk-PDF ablegen.
 # Die Startseite / ist das Büro-Portal: Handbuch und Anleitungen (nur lesend aus dem
 # "Anleitungsordner", falls eingestellt), Handy-Scan (/scan), Claude-Vermerk und QR-Code fürs Handy.
+# /claude ist das Claude-Fenster (Startknöpfe, Chat, Grundstückswert). Anfragen an Claude laufen
+# über /api/claude zur Anthropic-API; der Schlüssel liegt verschlüsselt in claude.json und
+# verlässt den PC nur Richtung api.anthropic.com. Nur vom PC selbst (localhost) erlaubt.
 #
 # Start: "Handy-Scan starten.cmd" (läuft unsichtbar im Hintergrund).
 # Einmalig vorher als Administrator: "Einrichten.cmd" (Port-Freigabe, Firewall, Autostart).
@@ -15,13 +18,13 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$Version = '2.1'
+$Version = '2.2'
 
 # ---------------------------------------------------------------- Einstellungen
 $StandardArten = @('Geburtsurkunde', 'Heiratsurkunde', 'Sterbeurkunde', 'Personalausweis', 'Reisepass',
     'Erbschein', 'Testament', 'Vollmacht', 'Vertrag', 'Sonstiges')
 $cfg = [ordered]@{ Basisordner = ''; Vorgangsordner = $false; NurZiffern = $true; Dokumentarten = $StandardArten
-    Anleitungsordner = ''; Port = 8765; Pin = '' }
+    Anleitungsordner = ''; Kartenlink = 'https://bb-viewer.geobasis-bb.de/'; Port = 8765; Pin = '' }
 if (Test-Path -LiteralPath $Einstellungen) {
     $j = Get-Content -LiteralPath $Einstellungen -Raw -Encoding UTF8 | ConvertFrom-Json
     foreach ($k in @($cfg.Keys)) {
@@ -35,6 +38,8 @@ $Arten = @($cfg.Dokumentarten | ForEach-Object { "$_".Trim() } | Where-Object { 
 $Port = [int]$cfg.Port
 $Pin = [string]$cfg.Pin
 $Anleitungen = [string]$cfg.Anleitungsordner
+$Kartenlink = [string]$cfg.Kartenlink
+$ClaudeDatei = Join-Path $PSScriptRoot 'claude.json'
 # Diese Dateiarten zeigt das Portal aus dem Anleitungsordner (nur lesen)
 $AnleitungsTypen = @{
     '.pdf' = 'application/pdf'; '.mp4' = 'video/mp4'; '.png' = 'image/png'; '.jpg' = 'image/jpeg'
@@ -236,11 +241,87 @@ function Invoke-Anleitung($ctx, [string]$rel) {
     } finally { $fs.Close(); $res.OutputStream.Close() }
 }
 
+function Get-ClaudeSchluessel {
+    # API-Schlüssel aus claude.json (DPAPI, nur dieser Windows-Benutzer kann ihn lesen)
+    if (-not (Test-Path -LiteralPath $ClaudeDatei)) { return '' }
+    $j = Get-Content -LiteralPath $ClaudeDatei -Raw -Encoding UTF8 | ConvertFrom-Json
+    if (-not $j.Schluessel) { return '' }
+    $sec = $j.Schluessel | ConvertTo-SecureString
+    return (New-Object System.Management.Automation.PSCredential 'x', $sec).GetNetworkCredential().Password
+}
+
+function Invoke-ClaudeStatus($ctx) {
+    Send-Json $ctx 200 @{ ok = $true; schluessel = (Test-Path -LiteralPath $ClaudeDatei); karte = $Kartenlink; lokal = $ctx.Request.IsLocal }
+}
+
+# Die Anfrage an Claude dauert oft eine Minute oder länger. Sie läuft deshalb in einem eigenen
+# Runspace, damit Handy-Scan und Portal in der Zeit weiter antworten.
+$ClaudeBlock = {
+    param($ctx, [string]$schluessel, [string]$log)
+    function Senden([int]$status, [byte[]]$daten) {
+        $res = $ctx.Response
+        $res.StatusCode = $status
+        $res.ContentType = 'application/json; charset=utf-8'
+        $res.Headers['Cache-Control'] = 'no-store'
+        $res.ContentLength64 = $daten.Length
+        $res.OutputStream.Write($daten, 0, $daten.Length)
+        $res.OutputStream.Close()
+    }
+    try {
+        $ms = New-Object System.IO.MemoryStream
+        $ctx.Request.InputStream.CopyTo($ms)
+        $koerper = $ms.ToArray()
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $r = [Net.HttpWebRequest]::Create('https://api.anthropic.com/v1/messages')
+        $r.Method = 'POST'
+        $r.ContentType = 'application/json'
+        $r.Headers['x-api-key'] = $schluessel
+        $r.Headers['anthropic-version'] = '2026-10-21'
+        $r.Headers['anthropic-beta'] = 'server-side-fallback-2026-07-01'
+        $r.Timeout = 600000
+        $r.ReadWriteTimeout = 600000
+        $r.ContentLength = $koerper.Length
+        $s = $r.GetRequestStream(); $s.Write($koerper, 0, $koerper.Length); $s.Close()
+        try { $antwort = $r.GetResponse() }
+        catch [Net.WebException] {
+            if (-not $_.Exception.Response) { throw }
+            $antwort = $_.Exception.Response
+        }
+        $aus = New-Object System.IO.MemoryStream
+        $antwort.GetResponseStream().CopyTo($aus)
+        $status = [int]$antwort.StatusCode
+        $antwort.Close()
+        Add-Content -LiteralPath $log -Encoding UTF8 -Value ("{0:yyyy-MM-dd HH:mm:ss}  Claude-Anfrage {1:N0} KB, Antwort {2}" -f (Get-Date), ($koerper.Length / 1KB), $status)
+        Senden $status $aus.ToArray()
+    } catch {
+        Add-Content -LiteralPath $log -Encoding UTF8 -Value ("{0:yyyy-MM-dd HH:mm:ss}  Claude-Fehler: {1}" -f (Get-Date), $_.Exception.Message)
+        $json = '{"ok":false,"fehler":' + ('Anthropic nicht erreichbar: ' + $_.Exception.Message | ConvertTo-Json) + '}'
+        try { Senden 502 ([Text.Encoding]::UTF8.GetBytes($json)) } catch { }
+    }
+}
+$ClaudePool = [runspacefactory]::CreateRunspacePool(1, 3)
+$ClaudePool.Open()
+$ClaudeLaeufe = New-Object System.Collections.ArrayList
+
+function Invoke-Claude($ctx) {
+    # Reicht die Anfrage der Seite unverändert an die Anthropic-API weiter (nur vom PC selbst)
+    if (-not $ctx.Request.IsLocal) { Send-Json $ctx 403 @{ ok = $false; fehler = 'Claude nur am PC selbst.' }; return }
+    $schluessel = Get-ClaudeSchluessel
+    if ($schluessel -eq '') { Send-Json $ctx 400 @{ ok = $false; fehler = 'Kein API-Schlüssel. Einmal „Claude einrichten.cmd“ starten.' }; return }
+    # Fertige Läufe aufräumen
+    foreach ($l in @($ClaudeLaeufe)) { if ($l.Handle.IsCompleted) { $l.PS.Dispose(); [void]$ClaudeLaeufe.Remove($l) } }
+    $ps = [powershell]::Create()
+    $ps.RunspacePool = $ClaudePool
+    [void]$ps.AddScript($ClaudeBlock).AddArgument($ctx).AddArgument($schluessel).AddArgument($Log)
+    [void]$ClaudeLaeufe.Add([pscustomobject]@{ PS = $ps; Handle = $ps.BeginInvoke() })
+}
+
 function Invoke-Datei($ctx, [string]$pfad) {
     if ($pfad -eq '/' -or $pfad -eq '') { $pfad = '/portal.html' }
     if ($pfad -eq '/scan') { $pfad = '/index.html' }
     if ($pfad -eq '/start') { $pfad = '/start.html' }
     if ($pfad -eq '/vermerk') { $pfad = '/vermerk.html' }
+    if ($pfad -eq '/claude') { $pfad = '/claude.html' }
     $name = $pfad.TrimStart('/')
     # Nur einfache Dateinamen direkt im web-Ordner
     if ($name -notmatch '^[A-Za-z0-9._-]+$' -or $name.Contains('..')) { Send-Json $ctx 404 @{ ok = $false }; return }
@@ -273,6 +354,8 @@ while ($listener.IsListening) {
         if ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/info') { Invoke-Info $ctx }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/ablegen') { Invoke-Ablegen $ctx $q }
         elseif ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/anleitungen') { Invoke-AnleitungsListe $ctx }
+        elseif ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/claude') { Invoke-ClaudeStatus $ctx }
+        elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/claude') { Invoke-Claude $ctx }
         elseif ($req.HttpMethod -eq 'GET' -and $pfad.StartsWith('/anleitung/')) { Invoke-Anleitung $ctx $req.RawUrl.Split([char]0x3F)[0].Substring(11) }
         elseif ($req.HttpMethod -eq 'GET') { Invoke-Datei $ctx $pfad }
         else { Send-Json $ctx 405 @{ ok = $false } }

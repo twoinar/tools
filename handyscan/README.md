@@ -80,6 +80,23 @@ Markdown von Claude: Überschriften, Fett/Kursiv, Listen, Tabellen) und über `/
 abgelegt. Die Vorgangsnummer geht nur an den Büro-PC, nie an Claude. An Claude nur ohne Namen
 und Anschriften fragen (§ 26a BNotO). Verknüpfung für den Desktop: `Claude-Vermerk ablegen.url`.
 
+## Claude (Desktop-Symbol)
+
+`Claude einrichten.cmd` einmal am PC starten: fragt den Anthropic-API-Schlüssel ab, prüft ihn,
+speichert ihn verschlüsselt in `claude.json` (DPAPI, nur dieser Windows-Benutzer; nie ins Repo),
+legt das Desktop-Symbol „Claude“ an (Edge im App-Fenster auf `http://localhost:8765/claude`) und
+startet den Server neu. Die Seite zeigt drei Knöpfe:
+
+- **Frage an Claude** – schlichter Chat (mit Websuche).
+- **BrandenburgViewer** – öffnet `Kartenlink` aus `einstellungen.json` (Vorgabe bb-viewer.geobasis-bb.de).
+- **Grundstückswert** – überschlägige Wertanalyse nach ImmoWertV (wie der Skill „Wertanalyse“).
+
+„Im Vorgang ablegen“ setzt den Chat als PDF (`<Nr> Claude <Thema>.pdf` bzw. `<Nr> Wertanalyse.pdf`,
+wie beim Claude-Vermerk) und legt es über `/api/ablegen` ab. An Claude geht nur der getippte Text;
+die Vorgangsnummer bleibt am PC. Der Server reicht die Anfrage nur vom PC selbst (`IsLocal`) an
+`api.anthropic.com` weiter und hängt dabei den Schlüssel an; die Anfrage läuft in einem eigenen
+Runspace, Handy-Scan antwortet währenddessen weiter.
+
 ## Einrichten (einmalig, am Büro-PC)
 
 1. Ordner z. B. nach `C:\Users\<Name>\Documents\Handy-Scan` kopieren.
@@ -95,6 +112,7 @@ und Anschriften fragen (§ 26a BNotO). Verknüpfung für den Desktop: `Claude-Ve
 
 - `Handy-Scan-Server.ps1` – Server (`/api/ablegen`, `/api/info`, Seiten aus `web/`)
 - `web/` – Handy-Seite (`index.html`, `app.js`), Einrichtungsseite `start.html` mit QR-Code,
-  Claude-Vermerk (`vermerk.html`, `vermerk.js`);
+  Claude-Vermerk (`vermerk.html`, `vermerk.js`), Claude-Starter (`claude.html`, `claude.js`),
+  Aktenvermerk-PDF (`aktenvermerk.js`);
   `pdf-lib.min.js`, `opencv.js`, `qrcode.js` (qrcode-generator 1.4.4) lokal mitgeliefert
 - `einstellungen.json` – Basisordner, Port, PIN
