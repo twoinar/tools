@@ -71,6 +71,8 @@ QUELLE="$WEB/tools/server"
 [ -f "$QUELLE/docker-compose.yml" ] || { melde "server/ fehlt im Stand von twoinar/tools"; exit 1; }
 neu_compose=0; neu_caddy=0
 cmp -s "$QUELLE/docker-compose.yml" "$KONFIG/docker-compose.yml" || neu_compose=1
+# Fehlte die Datei beim ersten Start, hat Docker an ihrer Stelle einen leeren Ordner angelegt
+[ -d "$KONFIG/Caddyfile" ] && rmdir "$KONFIG/Caddyfile" 2>/dev/null
 cmp -s "$QUELLE/Caddyfile" "$KONFIG/Caddyfile" || neu_caddy=1
 # Sich selbst ersetzen über eine neue Datei (mv), damit der laufende Aufruf nicht gestört wird
 if ! cmp -s "$QUELLE/aktualisieren.sh" "$BASIS/aktualisieren.sh"; then
@@ -78,16 +80,20 @@ if ! cmp -s "$QUELLE/aktualisieren.sh" "$BASIS/aktualisieren.sh"; then
 fi
 
 if [ $neu_caddy = 1 ]; then
-    # Erst prüfen, dann übernehmen: eine fehlerhafte Datei ersetzt nie die laufende
-    if "$DOCKER" run --rm --env-file "$KONFIG/.env" -v "$QUELLE/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.10 \
+    # Erst prüfen, dann übernehmen: eine fehlerhafte Datei ersetzt nie die laufende.
+    # docker run --env-file nimmt Anführungszeichen wörtlich (Compose nicht), daher ohne sie prüfen.
+    sed "s/^\([A-Z_]*\)='\(.*\)'\$/\1=\2/" "$KONFIG/.env" > "$BASIS/pruef.env" && chmod 600 "$BASIS/pruef.env"
+    if "$DOCKER" run --rm --env-file "$BASIS/pruef.env" -v "$QUELLE/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.10 \
             caddy validate --config /etc/caddy/Caddyfile >> "$PROTOKOLL" 2>&1; then
         cp "$QUELLE/Caddyfile" "$KONFIG/Caddyfile"
     else
         melde "Caddyfile ungültig, alte Einstellungen bleiben"; neu_caddy=0
     fi
 fi
+rm -f "$BASIS/pruef.env"
 [ $neu_compose = 1 ] && cp "$QUELLE/docker-compose.yml" "$KONFIG/docker-compose.yml"
 
+[ -f "$KONFIG/Caddyfile" ] || { melde "Noch kein gültiges Caddyfile, Container nicht gestartet (siehe $PROTOKOLL)"; exit 1; }
 cd "$KONFIG" || exit 1
 if [ $neu_compose = 1 ] || [ "${1:-}" = "--jetzt" ] || [ -z "$("$DOCKER" compose ps -q tools-web 2>/dev/null)" ]; then
     "$DOCKER" compose up -d --force-recreate >> "$PROTOKOLL" 2>&1 && melde "Container tools-web gestartet" \
