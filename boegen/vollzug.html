@@ -660,7 +660,8 @@ function artAnwenden(nachfragen){
 let artVorher = "kauf";
 
 /* ---------- Geschäftswert (Testament, Vorsorgevollmacht): von Hand oder über das Geschäftswert-Modul ---------- */
-const GW_MODUL = (location.hostname.endsWith("github.io") ? "vorgespraech.html" : "https://twoinar.github.io/tools/boegen/vorgespraech.html") + "?nur=geschaeftswert&geg=";
+const KR_BASIS = location.protocol.startsWith("http") ? location.origin : "https://tools.notariat-woinar.de";
+const GW_MODUL = (location.protocol.startsWith("http") ? "vorgespraech.html" : "https://tools.notariat-woinar.de/tools/boegen/vorgespraech.html") + "?nur=geschaeftswert&geg=";
 const gwDialog = document.getElementById("gwDialog"), gwFrame = document.getElementById("gwFrame");
 let gwWert = null;
 const gwFmt = n => n.toLocaleString("de-DE",{maximumFractionDigits:2});
@@ -668,7 +669,7 @@ document.getElementById("btnGw").onclick = ()=>{
   const g = ARTEN[art()].gw; if (!g) return;
   gwWert = null; gwListe = []; gwWahl = 0; document.getElementById("gwOk").disabled = true; document.getElementById("gwErg").textContent = "Noch kein Geschäftswert berechnet.";
   const kr = ARTEN[art()].kr;   // Geschäftswert direkt aus dem GNotKG-Rechner (Reiter ohne eigenes Ermittlungsmodul)
-  if (gwFrame.dataset.geg !== g){ gwFrame.src = kr ? "https://twoinar.github.io/kostenrechner/#" + kr + "?einbetten=1" : GW_MODUL + encodeURIComponent(g); gwFrame.dataset.geg = g; }
+  if (gwFrame.dataset.geg !== g){ gwFrame.src = kr ? KR_BASIS + "/kostenrechner/#" + kr + "?einbetten=1" : GW_MODUL + encodeURIComponent(g); gwFrame.dataset.geg = g; }
   gwDialog.showModal();
 };
 document.getElementById("gwAbbrechen").onclick = ()=>gwDialog.close();
@@ -1418,6 +1419,6 @@ window.addEventListener("beforeprint", textfelderAnpassen);
 document.addEventListener("input", e=>{ if (e.target.matches('textarea[data-f="sonstiges_vollzug_text"]')){ e.target.style.height="auto"; e.target.style.height=(e.target.scrollHeight+2)+"px"; } });
 document.getElementById("btnDrucken").onclick = ()=>{ textfelderAnpassen(); window.print(); };
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.0 · Stand 23.10.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.1 · Stand 25.10.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>

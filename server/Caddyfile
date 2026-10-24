@@ -17,8 +17,13 @@
 		-Server
 	}
 
-	# Ein Login für alle Seiten und für Claude.
-	basic_auth {
+	# Ein Login für alle Seiten und für Claude. Ausgenommen sind nur die verschlüsselten Dateien von Tools intern
+	# (ohne Passwort unlesbar, lagen vorher öffentlich auf GitHub Pages): die holt auch das Claude-Fenster am PC
+	# (http://localhost:8766), das den Login nicht mitschicken kann.
+	@verschluesselt path /tools/intern/daten/* /tools/intern/schluessel.json
+	header @verschluesselt Access-Control-Allow-Origin *
+	@geschuetzt not path /tools/intern/daten/* /tools/intern/schluessel.json
+	basic_auth @geschuetzt {
 		{$TOOLS_BENUTZER} {$TOOLS_PASSWORT_HASH}
 	}
 
