@@ -20,6 +20,15 @@ Betreiber der Seite, nicht an eine KI).
   (`<Nr> … Vorgespräch….pdf` im Ablageordner, eingebettete Daten der Bögen) als `marker`, sonst
   Adresssuche (`query`). Öffnet gleich mit Luftbild und Topographie, Bodenrichtwerten Bauland, Fluren und
   Flurstücken (`layerIDs=7004,586,73,149`, IDs aus der `config.json` des Viewers; diese Schreibweise von Thomas getestet).
+- **Registerabruf** – Firma (und ggf. Registernummer) eingeben, ankreuzen was gebraucht wird: aktueller,
+  historischer, chronologischer Abdruck, neuester Gesellschaftsvertrag, neueste Gesellschafterliste. Das
+  Fenster füllt die Formulare des Registerportals selbst aus (`web/register.js`, JSF mit ViewState, Ablauf
+  nach bundesAPI/handelsregister und lexdoudkin/handelsregister-mcp); `POST /api/hr/http` reicht die Anfragen
+  nur an `Registerportal` (Einstellung, Vorgabe https://www.handelsregister.de) weiter und hält die Sitzung,
+  `POST /api/hr/ablegen` legt die Dateien im Vorgang ab. Mehrere Treffer: Auswahl im Fenster. Suchen und
+  Dokumentabrufe werden gezählt (`%LOCALAPPDATA%\Claude-Starter\register-abrufe.json`), ab 50 je Stunde
+  gesperrt (Nutzungsordnung: höchstens 60). Die zuletzt geladene Seite liegt zur Fehlersuche in
+  `%LOCALAPPDATA%\Claude-Starter\register\letzte-seite.html`. Keine KI beteiligt.
 - **Download in den Vorgang** – zeigt die neuesten PDFs aus Downloads (24 Stunden), Anklicken kopiert sie
   in den Vorgang (z. B. eine abgerufene Bilanz). Eine PDF lässt sich auch einfach ins Fenster ziehen.
 - **Bilanzen und Firmendaten** – Firmenname eintippen, Unternehmensregister oder Handelsregister öffnen;

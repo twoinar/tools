@@ -66,6 +66,14 @@
   #dl-liste { display: grid; gap: 6px; margin: 8px 0; max-height: 50vh; overflow: auto; }
   #dl-liste button { text-align: left; }
   #dl-liste small { display: block; opacity: .7; }
+  .vg-box.hr-box { width: min(520px, 92vw); max-height: 92vh; overflow: auto; }
+  .hr-arten { display: grid; gap: 0; margin: 8px 0; }
+  #hr-treffer { display: grid; gap: 6px; margin: 8px 0; max-height: 40vh; overflow: auto; }
+  #hr-treffer button { text-align: left; }
+  #hr-treffer small { display: block; opacity: .7; }
+  #hr-log { margin: 8px 0; padding-left: 20px; max-height: 30vh; overflow: auto; }
+  #hr-log li.gut { color: #2e7d32; }
+  #hr-log li.schlecht { color: #c62828; }
   #ablegen-ziel { position: fixed; inset: 10px; border: 3px dashed #2e7d32; border-radius: 12px; background: rgba(46,125,50,.12);
     display: flex; align-items: center; justify-content: center; font-size: 1.3em; z-index: 50; pointer-events: none; }
   #ablegen-ziel[hidden] { display: none; }
@@ -127,6 +135,25 @@
   </div>
 </div>
 
+<div class="vg-dialog" id="hr-dialog" hidden>
+  <div class="vg-box hr-box">
+    <p>🏛️ Registerabruf (Handelsregister)</p>
+    <label>Firma<input id="hr-firma" autocomplete="off" placeholder="z. B. Muster Bau GmbH"></label>
+    <label>Registernummer (falls bekannt)<input id="hr-nummer" autocomplete="off" placeholder="z. B. HRB 12345 FF"></label>
+    <div class="hr-arten">
+      <label class="haken"><input type="checkbox" id="hr-AD" checked> Aktueller Abdruck</label>
+      <label class="haken"><input type="checkbox" id="hr-HD" checked> Historischer Abdruck</label>
+      <label class="haken"><input type="checkbox" id="hr-CD" checked> Chronologischer Abdruck</label>
+      <label class="haken"><input type="checkbox" id="hr-GV" checked> Gesellschaftsvertrag (neuester)</label>
+      <label class="haken"><input type="checkbox" id="hr-GL" checked> Gesellschafterliste (neueste)</label>
+    </div>
+    <p class="hilfe">Holt die Dokumente vom Registerportal (kostenfrei, nicht KI) und legt sie im Vorgang ab. Höchstens 60 Abrufe je Stunde erlaubt.</p>
+    <div id="hr-treffer"></div>
+    <ol id="hr-log"></ol>
+    <div class="zeile"><button id="hr-los" class="haupt">Abrufen</button><button id="hr-zu">Schließen</button></div>
+  </div>
+</div>
+
 <div id="ablegen-ziel" hidden>📥 Loslassen: PDF wird im Vorgang abgelegt</div>
 
 <main class="chat" id="chat" hidden>
@@ -142,5 +169,6 @@
 <script src="pdf-lib.min.js"></script>
 <script src="aktenvermerk.js"></script>
 <script src="claude.js"></script>
+<script src="register.js"></script>
 </body>
 </html>

@@ -8,11 +8,12 @@
 # Start: Desktop-Symbol „Claude“ (Claude-Starten.ps1). Einmalig vorher: „Einrichten.cmd“.
 
 $ErrorActionPreference = 'Stop'
-$Version = '1.5'
+$Version = '1.6'
 
 # ---------------------------------------------------------------- Einstellungen
 $cfg = [ordered]@{ Ablageordner = ''; Vorgangsordner = $false; NurZiffern = $true
-    Kartenlink = 'https://bb-viewer.geobasis-bb.de/'; Wertrechner = ''; Port = 8766 }
+    Kartenlink = 'https://bb-viewer.geobasis-bb.de/'; Wertrechner = ''; Port = 8766
+    Registerportal = 'https://www.handelsregister.de' }
 $cfgPfad = Join-Path $PSScriptRoot 'einstellungen.json'
 if (Test-Path -LiteralPath $cfgPfad) {
     $j = Get-Content -LiteralPath $cfgPfad -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -26,6 +27,7 @@ $NurZiffern = [bool]$cfg.NurZiffern
 $Kartenlink = [string]$cfg.Kartenlink
 $Wertrechner = [string]$cfg.Wertrechner
 $Port = [int]$cfg.Port
+$Registerportal = ([string]$cfg.Registerportal).TrimEnd('/')
 $ClaudeDatei = Join-Path $PSScriptRoot 'claude.json'
 $Web = Join-Path $PSScriptRoot 'web'
 $MaxBytes = 30MB
@@ -194,6 +196,129 @@ function Invoke-DownloadAblegen($ctx, $q) {
     Send-Json $ctx 200 @{ ok = $true; datei = $anzeige }
 }
 
+# ---------------------------------------------------------------- Registerabruf (handelsregister.de)
+# Das Fenster führt die Formulare des Registerportals selbst aus (JSF: ViewState, Sitzung); der Server
+# reicht nur die Anfragen an das Registerportal weiter, hält die Sitzungs-Cookies und speichert
+# Dateien zwischen. Andere Adressen werden nicht angefragt. Nutzungsordnung: höchstens 60 Suchen oder
+# Aufrufe von Rechtsträgern je Stunde – gezählt werden Suchen und Dokumentabrufe, Grenze hier 50.
+$HrOrdner = Join-Path $LogOrdner 'register'
+$HrZaehler = Join-Path $LogOrdner 'register-abrufe.json'
+$HrGrenze = 50
+$script:HrCookies = New-Object System.Net.CookieContainer
+
+function Get-HrAbrufe {
+    $jetzt = [DateTime]::UtcNow
+    $liste = @()
+    if (Test-Path -LiteralPath $HrZaehler) {
+        try { $liste = @((Get-Content -LiteralPath $HrZaehler -Raw | ConvertFrom-Json) | ForEach-Object { if ($_ -is [DateTime]) { $_.ToUniversalTime() } else { [DateTime]::Parse([string]$_, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind).ToUniversalTime() } }) } catch { $liste = @() }
+    }
+    return @($liste | Where-Object { ($jetzt - $_).TotalMinutes -lt 60 })
+}
+
+function Invoke-HrNeu($ctx) {
+    # Neue Sitzung (Cookies leeren), alte Zwischendateien entfernen
+    if (-not $ctx.Request.IsLocal) { Send-Json $ctx 403 @{ ok = $false }; return }
+    $script:HrCookies = New-Object System.Net.CookieContainer
+    New-Item -ItemType Directory -Force -Path $HrOrdner | Out-Null
+    Get-ChildItem -LiteralPath $HrOrdner -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-1) } | Remove-Item -Force -ErrorAction SilentlyContinue
+    Send-Json $ctx 200 @{ ok = $true; abrufe = @(Get-HrAbrufe).Count; grenze = $HrGrenze }
+}
+
+function Invoke-HrHttp($ctx, $q) {
+    # Eine Anfrage an das Registerportal. Body (application/x-www-form-urlencoded) wird unverändert
+    # weitergegeben; ohne Body GET. zaehlt=1: Suche oder Dokumentabruf (Stundengrenze).
+    if (-not $ctx.Request.IsLocal) { Send-Json $ctx 403 @{ ok = $false; fehler = 'Nur am PC selbst.' }; return }
+    $url = [string]$q['url']
+    if (-not ($url -eq $Registerportal -or $url.StartsWith($Registerportal + '/'))) {
+        Send-Json $ctx 400 @{ ok = $false; fehler = 'Nur das Registerportal ist erlaubt.' }; return
+    }
+    if ($q['zaehlt'] -eq '1') {
+        $liste = @(Get-HrAbrufe)
+        if ($liste.Count -ge $HrGrenze) {
+            $frei = [int][Math]::Ceiling(60 - ([DateTime]::UtcNow - ($liste | Sort-Object | Select-Object -First 1)).TotalMinutes)
+            Send-Json $ctx 429 @{ ok = $false; fehler = "Stundengrenze des Registerportals erreicht ($HrGrenze Abrufe). Wieder möglich in etwa $frei Minuten." }; return
+        }
+        $liste += [DateTime]::UtcNow
+        ConvertTo-Json @($liste | ForEach-Object { $_.ToString('o') }) | Set-Content -LiteralPath $HrZaehler -Encoding UTF8
+    }
+    $body = (New-Object IO.StreamReader($ctx.Request.InputStream, [Text.Encoding]::UTF8)).ReadToEnd()
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $r = [Net.HttpWebRequest]::Create($url)
+        $r.CookieContainer = $script:HrCookies
+        $r.UserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36 Edg/130.0'
+        $r.Accept = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        $r.Headers['Accept-Language'] = 'de-DE,de;q=0.9'
+        $r.AutomaticDecompression = [Net.DecompressionMethods]::GZip -bor [Net.DecompressionMethods]::Deflate
+        $r.Timeout = 90000
+        $r.AllowAutoRedirect = $true
+        if ($q['referer']) { $r.Referer = [string]$q['referer'] }
+        if ($body -ne '') {
+            $r.Method = 'POST'
+            $r.ContentType = 'application/x-www-form-urlencoded; charset=UTF-8'
+            if ($q['ajax'] -eq '1') { $r.Headers['Faces-Request'] = 'partial/ajax'; $r.Headers['X-Requested-With'] = 'XMLHttpRequest' }
+            $b = [Text.Encoding]::UTF8.GetBytes($body)
+            $r.ContentLength = $b.Length
+            $st = $r.GetRequestStream(); $st.Write($b, 0, $b.Length); $st.Close()
+        }
+        try { $resp = $r.GetResponse() } catch [Net.WebException] { if ($_.Exception.Response) { $resp = $_.Exception.Response } else { throw } }
+        $ms = New-Object IO.MemoryStream
+        $resp.GetResponseStream().CopyTo($ms)
+        $daten = $ms.ToArray()
+        $typ = [string]$resp.ContentType
+        $disp = [string]$resp.Headers['Content-Disposition']
+        $antwort = @{ ok = $true; status = [int]$resp.StatusCode; url = $resp.ResponseUri.AbsoluteUri; typ = $typ; disposition = $disp }
+        $resp.Close()
+        $istPdf = $daten.Length -ge 5 -and [Text.Encoding]::ASCII.GetString($daten, 0, 5) -eq '%PDF-'
+        if (-not $istPdf -and $disp -notmatch 'attachment' -and $typ -match 'html|xml|text') {
+            $antwort.text = [Text.Encoding]::UTF8.GetString($daten)
+            # letzte Seite aufheben: hilft bei der Fehlersuche, wenn das Portal seine Seiten ändert
+            New-Item -ItemType Directory -Force -Path $HrOrdner | Out-Null
+            [IO.File]::WriteAllBytes((Join-Path $HrOrdner 'letzte-seite.html'), $daten)
+        } else {
+            # Datei zwischenspeichern; das Fenster legt sie danach im Vorgang ab
+            $endung = '.bin'
+            if ($istPdf) { $endung = '.pdf' }
+            elseif ($disp -match 'filename\*?=(?:UTF-8.{2})?"?([^";]+)') { $e = [IO.Path]::GetExtension($Matches[1]).ToLower(); if ($e -match '^\.[a-z0-9]{2,5}$') { $endung = $e } }
+            elseif ($typ -match 'zip') { $endung = '.zip' } elseif ($typ -match 'tif') { $endung = '.tif' }
+            New-Item -ItemType Directory -Force -Path $HrOrdner | Out-Null
+            $id = [guid]::NewGuid().ToString('N') + $endung
+            [IO.File]::WriteAllBytes((Join-Path $HrOrdner $id), $daten)
+            $antwort.datei = $id
+            $antwort.groesse = $daten.Length
+        }
+        Protokoll ("Register {0} {1}  {2:N0} KB" -f $(if ($body -ne '') { 'POST' } else { 'GET' }), $url, ($daten.Length / 1KB))
+        Send-Json $ctx 200 $antwort
+    } catch {
+        Protokoll "Register Fehler: $($_.Exception.Message)"
+        Send-Json $ctx 502 @{ ok = $false; fehler = 'Registerportal nicht erreichbar: ' + $_.Exception.Message }
+    }
+}
+
+function Invoke-HrAblegen($ctx, $q) {
+    # Zwischengespeicherte Datei aus dem Registerabruf in den Vorgang verschieben
+    if (-not $ctx.Request.IsLocal) { Send-Json $ctx 403 @{ ok = $false }; return }
+    $nr = Get-Nummer $q['nr']
+    if (-not $nr) { Send-Json $ctx 400 @{ ok = $false; fehler = 'Vorgangsnummer fehlt oder ist ungültig.' }; return }
+    $id = [string]$q['id']
+    if ($id -notmatch '^[0-9a-f]{32}\.[a-z0-9]{2,5}$') { Send-Json $ctx 400 @{ ok = $false; fehler = 'Ungültige Datei.' }; return }
+    $quelle = Join-Path $HrOrdner $id
+    if (-not (Test-Path -LiteralPath $quelle)) { Send-Json $ctx 404 @{ ok = $false; fehler = 'Datei nicht mehr da.' }; return }
+    if ($Basis -eq '' -or -not (Test-Path -LiteralPath $Basis)) { Send-Json $ctx 500 @{ ok = $false; fehler = 'Ablageordner nicht erreichbar.' }; return }
+    $bez = Get-Sauber $q['name'] 150
+    if ($bez -eq '') { $bez = 'Registerabruf' }
+    $endung = [IO.Path]::GetExtension($id)
+    if ($MitVorgangsordner) { $ordner = Get-Vorgangsordner $nr; $datei = $bez }
+    else { $ordner = $Basis; $datei = "$nr $bez" }
+    $pfad = Join-Path $ordner "$datei$endung"
+    $i = 2
+    while (Test-Path -LiteralPath $pfad) { $pfad = Join-Path $ordner "$datei ($i)$endung"; $i++ }
+    Move-Item -LiteralPath $quelle -Destination $pfad
+    $anzeige = if ($MitVorgangsordner) { (Split-Path $ordner -Leaf) + '\' + (Split-Path $pfad -Leaf) } else { Split-Path $pfad -Leaf }
+    Protokoll ("Registerabruf abgelegt  V{0}  {1}" -f $nr, $anzeige)
+    Send-Json $ctx 200 @{ ok = $true; datei = $anzeige }
+}
+
 function Invoke-Protokoll($ctx, $q) {
     # Eine Zeile an "<Nummer> Claude-Fenster Protokoll.txt" im Vorgang anhängen (was im Fenster geöffnet wurde)
     $nr = Get-Nummer $q['nr']
@@ -230,7 +355,7 @@ function Invoke-Vorgespraech($ctx, $q) {
 
 function Invoke-Info($ctx) {
     Send-Json $ctx 200 @{ ok = $true; version = $Version; rechner = $env:COMPUTERNAME; basis = $Basis
-        basisOk = ($Basis -ne '' -and (Test-Path -LiteralPath $Basis)); nurZiffern = $NurZiffern }
+        basisOk = ($Basis -ne '' -and (Test-Path -LiteralPath $Basis)); nurZiffern = $NurZiffern; registerportal = $Registerportal }
 }
 
 function Invoke-ClaudeStatus($ctx) {
@@ -333,6 +458,9 @@ while ($listener.IsListening) {
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/ablegen') { Invoke-Ablegen $ctx (Get-Query $req) }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/protokoll') { Invoke-Protokoll $ctx (Get-Query $req) }
         elseif ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/downloads') { Invoke-Downloads $ctx }
+        elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/hr/neu') { Invoke-HrNeu $ctx }
+        elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/hr/http') { Invoke-HrHttp $ctx (Get-Query $req) }
+        elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/hr/ablegen') { Invoke-HrAblegen $ctx (Get-Query $req) }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/download-ablegen') { Invoke-DownloadAblegen $ctx (Get-Query $req) }
         elseif ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/vorgespraech') { Invoke-Vorgespraech $ctx (Get-Query $req) }
         elseif ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/claude') { Invoke-ClaudeStatus $ctx }
