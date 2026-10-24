@@ -26,6 +26,9 @@
 	# und wird beim Weiterleiten eingesetzt; Login-Daten und Cookies gehen nicht an Anthropic.
 	handle /api/claude/v1/messages {
 		uri strip_prefix /api/claude
+		# Version und Beta-Funktionen bestimmt die Seite; fehlt die Version, gilt diese
+		@ohneVersion not header Anthropic-Version *
+		request_header @ohneVersion Anthropic-Version 2023-06-01
 		request_body {
 			max_size 30MB
 		}
@@ -40,7 +43,6 @@
 			header_up -Via
 			header_up -Anthropic-Dangerous-Direct-Browser-Access
 			header_up X-Api-Key {$ANTHROPIC_API_KEY}
-			header_up Anthropic-Version 2023-06-01
 		}
 	}
 	handle /api/* {
