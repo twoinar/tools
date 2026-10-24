@@ -50,6 +50,9 @@
 	}
 
 	redir / /tools/ 302
+	# Kurze Adresse für das Claude-Fenster
+	redir /claude /tools/claude-starter/web/claude.html 302
+	redir /claude/ /tools/claude-starter/web/claude.html 302
 	handle {
 		root * /srv/web
 		file_server
