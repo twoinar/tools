@@ -532,6 +532,7 @@ async function internLaden() {
       gesehen.add('p:' + pfad + new URL(kachel.url).search); gesehen.add('t:' + name);
       const bogen = BOEGEN[pfad.split('/').pop()];
       if (/^boegen\//.test(pfad) && bogen) { if (bogen.titel) kachel.titel = bogen.titel; if (!kachel.icon) kachel.icon = bogen.icon; }
+      if (/^boegen\/vorgespraech\.html$/.test(pfad)) kachel.mitNr = true;
       if (!kachel.icon) kachel.icon = ORDNER_ICONS[pfad.split('/')[0]] || '🧰';
       gruppe.kacheln.push(kachel);
     };
@@ -559,7 +560,7 @@ async function internLaden() {
     // Neue Vorgesprächsmaske (öffentliche Bögen-Seite; Ablageordner merkt sich der Browser je Adresse)
     for (const g of gruppen) {
       const i = g.kacheln.findIndex(k => /boegen\/vorgespraech\.html$/.test(k.pfad));
-      if (i >= 0) { g.kacheln.splice(i + 1, 0, { icon: '🧭', titel: 'Vorgesprächsbogen Maske', text: 'zum Durchklicken: Beteiligte, Sachverhalt, …', art: 'pc', url: VORGESPRAECH_MASKE, pfad: '' }); break; }
+      if (i >= 0) { g.kacheln.splice(i + 1, 0, { icon: '🧭', titel: 'Vorgesprächsbogen Maske', text: 'zum Durchklicken: Beteiligte, Sachverhalt, …', art: 'pc', url: VORGESPRAECH_MASKE, pfad: '', mitNr: true }); break; }
     }
     intern.gruppen = [];
     for (const g of gruppen.filter(x => x.kacheln.length)) {
@@ -622,7 +623,12 @@ function startZeigen() {
       t.querySelector('.marke').textContent = MARKEN[k.art];
       t.querySelector('.marke').classList.add(k.art);
       if (k.selbst) t.addEventListener('click', () => { location.href = k.url; });
-      else if (k.url) t.addEventListener('click', () => mitVorgang(() => { protokoll(`${k.titel} geöffnet`); window.open(k.url, '_blank', 'noopener'); }));
+      else if (k.url) t.addEventListener('click', () => mitVorgang(() => {
+        protokoll(`${k.titel} geöffnet`);
+        // Vorgesprächsbögen übernehmen die Vorgangsnummer aus #vorgang= (Hash geht nicht an den Server)
+        const ziel = k.mitNr ? k.url.split('#')[0] + '#vorgang=' + encodeURIComponent(vorgang) : k.url;
+        window.open(ziel, '_blank', 'noopener');
+      }));
       else { t.addEventListener('click', () => mitVorgang(k.aktion)); if (k.ki && kiAus) { t.disabled = true; t.title = kiAus; } }
       el.querySelector('.kacheln').append(t);
     }
