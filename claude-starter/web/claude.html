@@ -94,23 +94,23 @@
 
 <main class="formular" id="wertform" hidden>
   <div class="kopf"><button id="wf-zurueck" title="Zurück">←</button><b>Grundstückswert KI</b></div>
-  <p class="hilfe">Nur die Adresse ist Pflicht. Alles andere eintragen, wenn bekannt; den Rest sucht Claude selbst und fragt nach, was fehlt. Keine Namen.</p>
-  <label>Adresse des Objekts *<input id="wf-adresse" autocomplete="off" placeholder="Straße Hausnummer, PLZ Ort"></label>
-  <div class="raster">
-    <label>Objektart<select id="wf-art"><option value="">– Claude ermittelt –</option><option>Einfamilienhaus</option><option>Zweifamilienhaus</option><option>Doppelhaushälfte / Reihenhaus</option><option>Eigentumswohnung</option><option>Mehrfamilienhaus</option><option>Wohn- und Geschäftshaus</option><option>Unbebautes Grundstück</option><option>Land- und Forstwirtschaft</option><option>Sonstiges</option></select></label>
-    <label>Stichtag<input id="wf-stichtag" type="date"></label>
-    <label>Grundstücksfläche m²<input id="wf-flaeche" inputmode="decimal"></label>
-    <label>Wohnfläche m²<input id="wf-wohnflaeche" inputmode="decimal"></label>
-    <label>Baujahr<input id="wf-baujahr" inputmode="numeric"></label>
-    <label>Jahresnettokaltmiete €<input id="wf-miete" inputmode="decimal" placeholder="falls vermietet"></label>
-    <label>Bodenrichtwert €/m²<input id="wf-brw" inputmode="decimal" placeholder="sonst sucht Claude"></label>
-    <label>Anteil<input id="wf-anteil" placeholder="z. B. 1/2, sonst ganz"></label>
-  </div>
-  <label>Modernisierungen und Zustand<textarea id="wf-zustand" rows="2" placeholder="z. B. Dach 2015, Heizung 2020, Fenster original; Keller feucht"></textarea></label>
-  <label>Rechte und Lasten<textarea id="wf-rechte" rows="2" placeholder="z. B. Wohnungsrecht für Berechtigte, 78 Jahre, weiblich; Wegerecht"></textarea></label>
-  <label>Sonstiges<textarea id="wf-sonst" rows="2"></textarea></label>
+  <label>Adresse des Objekts<input id="wf-adresse" autocomplete="off" placeholder="Straße Hausnummer, PLZ Ort"></label>
+  <p class="hilfe" id="wf-quelle"></p>
+  <details><summary class="hilfe">Weitere Angaben (nur wenn schon bekannt)</summary>
+    <textarea id="wf-sonst" rows="3" placeholder="z. B. Einfamilienhaus, Baujahr 1995, 140 m² Wohnfläche, Wohnungsrecht 78 J. w."></textarea>
+  </details>
+  <p class="hilfe">Den Rest sucht Claude selbst und fragt nach, was fehlt. Keine Namen.</p>
   <button id="wf-los" class="haupt gross" disabled>Bewertung starten</button>
 </main>
+
+<div class="vg-dialog" id="karte-dialog" hidden>
+  <div class="vg-box">
+    <p>🗺️ BrandenburgViewer</p>
+    <label>Adresse<input id="kd-adresse" autocomplete="off" placeholder="Straße Hausnummer, Ort"></label>
+    <p class="hilfe" id="kd-quelle"></p>
+    <div class="zeile"><button id="kd-ok" class="haupt">Im Viewer zeigen</button><button id="kd-leer">Ohne Adresse</button><button id="kd-abbruch">Abbrechen</button></div>
+  </div>
+</div>
 
 <main class="chat" id="chat" hidden>
   <div class="kopf"><button id="zurueck" title="Zurück">←</button><b id="titel"></b><button id="neu">Neu</button></div>

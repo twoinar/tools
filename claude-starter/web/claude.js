@@ -130,11 +130,18 @@ function antwortHtml(r) {
 // Zeile im Protokoll. Die Nummer bleibt am PC. Nach einer längeren Pause fragt das Fenster nach.
 const PAUSE_MIN = 30;
 let vorgang = '';
+// Grundstück des Vorgangs: aus dem Vorgesprächsbogen (falls abgelegt) oder hier eingegeben
+let objekt = { adresse: '', lat: null, lon: null, lage: '', quelle: '' };
 let zuletzt = 0;
 function nummerSauber(roh) {
   roh = (roh || '').trim();
   if (nurZiffern) return roh.replace(/\D/g, '').replace(/^0+/, '');
   return roh.replace(/\//g, '-').replace(/[^\p{L}\d .\-_]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 40);
+}
+// Letzten Vorgang merken, damit er nach dem Schließen des Fensters wieder oben steht
+function vorgangMerken() { try { localStorage.setItem('claude-vorgang', JSON.stringify({ nr: vorgang, zeit: zuletzt })); } catch { /* egal */ } }
+function vorgangHolen() {
+  try { const v = JSON.parse(localStorage.getItem('claude-vorgang') || 'null'); if (v && v.nr) { vorgang = v.nr; zuletzt = v.zeit || 0; } } catch { /* egal */ }
 }
 function vorgangZeigen() {
   $('vg-nr').textContent = vorgang || '–';
@@ -149,15 +156,18 @@ function vorgangFragen(weiter, grund) {
   $('vg-eingabe').focus();
   $('vg-eingabe').select();
 }
-function vorgangOk() {
+async function vorgangOk() {
   const nr = nummerSauber($('vg-eingabe').value);
   if (!nr) { $('vg-eingabe').focus(); return; }
   const neu = nr !== vorgang;
   if (neu && runden.length) { runden = []; nachrichten = []; zeige('start'); }
   vorgang = nr;
   zuletzt = Date.now();
+  if (neu || !objekt.adresse) { objekt = { adresse: '', lat: null, lon: null, lage: '', quelle: '' }; objektGeladen = objektLaden(nr); }
+  vorgangMerken();
   $('vg-dialog').hidden = true;
   vorgangZeigen();
+  await objektGeladen;
   const w = vorgangWeiter; vorgangWeiter = null;
   if (w) w();
 }
@@ -166,8 +176,70 @@ function mitVorgang(aktion) {
   if (!vorgang) return vorgangFragen(aktion);
   if (Date.now() - zuletzt > PAUSE_MIN * 60000) return vorgangFragen(aktion, `Noch Vorgang ${vorgang}? Sonst neue Nummer eintragen.`);
   zuletzt = Date.now();
+  vorgangMerken();
   aktion();
 }
+// Anschrift und Lage aus dem Vorgesprächsbogen des Vorgangs lesen (eingebettete Daten der Bögen)
+async function objektLaden(nr) {
+  try {
+    const r = await fetch('/api/vorgespraech?' + new URLSearchParams({ nr }));
+    if (!r.ok || nr !== vorgang) return;
+    const name = decodeURIComponent(r.headers.get('X-Datei') || '');
+    const doc = await PDFLib.PDFDocument.load(await r.arrayBuffer(), { updateMetadata: false });
+    const lies = k => { try { const roh = doc.getInfoDict().lookup(PDFLib.PDFName.of(k)); return roh && roh.decodeText ? JSON.parse(roh.decodeText()) : null; } catch { return null; } };
+    const bb = lies('WoinarBedarfsbewertung');
+    const S = bb ? (bb.S || (bb.objekte && bb.objekte[0]) || null) : null;
+    if (S && S.anschrift) {
+      const lage = [S.gemarkung && 'Gemarkung ' + S.gemarkung, S.flur && 'Flur ' + (+S.flur), S.flurstueck && 'Flurstück ' + S.flurstueck].filter(Boolean).join(', ');
+      objekt = { adresse: S.anschrift, lat: S.lat || null, lon: S.lon || null, lage, quelle: name };
+      return;
+    }
+    const gw = lies('WoinarGeschaeftswert');
+    const pos = gw && Array.isArray(gw.pos) ? gw.pos.find(p => p.bez && /\d/.test(p.bez) && (p.art === 'grund' || p.typ === 'grund' || /stra|weg|platz|flur|gemarkung/i.test(p.bez))) : null;
+    if (pos) objekt = { adresse: pos.bez, lat: null, lon: null, lage: '', quelle: name };
+  } catch { /* kein Bogen oder nicht lesbar: Adresse wird eingegeben */ }
+}
+function objektQuelle() {
+  if (!objekt.adresse) return '';
+  return (objekt.quelle ? `Aus dem Vorgesprächsbogen (${objekt.quelle})` : 'Im Fenster eingegeben') + (objekt.lage ? ` · ${objekt.lage}` : '');
+}
+function objektAdresse(neu) {
+  neu = (neu || '').trim();
+  if (neu && neu !== objekt.adresse) objekt = { adresse: neu, lat: null, lon: null, lage: '', quelle: '' };
+}
+
+// BrandenburgViewer: zur Adresse springen (mit Koordinaten aus dem Bogen genau aufs Grundstück)
+async function karteOeffnen() {
+  await objektGeladen;
+  $('kd-adresse').value = objekt.adresse;
+  $('kd-quelle').textContent = objektQuelle();
+  $('karte-dialog').hidden = false;
+  $('kd-adresse').focus();
+}
+function karteZeigen(mitAdresse) {
+  $('karte-dialog').hidden = true;
+  let url = karte;
+  if (mitAdresse) {
+    objektAdresse($('kd-adresse').value);
+    const p = new URLSearchParams();
+    if (objekt.lat && objekt.lon) {
+      p.set('marker', `${objekt.lon},${objekt.lat}`);
+      p.set('projection', 'EPSG:4326');
+    } else if (objekt.adresse) {
+      // Adresssuche des Viewers: „Straße,Hausnummer“; der Ort hilft bei gleichen Straßennamen
+      const m = objekt.adresse.match(/^(.*?)\s+(\d+\s*[a-zA-Z]?)\s*(?:,\s*(?:\d{5}\s+)?(.*))?$/);
+      p.set('query', m ? `${m[1]},${m[2].replace(/\s+/g, '')}${m[3] ? ' ' + m[3] : ''}` : objekt.adresse);
+    }
+    if ([...p].length) url += (url.includes('?') ? '&' : '?') + p;
+  }
+  protokoll(`BrandenburgViewer geöffnet${mitAdresse && objekt.adresse ? ` (${objekt.adresse})` : ''}`);
+  window.open(url, '_blank', 'noopener');
+}
+$('kd-ok').addEventListener('click', () => karteZeigen(true));
+$('kd-leer').addEventListener('click', () => karteZeigen(false));
+$('kd-abbruch').addEventListener('click', () => { $('karte-dialog').hidden = true; });
+$('kd-adresse').addEventListener('keydown', e => { if (e.key === 'Enter') karteZeigen(true); if (e.key === 'Escape') $('kd-abbruch').click(); });
+
 function protokoll(text) {
   if (!vorgang) return;
   fetch('/api/protokoll?' + new URLSearchParams({ nr: vorgang }), { method: 'POST', headers: { 'Content-Type': 'text/plain; charset=utf-8' }, body: text })
@@ -337,8 +409,7 @@ function gruppen() {
       { icon: '🔒', titel: 'Tools intern', text: 'mit Passwort', art: 'pc', url: t + 'intern/' },
     ] },
     { titel: 'Karten und Register', kacheln: [
-      { icon: '🗺️', titel: 'BrandenburgViewer', text: 'Karten, Luftbilder, Flurstücke', art: 'web', url: karte },
-      { icon: '📍', titel: 'BORIS Brandenburg', text: 'Bodenrichtwerte', art: 'web', url: 'https://www.boris-brandenburg.de/' },
+      { icon: '🗺️', titel: 'BrandenburgViewer', text: 'springt zum Grundstück des Vorgangs', art: 'web', aktion: karteOeffnen },
       { icon: '🏢', titel: 'Bilanzen und Firmendaten', text: '', art: 'web', firma: true },
       { icon: '📜', titel: 'Gesetze im Internet', text: 'Bundesrecht', art: 'web', url: 'https://www.gesetze-im-internet.de/' },
     ] },
@@ -415,28 +486,27 @@ function wertKi() {
 }
 $('ew-haken').addEventListener('change', () => { $('ew-weiter').disabled = !$('ew-haken').checked; });
 $('ew-zurueck').addEventListener('click', () => zeige('start'));
-$('ew-weiter').addEventListener('click', () => {
+$('ew-weiter').addEventListener('click', async () => {
+  await objektGeladen;
   einwilligung = new Date().toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) + ' Uhr';
-  for (const el of $('wertform').querySelectorAll('input, select, textarea')) el.value = '';
-  $('wf-stichtag').value = new Date().toISOString().slice(0, 10);
-  $('wf-los').disabled = true;
+  $('wf-adresse').value = objekt.adresse;
+  $('wf-quelle').textContent = objektQuelle();
+  $('wf-sonst').value = '';
+  $('wf-los').disabled = !objekt.adresse;
   zeige('wertform');
   $('wf-adresse').focus();
 });
 $('wf-zurueck').addEventListener('click', () => zeige('start'));
 $('wf-adresse').addEventListener('input', () => { $('wf-los').disabled = !$('wf-adresse').value.trim(); });
+$('wf-adresse').addEventListener('keydown', e => { if (e.key === 'Enter' && !$('wf-los').disabled) $('wf-los').click(); });
 $('wf-los').addEventListener('click', () => {
-  const felder = [['Adresse', 'wf-adresse'], ['Objektart', 'wf-art'], ['Wertermittlungsstichtag', 'wf-stichtag'],
-    ['Grundstücksfläche (m²)', 'wf-flaeche'], ['Wohnfläche (m²)', 'wf-wohnflaeche'], ['Baujahr', 'wf-baujahr'],
-    ['Jahresnettokaltmiete (€)', 'wf-miete'], ['Bodenrichtwert (€/m²)', 'wf-brw'], ['Zu bewertender Anteil', 'wf-anteil'],
-    ['Modernisierungen und Zustand', 'wf-zustand'], ['Rechte und Lasten', 'wf-rechte'], ['Sonstiges', 'wf-sonst']];
-  const zeilen = felder.map(([n, id]) => {
-    let v = $(id).value.trim();
-    if (id === 'wf-stichtag' && v) v = v.split('-').reverse().join('.');
-    return `${n}: ${v || '(unbekannt – bitte recherchieren oder nachfragen)'}`;
-  });
+  objektAdresse($('wf-adresse').value);
+  const zeilen = [`Adresse: ${objekt.adresse}`];
+  if (objekt.lage) zeilen.push(`Lage laut Vorgesprächsbogen: ${objekt.lage}`);
+  zeilen.push(`Wertermittlungsstichtag: ${new Date().toLocaleDateString('de-DE')}`);
+  if ($('wf-sonst').value.trim()) zeilen.push(`Bekannt: ${$('wf-sonst').value.trim()}`);
   starten('wert');
-  protokoll(`Grundstückswert KI gestartet (Einverständnis der Beteiligten bestätigt ${einwilligung})`);
+  protokoll(`Grundstückswert KI gestartet für ${objekt.adresse} (Einverständnis der Beteiligten bestätigt ${einwilligung})`);
   $('text').value = 'Bitte bewerten:\n' + zeilen.join('\n');
   senden();
 });
@@ -454,7 +524,9 @@ $('vg-wechseln').addEventListener('click', () => vorgangFragen(null, 'Neuer Vorg
 $('vg-ok').addEventListener('click', vorgangOk);
 $('vg-abbruch').addEventListener('click', () => { $('vg-dialog').hidden = true; vorgangWeiter = null; });
 $('vg-eingabe').addEventListener('keydown', e => { if (e.key === 'Enter') vorgangOk(); if (e.key === 'Escape') $('vg-abbruch').click(); });
+vorgangHolen();
 vorgangZeigen();
+let objektGeladen = vorgang ? objektLaden(vorgang) : Promise.resolve();
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('vg-dialog').hidden && !$('chat').hidden && !laeuft) zurueck(); });
 
 fetch('/api/claude').then(r => r.json()).then(d => {

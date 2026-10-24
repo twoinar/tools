@@ -167,6 +167,25 @@ function Invoke-Protokoll($ctx, $q) {
     Send-Json $ctx 200 @{ ok = $true }
 }
 
+function Invoke-Vorgespraech($ctx, $q) {
+    # Neuesten Vorgesprächsbogen des Vorgangs ("<Nr> … Vorgespräch….pdf") an die Seite geben. Die Seite liest
+    # daraus Anschrift und Lage des Grundstücks (eingebettete Daten). Nur am PC selbst.
+    if (-not $ctx.Request.IsLocal) { Send-Json $ctx 403 @{ ok = $false }; return }
+    $nr = Get-Nummer $q['nr']
+    if (-not $nr -or $Basis -eq '' -or -not (Test-Path -LiteralPath $Basis)) { Send-Json $ctx 404 @{ ok = $false }; return }
+    $orte = @($Basis)
+    $vo = @(Get-ChildItem -LiteralPath $Basis -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq $nr -or $_.Name.StartsWith("$nr ") })
+    $orte += @($vo | ForEach-Object { $_.FullName })
+    $muster = '^0*' + [regex]::Escape($nr) + '\b.*Vorgespr.*\.pdf$'
+    $datei = @(foreach ($o in $orte) { Get-ChildItem -LiteralPath $o -File -Filter '*.pdf' -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match $muster -or ($o -ne $Basis -and $_.Name -match 'Vorgespr') } }) |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if (-not $datei) { Send-Json $ctx 404 @{ ok = $false; fehler = 'Kein Vorgesprächsbogen im Vorgang.' }; return }
+    $res = $ctx.Response
+    $res.Headers['X-Datei'] = [Uri]::EscapeDataString($datei.Name)
+    Send-Antwort $ctx 200 'application/pdf' ([IO.File]::ReadAllBytes($datei.FullName))
+}
+
 function Invoke-Info($ctx) {
     Send-Json $ctx 200 @{ ok = $true; version = $Version; rechner = $env:COMPUTERNAME; basis = $Basis
         basisOk = ($Basis -ne '' -and (Test-Path -LiteralPath $Basis)); nurZiffern = $NurZiffern }
@@ -269,6 +288,7 @@ while ($listener.IsListening) {
         if ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/info') { Invoke-Info $ctx }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/ablegen') { Invoke-Ablegen $ctx (Get-Query $req) }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/protokoll') { Invoke-Protokoll $ctx (Get-Query $req) }
+        elseif ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/vorgespraech') { Invoke-Vorgespraech $ctx (Get-Query $req) }
         elseif ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/claude') { Invoke-ClaudeStatus $ctx }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/claude') { Invoke-Claude $ctx }
         elseif ($req.HttpMethod -eq 'GET') { Invoke-Datei $ctx $pfad }
