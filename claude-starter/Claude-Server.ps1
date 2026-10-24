@@ -12,7 +12,8 @@ $Version = '1.0'
 
 # ---------------------------------------------------------------- Einstellungen
 $cfg = [ordered]@{ Ablageordner = ''; Vorgangsordner = $false; NurZiffern = $true
-    Kartenlink = 'https://bb-viewer.geobasis-bb.de/'; Wertrechner = 'https://twoinar.github.io/boegen/vorgespraech.html?nur=bewertung'; Port = 8766 }
+    Kartenlink = 'https://bb-viewer.geobasis-bb.de/'; Wertrechner = 'https://twoinar.github.io/boegen/vorgespraech.html?nur=bewertung'; Port = 8766
+    Links = $null }   # optional: { boegen, tools, kosten, portal } als andere Adressen
 $cfgPfad = Join-Path $PSScriptRoot 'einstellungen.json'
 if (Test-Path -LiteralPath $cfgPfad) {
     $j = Get-Content -LiteralPath $cfgPfad -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -139,13 +140,31 @@ function Invoke-Ablegen($ctx, $q) {
     if ($MitVorgangsordner) { $ordner = Get-Vorgangsordner $nr; $datei = $bez }
     else { $ordner = $Basis; $datei = "$nr $bez" }
     $pfad = Join-Path $ordner "$datei.pdf"
-    $i = 2
-    while (Test-Path -LiteralPath $pfad) { $pfad = Join-Path $ordner "$datei ($i).pdf"; $i++ }
+    # ersetzen=1: derselbe Chat wird nach jeder Antwort neu gespeichert (gleicher Name, überschreiben)
+    if ($q['ersetzen'] -ne '1') {
+        $i = 2
+        while (Test-Path -LiteralPath $pfad) { $pfad = Join-Path $ordner "$datei ($i).pdf"; $i++ }
+    }
     [IO.File]::WriteAllBytes($pfad, $daten)
 
     $anzeige = if ($MitVorgangsordner) { (Split-Path $ordner -Leaf) + '\' + (Split-Path $pfad -Leaf) } else { Split-Path $pfad -Leaf }
     Protokoll ("abgelegt  V{0}  {1:N0} KB  {2}" -f $nr, ($daten.Length / 1KB), $anzeige)
     Send-Json $ctx 200 @{ ok = $true; datei = $anzeige }
+}
+
+function Invoke-Protokoll($ctx, $q) {
+    # Eine Zeile an "<Nummer> Claude-Fenster Protokoll.txt" im Vorgang anhängen (was im Fenster geöffnet wurde)
+    $nr = Get-Nummer $q['nr']
+    if (-not $nr) { Send-Json $ctx 400 @{ ok = $false; fehler = 'Vorgangsnummer fehlt oder ist ungültig.' }; return }
+    if ($ctx.Request.ContentLength64 -gt 4KB) { Send-Json $ctx 413 @{ ok = $false; fehler = 'Zu lang.' }; return }
+    $text = (New-Object IO.StreamReader($ctx.Request.InputStream, [Text.Encoding]::UTF8)).ReadToEnd()
+    $text = ($text -replace '[\x00-\x1F]', ' ').Trim()
+    if ($text -eq '') { Send-Json $ctx 400 @{ ok = $false; fehler = 'Leer.' }; return }
+    if ($Basis -eq '' -or -not (Test-Path -LiteralPath $Basis)) { Send-Json $ctx 500 @{ ok = $false; fehler = 'Ablageordner nicht erreichbar.' }; return }
+    if ($MitVorgangsordner) { $pfad = Join-Path (Get-Vorgangsordner $nr) 'Claude-Fenster Protokoll.txt' }
+    else { $pfad = Join-Path $Basis "$nr Claude-Fenster Protokoll.txt" }
+    Add-Content -LiteralPath $pfad -Encoding UTF8 -Value ("{0:dd.MM.yyyy HH:mm}  {1}" -f (Get-Date), $text)
+    Send-Json $ctx 200 @{ ok = $true }
 }
 
 function Invoke-Info($ctx) {
@@ -154,7 +173,7 @@ function Invoke-Info($ctx) {
 }
 
 function Invoke-ClaudeStatus($ctx) {
-    Send-Json $ctx 200 @{ ok = $true; schluessel = (Test-Path -LiteralPath $ClaudeDatei); karte = $Kartenlink; rechner = $Wertrechner; lokal = $ctx.Request.IsLocal }
+    Send-Json $ctx 200 @{ ok = $true; schluessel = (Test-Path -LiteralPath $ClaudeDatei); karte = $Kartenlink; rechner = $Wertrechner; links = $cfg.Links; lokal = $ctx.Request.IsLocal }
 }
 
 # Die Anfrage an Claude dauert oft eine Minute oder länger. Sie läuft deshalb in einem eigenen
@@ -249,6 +268,7 @@ while ($listener.IsListening) {
         $pfad = $req.Url.AbsolutePath
         if ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/info') { Invoke-Info $ctx }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/ablegen') { Invoke-Ablegen $ctx (Get-Query $req) }
+        elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/protokoll') { Invoke-Protokoll $ctx (Get-Query $req) }
         elseif ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/claude') { Invoke-ClaudeStatus $ctx }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/claude') { Invoke-Claude $ctx }
         elseif ($req.HttpMethod -eq 'GET') { Invoke-Datei $ctx $pfad }
