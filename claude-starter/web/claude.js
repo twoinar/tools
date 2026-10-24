@@ -224,7 +224,7 @@ function karteZeigen(mitAdresse) {
   const p = new URLSearchParams();
   if (/bb-viewer\.geobasis-bb\.de/.test(karte)) {
     // Ebenen gleich einschalten: Luftbild mit Topographie, Bodenrichtwerte Bauland (halb durchsichtig), Fluren, Flurstücke
-    p.set('Map/layerIds', BB_EBENEN.map(e => e[0]).join(','));
+    p.set('layerIDs', BB_EBENEN.map(e => e[0]).join(','));
     p.set('visibility', BB_EBENEN.map(() => 'true').join(','));
     p.set('transparency', BB_EBENEN.map(e => e[1]).join(','));
   }
@@ -233,14 +233,14 @@ function karteZeigen(mitAdresse) {
     if (objekt.lat && objekt.lon) {
       p.set('marker', `${objekt.lon},${objekt.lat}`);
       p.set('projection', 'EPSG:4326');
-      p.set('Map/zoomLevel', '11');   // 1:2.500, Flurstücke sind ab 1:5.000 sichtbar
+      p.set('zoomLevel', '11');   // 1:2.500, Flurstücke sind ab 1:5.000 sichtbar
     } else if (objekt.adresse) {
       // Adresssuche des Viewers: „Straße,Hausnummer“; der Ort hilft bei gleichen Straßennamen
       const m = objekt.adresse.match(/^(.*?)\s+(\d+\s*[a-zA-Z]?)\s*(?:,\s*(?:\d{5}\s+)?(.*))?$/);
       p.set('query', m ? `${m[1]},${m[2].replace(/\s+/g, '')}${m[3] ? ' ' + m[3] : ''}` : objekt.adresse);
     }
   }
-  // Schlüssel wie „Map/layerIds“ nicht kodieren, sonst erkennt der Viewer sie nicht
+  // Kommas in den Werten nicht kodieren (layerIDs=7004,586,…), so wie der Viewer sie erwartet
   const teile = [...p].map(([k, v]) => k + '=' + encodeURIComponent(v).replace(/%2C/g, ','));
   if (teile.length) url += (url.includes('?') ? '&' : '?') + teile.join('&');
   protokoll(`BrandenburgViewer geöffnet${mitAdresse && objekt.adresse ? ` (${objekt.adresse})` : ''}`);

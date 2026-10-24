@@ -19,7 +19,7 @@ Betreiber der Seite, nicht an eine KI).
 - **BrandenburgViewer** – springt zum Grundstück des Vorgangs: Koordinaten aus dem Vorgesprächsbogen
   (`<Nr> … Vorgespräch….pdf` im Ablageordner, eingebettete Daten der Bögen) als `marker`, sonst
   Adresssuche (`query`). Öffnet gleich mit Luftbild und Topographie, Bodenrichtwerten Bauland, Fluren und
-  Flurstücken (`Map/layerIds=7004,586,73,149`, IDs aus der `config.json` des Viewers).
+  Flurstücken (`layerIDs=7004,586,73,149`, IDs aus der `config.json` des Viewers; diese Schreibweise von Thomas getestet).
 - **Download in den Vorgang** – zeigt die neuesten PDFs aus Downloads (24 Stunden), Anklicken kopiert sie
   in den Vorgang (z. B. eine abgerufene Bilanz). Eine PDF lässt sich auch einfach ins Fenster ziehen.
 - **Bilanzen und Firmendaten** – Firmenname eintippen, Unternehmensregister oder Handelsregister öffnen;
