@@ -10,9 +10,9 @@ Betreiber der Seite, nicht an eine KI).
 - **Grundstückswert KI** – erst Einverständnis der Beteiligten bestätigen, dann Formular (Pflicht nur
   die Adresse). Claude recherchiert, fragt fehlende Angaben nach und gibt Verkehrswert nach Sach- und
   Ertragswertverfahren (ImmoWertV) und den Bedarfswert für die Schenkungsteuer (§§ 176 ff. BewG) aus.
-- **Grundstückswert lokal**, Bögen, Kostenrechner, XNP, Geldwäsche, Büro-Portal, Handy-Scan,
+- **Grundstückswert lokal**, Bögen, Kostenrechner, XNP, Geldwäsche,
   Tools intern, BrandenburgViewer, BORIS, Gesetze im Internet – Links.
-- **Bilanzen und Firmendaten** – Firmenname eintippen, Unternehmensregister oder Bundesanzeiger öffnen;
+- **Bilanzen und Firmendaten** – Firmenname eintippen, Unternehmensregister oder Handelsregister öffnen;
   der Name liegt in der Zwischenablage (Strg+V ins Suchfeld).
 
 **Vorgang:** Beim ersten Klick (und nach 30 Minuten Pause) fragt das Fenster nach der Vorgangsnummer;

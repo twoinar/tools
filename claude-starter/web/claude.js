@@ -334,8 +334,6 @@ function gruppen() {
       { icon: '🔍', titel: 'Geldwäscheprüfung', text: 'Kaufvertrag nach GwG', art: 'pc', url: t + 'geldwaesche/' },
     ] },
     { titel: 'Büro', kacheln: [
-      { icon: '📘', titel: 'Büro-Portal', text: 'Handbuch und Anleitungen', art: 'pc', url: links.portal },
-      { icon: '📷', titel: 'Handy-Scan', text: 'Scans in den Vorgang', art: 'pc', url: links.portal + 'scan' },
       { icon: '🔒', titel: 'Tools intern', text: 'mit Passwort', art: 'pc', url: t + 'intern/' },
     ] },
     { titel: 'Karten und Register', kacheln: [
@@ -379,7 +377,6 @@ function startZeigen() {
 // (Strg+V ins Suchfeld). Geht nur an die Register-Webseite, nicht an Claude.
 const REGISTER = [
   { name: 'Unternehmensregister', text: 'Jahresabschlüsse ab 2022', url: 'https://www.unternehmensregister.de/de/search/register-information' },
-  { name: 'Bundesanzeiger', text: 'ältere Abschlüsse', url: 'https://www.bundesanzeiger.de/pub/de/suchen' },
   { name: 'Handelsregister', text: 'Registerauszüge, Dokumente', url: 'https://www.handelsregister.de/rp_web/normalesuche.xhtml' },
 ];
 function firmaKachel(k) {
