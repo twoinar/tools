@@ -380,6 +380,7 @@ function startZeigen() {
 const REGISTER = [
   { name: 'Unternehmensregister', text: 'Jahresabschlüsse ab 2022', url: 'https://www.unternehmensregister.de/de/search/register-information' },
   { name: 'Bundesanzeiger', text: 'ältere Abschlüsse', url: 'https://www.bundesanzeiger.de/pub/de/suchen' },
+  { name: 'Handelsregister', text: 'Registerauszüge, Dokumente', url: 'https://www.handelsregister.de/rp_web/normalesuche.xhtml' },
 ];
 function firmaKachel(k) {
   const d = document.createElement('div');
