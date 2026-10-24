@@ -1,0 +1,28 @@
+# Wechselt das Passwort von „Tools intern“. Vorher unter Settings › Secrets and variables › Actions
+# die Secrets INTERN_PASSWORT_ALT und INTERN_PASSWORT anlegen, danach INTERN_PASSWORT_ALT wieder löschen.
+name: "Tools intern: Passwort ändern"
+on: workflow_dispatch
+permissions:
+  contents: write
+concurrency: intern-passwort
+jobs:
+  umschluesseln:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet cryptography
+      - name: Neu verschlüsseln
+        env:
+          INTERN_PASSWORT_ALT: ${{ secrets.INTERN_PASSWORT_ALT }}
+          INTERN_PASSWORT: ${{ secrets.INTERN_PASSWORT }}
+        run: python3 werkzeuge/intern-umschluesseln.py
+      - name: Hochladen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A intern
+          git commit -m "Tools intern: neues Passwort"
+          git push

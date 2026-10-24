@@ -30,7 +30,7 @@ Der Bereich „Tools intern“ ist nur mit Passwort lesbar. Im Repository liegen
 verschlüsselte Dateien (`intern/daten/*.bin`, AES-256-GCM, Schlüssel per PBKDF2-SHA256 mit
 600 000 Iterationen aus dem Passwort). `intern/index.html` nimmt das Passwort entgegen,
 `intern/sw.js` entschlüsselt die Seiten unter `intern/app/` im Browser. Das funktioniert nur
-über https (GitHub Pages) oder `localhost`.
+über https (tools.notariat-woinar.de) oder `localhost`.
 
 Neu bauen bzw. Passwort ändern:
 
@@ -38,6 +38,12 @@ Neu bauen bzw. Passwort ändern:
 
 Der Ordner mit den internen Seiten im Klartext gehört **nicht** in dieses Repository.
 Zum Passwortwechsel zusätzlich `intern/schluessel.json` vorher löschen (neues Salz).
+
+Passwort wechseln ohne Klartext-Ordner: auf GitHub unter Settings › Secrets and variables › Actions
+die Secrets `INTERN_PASSWORT_ALT` und `INTERN_PASSWORT` anlegen, dann unter Actions
+„Tools intern: Passwort ändern“ › „Run workflow“ starten. Die Aktion entschlüsselt mit dem alten
+und verschlüsselt mit dem neuen Passwort (`werkzeuge/intern-umschluesseln.py`) und lädt das
+Ergebnis hoch. Danach `INTERN_PASSWORT_ALT` wieder löschen.
 
 ## Spiegel auf der Synology
 
