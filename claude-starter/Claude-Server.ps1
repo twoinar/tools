@@ -454,6 +454,12 @@ while ($listener.IsListening) {
     try {
         $req = $ctx.Request
         $pfad = $req.Url.AbsolutePath
+        # Anfragen fremder Webseiten (Origin-Header von anderer Adresse) abweisen: sonst könnte jede Seite,
+        # die im Browser offen ist, über diesen Server den API-Schlüssel verbrauchen oder Dateien ablegen.
+        $herkunft = [string]$req.Headers['Origin']
+        if ($herkunft -ne '' -and @("http://localhost:$Port", "http://127.0.0.1:$Port") -notcontains $herkunft) {
+            Send-Json $ctx 403 @{ ok = $false; fehler = 'Nicht erlaubt.' }; continue
+        }
         if ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/info') { Invoke-Info $ctx }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/ablegen') { Invoke-Ablegen $ctx (Get-Query $req) }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/protokoll') { Invoke-Protokoll $ctx (Get-Query $req) }
