@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; }
+  main { width: 100%; box-sizing: border-box; }
+  .start { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 14px; max-width: 420px; padding: 24px 16px; }
+  .start button { font-size: 20px; padding: 22px 16px; justify-content: flex-start; gap: 14px; }
+  .start button span { font-size: 30px; }
+  .start p { text-align: center; margin: 0; }
+  .uebersicht { flex: 1; max-width: 900px; margin: 0 auto; padding: 12px 16px; }
+  .gruppe h2 { font-size: 15px; margin: 14px 0 2px; }
+  .gruppe .erkl { font-size: 13px; color: var(--leise); margin: 0 0 8px; }
+  .kacheln { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .kachel { font: inherit; text-align: left; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px; border-radius: 10px; border: 1px solid var(--rand); background: var(--flaeche); color: var(--text); text-decoration: none; cursor: pointer; }
+  .kachel:hover { border-color: var(--akzent); }
+  .kachel b { font-size: 16px; }
+  .kachel small { color: var(--leise); font-size: 13px; }
+  .kachel:disabled { opacity: .45; cursor: default; }
+  .kachel.firma { cursor: default; grid-column: span 2; }
+  .kachel.firma input { font-size: 15px; padding: 6px 8px; }
+  .kachel .register { display: flex; gap: 6px; flex-wrap: wrap; }
+  .kachel .register button { padding: 6px 10px; font-size: 14px; }
+  .marke { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .marke.ki { background: #fde8d7; color: #8a3b00; }
+  .marke.pc { background: var(--gruen-flaeche); color: var(--gruen); }
+  .marke.web { background: #e3ecfb; color: #1e3a8a; }
+  .formular { flex: 1; max-width: 760px; margin: 0 auto; padding: 0 16px 20px; overflow-y: auto; }
+  .formular .raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0 12px; }
+  .formular input, .formular select, .formular textarea { font-size: 16px; }
+  .chat { flex: 1; display: flex; flex-direction: column; min-height: 0; max-width: 820px; padding: 0 16px; }
+  .kopf { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--rand); }
+  .kopf b { flex: 1; font-size: 18px; }
+  .kopf button { padding: 6px 12px; }
+  #verlauf { flex: 1; overflow-y: auto; padding: 12px 0; }
+  .msg { margin: 0 0 12px; padding: 10px 14px; border-radius: 10px; overflow-wrap: anywhere; }
+  .msg.ich { background: var(--flaeche); border: 1px solid var(--rand); margin-left: 15%; white-space: pre-wrap; }
+  .msg.claude { padding-left: 0; padding-right: 0; }
+  .msg.claude p, .msg.claude ul, .msg.claude ol { margin: 0 0 8px; }
+  .msg.claude h3 { font-size: 16px; margin: 12px 0 6px; }
+  .msg.claude table { border-collapse: collapse; margin: 6px 0 10px; font-size: 14px; }
+  .msg.claude td, .msg.claude th { border: 1px solid var(--rand); padding: 4px 8px; text-align: left; vertical-align: top; }
+  .msg.claude blockquote { margin: 0 0 8px; padding-left: 10px; border-left: 3px solid var(--rand); color: var(--leise); }
+  .msg.claude pre { background: var(--flaeche); padding: 8px; border-radius: 6px; overflow-x: auto; }
+  .msg .quellen { font-size: 13px; color: var(--leise); }
+  .msg .quellen a { color: var(--leise); }
+  .denkt { color: var(--leise); font-style: italic; }
+  .eingabe { display: flex; gap: 8px; align-items: flex-end; padding: 8px 0; border-top: 1px solid var(--rand); }
+  .eingabe textarea { flex: 1; font-size: 16px; max-height: 40vh; }
+  .ablage { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 0 0 10px; }
+  .vg-leiste { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 16px; background: var(--flaeche); border-bottom: 1px solid var(--rand); }
+  .vg-leiste b { font-size: 17px; }
+  .vg-leiste button { padding: 4px 10px; font-size: 14px; }
+  .vg-leiste .hilfe { margin: 0; font-size: 13px; }
+  .vg-leiste.leer b { color: var(--leise); }
+  .vg-dialog { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 20; }
+  .vg-dialog[hidden] { display: none; }
+  .vg-box { background: var(--hinter); border-radius: 12px; padding: 18px; width: min(360px, 90vw); }
+  .vg-box p { margin: 0 0 10px; font-weight: 600; }
+  .ablage .hinweis { flex-basis: 100%; margin: 0; }
+  #dl-liste { display: grid; gap: 6px; margin: 8px 0; max-height: 50vh; overflow: auto; }
+  #dl-liste button { text-align: left; }
+  #dl-liste small { display: block; opacity: .7; }
+  .vg-box.hr-box { width: min(520px, 92vw); max-height: 92vh; overflow: auto; }
+  .hr-arten { display: grid; gap: 0; margin: 8px 0; }
+  #hr-treffer { display: grid; gap: 6px; margin: 8px 0; max-height: 40vh; overflow: auto; }
+  #hr-treffer button { text-align: left; }
+  #hr-treffer small { display: block; opacity: .7; }
+  #hr-log { margin: 8px 0; padding-left: 20px; max-height: 30vh; overflow: auto; }
+  #hr-log li.gut { color: #2e7d32; }
+  #hr-log li.schlecht { color: #c62828; }
+  #ablegen-ziel { position: fixed; inset: 10px; border: 3px dashed #2e7d32; border-radius: 12px; background: rgba(46,125,50,.12);
+    display: flex; align-items: center; justify-content: center; font-size: 1.3em; z-index: 50; pointer-events: none; }
+  #ablegen-ziel[hidden] { display: none; }
+</style>
+</head>
+<body>
+<div class="vg-leiste leer" id="vg-leiste">
+  <span>📁 Vorgang <b id="vg-nr">–</b></span>
+  <button id="vg-wechseln">wechseln</button>
+  <span class="hilfe">Alles in diesem Fenster wird im Vorgang hinterlegt.</span>
+</div>
+<div class="vg-dialog" id="vg-dialog" hidden>
+  <div class="vg-box">
+    <p id="vg-frage">Zu welchem Vorgang?</p>
+    <input id="vg-eingabe" autocomplete="off" placeholder="Vorgangsnummer, z. B. 22834">
+    <div class="zeile"><button id="vg-ok" class="haupt">OK</button><button id="vg-abbruch">Abbrechen</button></div>
+  </div>
+</div>
+<main class="uebersicht" id="start">
+  <div id="gruppen"></div>
+  <p class="hilfe" id="start-hinweis">Keine Namen der Beteiligten an Claude geben.</p>
+</main>
+
+<main class="start" id="einwilligung" hidden>
+  <h2>Grundstückswert KI</h2>
+  <p class="hilfe" style="text-align:left">Die Angaben zum Objekt (Adresse, Größe, Baujahr usw., keine Namen) gehen an Claude (Anthropic, Server in den USA). Vorher die Beteiligten fragen.</p>
+  <label class="haken"><input type="checkbox" id="ew-haken"> Die Beteiligten sind damit einverstanden.</label>
+  <button id="ew-weiter" class="haupt" disabled>Weiter</button>
+  <button id="ew-zurueck">Abbrechen</button>
+  <p class="hilfe">Ohne Einverständnis: „Grundstückswert lokal“ nehmen, da bleibt alles am PC.</p>
+</main>
+
+<main class="formular" id="wertform" hidden>
+  <div class="kopf"><button id="wf-zurueck" title="Zurück">←</button><b>Grundstückswert KI</b></div>
+  <label>Adresse des Objekts<input id="wf-adresse" autocomplete="off" placeholder="Straße Hausnummer, PLZ Ort"></label>
+  <p class="hilfe" id="wf-quelle"></p>
+  <details><summary class="hilfe">Weitere Angaben (nur wenn schon bekannt)</summary>
+    <textarea id="wf-sonst" rows="3" placeholder="z. B. Einfamilienhaus, Baujahr 1995, 140 m² Wohnfläche, Wohnungsrecht 78 J. w."></textarea>
+  </details>
+  <p class="hilfe">Den Rest sucht Claude selbst und fragt nach, was fehlt. Keine Namen.</p>
+  <button id="wf-los" class="haupt gross" disabled>Bewertung starten</button>
+</main>
+
+<div class="vg-dialog" id="karte-dialog" hidden>
+  <div class="vg-box">
+    <p>🗺️ BrandenburgViewer</p>
+    <label>Adresse<input id="kd-adresse" autocomplete="off" placeholder="Straße Hausnummer, Ort"></label>
+    <p class="hilfe" id="kd-quelle"></p>
+    <div class="zeile"><button id="kd-ok" class="haupt">Im Viewer zeigen</button><button id="kd-leer">Ohne Adresse</button><button id="kd-abbruch">Abbrechen</button></div>
+  </div>
+</div>
+
+<div class="vg-dialog" id="dl-dialog" hidden>
+  <div class="vg-box">
+    <p>📥 Download in den Vorgang</p>
+    <p class="hilfe" id="dl-hinweis">Die neuesten PDFs aus Downloads. Anklicken legt eine Kopie im Vorgang ab.</p>
+    <div id="dl-liste"></div>
+    <div class="zeile"><button id="dl-abbruch">Schließen</button></div>
+  </div>
+</div>
+
+<div class="vg-dialog" id="hr-dialog" hidden>
+  <div class="vg-box hr-box">
+    <p>🏛️ Registerabruf (Handelsregister)</p>
+    <label>Firma<input id="hr-firma" autocomplete="off" placeholder="z. B. Muster Bau GmbH"></label>
+    <label>Registernummer (falls bekannt)<input id="hr-nummer" autocomplete="off" placeholder="z. B. HRB 12345 FF"></label>
+    <div class="hr-arten">
+      <label class="haken"><input type="checkbox" id="hr-AD" checked> Aktueller Abdruck</label>
+      <label class="haken"><input type="checkbox" id="hr-HD" checked> Historischer Abdruck</label>
+      <label class="haken"><input type="checkbox" id="hr-CD" checked> Chronologischer Abdruck</label>
+      <label class="haken"><input type="checkbox" id="hr-GV" checked> Gesellschaftsvertrag (neuester)</label>
+      <label class="haken"><input type="checkbox" id="hr-GL" checked> Gesellschafterliste (neueste)</label>
+    </div>
+    <p class="hilfe">Holt die Dokumente vom Registerportal (kostenfrei, nicht KI) und legt sie im Vorgang ab. Höchstens 60 Abrufe je Stunde erlaubt.</p>
+    <div id="hr-treffer"></div>
+    <ol id="hr-log"></ol>
+    <div class="zeile"><button id="hr-los" class="haupt">Abrufen</button><button id="hr-zu">Schließen</button></div>
+  </div>
+</div>
+
+<div id="ablegen-ziel" hidden>📥 Loslassen: PDF wird im Vorgang abgelegt</div>
+
+<main class="chat" id="chat" hidden>
+  <div class="kopf"><button id="zurueck" title="Zurück">←</button><b id="titel"></b><button id="neu">Neu</button></div>
+  <div id="verlauf"></div>
+  <div class="eingabe">
+    <textarea id="text" rows="2" placeholder=""></textarea>
+    <button id="senden" class="haupt">Senden</button>
+  </div>
+  <div class="ablage"><div id="meldung" class="hinweis" hidden></div></div>
+</main>
+
+<script src="browser-api.js"></script>
+<script src="pdf-lib.min.js"></script>
+<script src="aktenvermerk.js"></script>
+<script src="claude.js"></script>
+<script src="register.js"></script>
+</body>
+</html>

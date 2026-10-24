@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Tools intern</title>
+<style>
+  :root { --text:#1d1d1f; --muted:#5f6368; --bg:#ffffff; --card:#f5f5f7; --link:#0b57d0; --rot:#c5221f; --rand:#d0d7de; }
+  @media (prefers-color-scheme: dark) { :root { --text:#e8eaed; --muted:#9aa0a6; --bg:#1f1f1f; --card:#2a2a2a; --link:#8ab4f8; --rot:#f28b82; --rand:#3d444d; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.5 system-ui, sans-serif; color:var(--text); background:var(--bg); }
+  main { max-width:420px; margin:60px auto; padding:0 16px; }
+  a { color:var(--link); }
+  .zurueck { font-size:14px; }
+  form { background:var(--card); border-radius:12px; padding:20px; margin-top:16px; }
+  label { display:block; font-weight:600; margin-bottom:6px; }
+  input { width:100%; font:inherit; padding:10px 12px; border:1px solid var(--rand); border-radius:8px; background:var(--bg); color:var(--text); }
+  label.zeigen { display:flex; align-items:center; gap:8px; font-weight:400; font-size:15px; margin:10px 0 0; cursor:pointer; }
+  label.zeigen input { width:auto; margin:0; }
+  button { margin-top:14px; width:100%; font:inherit; font-weight:600; padding:11px; border:0; border-radius:8px; background:var(--link); color:#fff; cursor:pointer; }
+  button:disabled { opacity:.6; cursor:default; }
+  #meldung { min-height:1.5em; margin:10px 0 0; color:var(--rot); }
+  .hinweis { color:var(--muted); font-size:14px; }
+</style>
+</head>
+<body>
+<main>
+  <p class="zurueck"><a href="../">← Claude</a></p>
+  <h1>Tools intern 🔒</h1>
+  <p class="hinweis">Einmal das Passwort eingeben. Danach öffnet das Claude-Fenster auf diesem PC die internen Tools ohne Passwort.</p>
+  <form id="form">
+    <label for="pw">Passwort</label>
+    <input id="pw" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required autofocus>
+    <label class="zeigen"><input type="checkbox" id="zeigen"> Passwort anzeigen</label>
+    <button id="los">Öffnen</button>
+    <p id="meldung" role="alert"></p>
+  </form>
+  <p class="hinweis">Das Gerät bleibt angemeldet, bis man sich abmeldet oder die Browserdaten löscht. Auf fremden Geräten nach der Nutzung <a href="?abmelden">abmelden</a>.</p>
+</main>
+<script>
+"use strict";
+const meldung = document.getElementById("meldung"), los = document.getElementById("los");
+const params = new URLSearchParams(location.search);
+const DATEN = "https://twoinar.github.io/tools/intern/";   // verschlüsselte Dateien (GitHub Pages)
+document.getElementById("zeigen").addEventListener("change", e => {
+  document.getElementById("pw").type = e.target.checked ? "text" : "password";
+});
+
+function db() {
+  return new Promise((ok, fehler) => {
+    const r = indexedDB.open("tools-intern", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("k");
+    r.onsuccess = () => ok(r.result); r.onerror = () => fehler(r.error);
+  });
+}
+async function ablegen(wert) {
+  const d = await db();
+  return new Promise((ok, fehler) => {
+    const t = d.transaction("k", "readwrite");
+    wert ? t.objectStore("k").put(wert, "schluessel") : t.objectStore("k").delete("schluessel");
+    t.oncomplete = ok; t.onerror = () => fehler(t.error);
+  });
+}
+async function holen() {
+  const d = await db();
+  return new Promise(ok => { const r = d.transaction("k").objectStore("k").get("schluessel"); r.onsuccess = () => ok(r.result || null); r.onerror = () => ok(null); });
+}
+async function swBereit() {
+  await navigator.serviceWorker.register("sw.js");
+  const reg = await navigator.serviceWorker.ready;
+  reg.active && reg.active.postMessage("neu");
+}
+function weiter() {
+  if (!params.has("weiter")) { location.replace("../"); return; }   // zurück ins Claude-Fenster
+  const w = params.get("weiter") || "";
+  location.replace("app/" + (/^[\w\-./ äöüÄÖÜß%]*$/.test(w) && !w.includes("..") ? w.split("/").map(encodeURIComponent).join("/") : ""));
+}
+
+(async () => {
+  if (!("serviceWorker" in navigator) || !window.isSecureContext || !crypto.subtle) {
+    meldung.textContent = "Dieser Browser kann den internen Bereich nicht öffnen (nur über https bzw. localhost und mit aktuellem Chrome, Edge, Firefox oder Safari).";
+    los.disabled = true; return;
+  }
+  if (params.has("abmelden")) {
+    await ablegen(null);
+    const reg = await navigator.serviceWorker.getRegistration();
+    reg && reg.active && reg.active.postMessage("abmelden");
+    meldung.style.color = "var(--muted)"; meldung.textContent = "Abgemeldet.";
+    history.replaceState(null, "", location.pathname);
+    return;
+  }
+  const gespeichert = await holen();
+  if (gespeichert) {
+    // Nur weiterleiten, wenn der gespeicherte Schlüssel noch passt (nach einem Passwortwechsel nicht mehr)
+    if (await passt(gespeichert)) { await swBereit(); weiter(); return; }
+    await ablegen(null);
+    const reg = await navigator.serviceWorker.getRegistration();
+    reg && reg.active && reg.active.postMessage("abmelden");
+    meldung.textContent = "Das Passwort wurde geändert. Bitte mit dem neuen Passwort anmelden.";
+  }
+})();
+
+async function passt(schluessel) {
+  try {
+    const b = new Uint8Array(await (await fetch(DATEN + "daten/inhalt.bin", { cache: "no-cache" })).arrayBuffer());
+    await crypto.subtle.decrypt({ name: "AES-GCM", iv: b.slice(0, 12) }, schluessel, b.slice(12));
+    return true;
+  } catch { return false; }
+}
+
+document.getElementById("form").addEventListener("submit", async e => {
+  e.preventDefault();
+  los.disabled = true; meldung.textContent = ""; los.textContent = "Wird geprüft …";
+  try {
+    const cfg = await (await fetch(DATEN + "schluessel.json", { cache: "no-cache" })).json();
+    const roh = await crypto.subtle.importKey("raw", new TextEncoder().encode(document.getElementById("pw").value.trim()), "PBKDF2", false, ["deriveKey"]);
+    const salz = new Uint8Array(cfg.salz.match(/../g).map(h => parseInt(h, 16)));
+    const schluessel = await crypto.subtle.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt: salz, iterations: cfg.iterationen },
+      roh, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+    if (!(await passt(schluessel))) throw new Error("falsch");
+    await ablegen(schluessel);
+    await swBereit();
+    weiter();
+  } catch (err) {
+    meldung.textContent = err.message === "falsch" ? "Das Passwort stimmt nicht." : "Fehler beim Öffnen: " + err.message;
+    los.disabled = false; los.textContent = "Öffnen";
+  }
+});
+</script>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Claude-Fenster</p><style>@media print{.stand-version{display:none}}</style>
+</body>
+</html>
