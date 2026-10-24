@@ -12,8 +12,7 @@ $Version = '1.0'
 
 # ---------------------------------------------------------------- Einstellungen
 $cfg = [ordered]@{ Ablageordner = ''; Vorgangsordner = $false; NurZiffern = $true
-    Kartenlink = 'https://bb-viewer.geobasis-bb.de/'; Wertrechner = 'https://twoinar.github.io/boegen/vorgespraech.html?nur=bewertung'; Port = 8766
-    Links = $null }   # optional: { boegen, tools, kosten, portal } als andere Adressen
+    Kartenlink = 'https://bb-viewer.geobasis-bb.de/'; Wertrechner = ''; Port = 8766 }
 $cfgPfad = Join-Path $PSScriptRoot 'einstellungen.json'
 if (Test-Path -LiteralPath $cfgPfad) {
     $j = Get-Content -LiteralPath $cfgPfad -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -192,7 +191,7 @@ function Invoke-Info($ctx) {
 }
 
 function Invoke-ClaudeStatus($ctx) {
-    Send-Json $ctx 200 @{ ok = $true; schluessel = (Test-Path -LiteralPath $ClaudeDatei); karte = $Kartenlink; rechner = $Wertrechner; links = $cfg.Links; lokal = $ctx.Request.IsLocal }
+    Send-Json $ctx 200 @{ ok = $true; schluessel = (Test-Path -LiteralPath $ClaudeDatei); karte = $Kartenlink; rechner = $Wertrechner; lokal = $ctx.Request.IsLocal }
 }
 
 # Die Anfrage an Claude dauert oft eine Minute oder länger. Sie läuft deshalb in einem eigenen
@@ -258,9 +257,11 @@ function Invoke-Claude($ctx) {
 
 function Invoke-Datei($ctx, [string]$pfad) {
     if ($pfad -eq '/' -or $pfad -eq '') { $pfad = '/claude.html' }
+    if ($pfad -eq '/intern' -or $pfad -eq '/intern/') { $pfad = '/intern/index.html' }
     $name = $pfad.TrimStart('/')
-    # Nur einfache Dateinamen direkt im web-Ordner
-    if ($name -notmatch '^[A-Za-z0-9._-]+$' -or $name.Contains('..')) { Send-Json $ctx 404 @{ ok = $false }; return }
+    # Nur einfache Dateinamen im web-Ordner bzw. in web/intern (Anmeldung und Service Worker für Tools intern;
+    # die Seiten unter /intern/app/ liefert der Service Worker im Browser entschlüsselt aus)
+    if ($name -notmatch '^(intern/)?[A-Za-z0-9._-]+$' -or $name.Contains('..')) { Send-Json $ctx 404 @{ ok = $false }; return }
     $voll = Join-Path $Web $name
     if (-not (Test-Path -LiteralPath $voll -PathType Leaf)) { Send-Json $ctx 404 @{ ok = $false; fehler = 'Nicht gefunden.' }; return }
     $ext = [IO.Path]::GetExtension($voll).ToLower()

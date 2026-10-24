@@ -10,8 +10,11 @@ Betreiber der Seite, nicht an eine KI).
 - **Grundstückswert KI** – erst Einverständnis der Beteiligten bestätigen, dann nur die Adresse
   (vorbelegt aus dem Vorgesprächsbogen des Vorgangs bzw. aus dem BrandenburgViewer). Claude recherchiert, fragt fehlende Angaben nach und gibt Verkehrswert nach Sach- und
   Ertragswertverfahren (ImmoWertV) und den Bedarfswert für die Schenkungsteuer (§§ 176 ff. BewG) aus.
-- **Grundstückswert lokal**, Bögen, Kostenrechner, XNP, Geldwäsche,
-  Tools intern, Gesetze im Internet – Links.
+- **Tools intern** – die Seiten aus `tools/intern` (Bögen, Kostenrechner, XNP …) als Kacheln, wie in deren
+  Übersicht gruppiert. Einmal „Tools intern verbinden“ und das Passwort eingeben; danach öffnen sie ohne
+  Passwort. Technik: `web/intern/` (Kopie von Anmeldung und Service Worker aus `tools/intern`) lädt die
+  verschlüsselten Dateien von GitHub Pages und entschlüsselt sie im Browser; der Schlüssel liegt nicht
+  exportierbar in der IndexedDB von `localhost:8766`. Grundstückswert lokal = `boegen/vorgespraech.html?nur=bewertung`.
 - **BrandenburgViewer** – springt zum Grundstück des Vorgangs: Koordinaten aus dem Vorgesprächsbogen
   (`<Nr> … Vorgespräch….pdf` im Ablageordner, eingebettete Daten der Bögen) als `marker`, sonst
   Adresssuche (`query`).

@@ -68,7 +68,7 @@ let nachrichten = [];   // für die API: Rollen und Inhalte genau so, wie Claude
 let runden = [];        // für Anzeige und PDF: { frage, antwort, quellen }
 let laeuft = false;
 let karte = 'https://bb-viewer.geobasis-bb.de/';
-let rechner = 'https://twoinar.github.io/boegen/vorgespraech.html?nur=bewertung';
+let rechner = '';   // Grundstückswert-Rechner: aus Tools intern, sonst Einstellung „Wertrechner“
 let einwilligung = '';   // Zeitpunkt, zu dem das Einverständnis der Beteiligten bestätigt wurde
 let nurZiffern = true;
 
@@ -380,40 +380,86 @@ async function speichern() {
 // art: ki = Eingaben gehen an Claude (Anthropic, USA); pc = bleibt auf diesem PC bzw. im Browser;
 // web = fremde Webseite, Eingaben gehen an deren Betreiber (nicht an eine KI).
 const MARKEN = { ki: '🟠 KI – geht an Claude (USA)', pc: '🟢 bleibt am PC', web: '🔵 Webseite – nicht KI' };
-let links = {
-  boegen: 'https://twoinar.github.io/boegen/',
-  tools: 'https://twoinar.github.io/tools/',
-  kosten: 'https://twoinar.github.io/kostenrechner/',
-  portal: 'http://localhost:8765/',
-};
+// ------------------------------------------------------------------ Tools intern
+// Die internen Tools (tools/intern, verschlüsselt auf GitHub Pages) laufen hier unter /intern/app/ über
+// einen eigenen Service Worker. Der Schlüssel liegt nach einmaliger Anmeldung (/intern/) als nicht
+// exportierbarer Schlüssel in der IndexedDB dieses PCs; danach kein Passwort mehr.
+const INTERN_DATEN = 'https://twoinar.github.io/tools/intern/';
+let intern = { status: 'laedt', gruppen: [], dateien: {} };
+function internDb() {
+  return new Promise((ok, fehler) => {
+    const r = indexedDB.open('tools-intern', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('k');
+    r.onsuccess = () => ok(r.result);
+    r.onerror = () => fehler(r.error);
+  });
+}
+async function internSchluessel() {
+  const d = await internDb();
+  return new Promise(ok => { const r = d.transaction('k').objectStore('k').get('schluessel'); r.onsuccess = () => ok(r.result || null); r.onerror = () => ok(null); });
+}
+async function internEntschluesseln(k, puffer) {
+  const b = new Uint8Array(puffer);
+  return crypto.subtle.decrypt({ name: 'AES-GCM', iv: b.slice(0, 12) }, k, b.slice(12));
+}
+async function internLaden() {
+  try {
+    if (navigator.serviceWorker) await navigator.serviceWorker.register('/intern/sw.js');
+    const k = await internSchluessel();
+    if (!k) { intern.status = 'anmelden'; return; }
+    const holen = async pfad => { const r = await fetch(INTERN_DATEN + pfad, { cache: 'no-cache' }); if (!r.ok) throw new Error('netz'); return r.arrayBuffer(); };
+    let verz;
+    try { verz = JSON.parse(new TextDecoder().decode(await internEntschluesseln(k, await holen('daten/inhalt.bin')))); }
+    catch (e) { intern.status = e.message === 'netz' ? 'netz' : 'anmelden'; return; }
+    intern.dateien = verz.dateien || {};
+    // Übersicht (app/index.html) lesen und ihre Links als Kacheln übernehmen, gruppiert nach Überschriften
+    const ein = intern.dateien['index.html'];
+    const html = ein ? new TextDecoder().decode(await internEntschluesseln(k, await holen('daten/' + ein.id + '.bin'))) : '';
+    const dom = new DOMParser().parseFromString(html, 'text/html');
+    const gruppen = [];
+    let akt = null;
+    for (const el of dom.body ? dom.body.querySelectorAll('h2, h3, a[href]') : []) {
+      if (el.tagName !== 'A') { akt = { titel: el.textContent.trim(), kacheln: [] }; gruppen.push(akt); continue; }
+      const href = el.getAttribute('href');
+      if (!href || /^(https?:|mailto:|#|\.\.|\/|\?)/.test(href)) continue;
+      const small = el.querySelector('small');
+      const text = small ? small.textContent.trim() : '';
+      const ohne = el.cloneNode(true);
+      ohne.querySelectorAll('small').forEach(x => x.remove());
+      const titel = ohne.textContent.replace(/\s+/g, ' ').trim();
+      if (!titel) continue;
+      const m = titel.match(/^(\p{Extended_Pictographic}️?)\s*(.*)$/u);
+      if (!akt) { akt = { titel: 'Tools intern', kacheln: [] }; gruppen.push(akt); }
+      akt.kacheln.push({ icon: m ? m[1] : '🧰', titel: m ? m[2] : titel, text, art: 'pc', url: new URL(href, location.origin + '/intern/app/').href });
+    }
+    intern.gruppen = gruppen.filter(g => g.kacheln.length);
+    if (intern.dateien['boegen/vorgespraech.html'] && !rechner) rechner = location.origin + '/intern/app/boegen/vorgespraech.html?nur=bewertung';
+    intern.status = 'ok';
+  } catch { intern.status = 'netz'; }
+}
+
 function gruppen() {
-  const b = links.boegen, t = links.tools;
-  return [
-    { titel: 'Claude', kacheln: [
-      { icon: '💬', titel: 'Frage an Claude', text: 'Rechtsfragen, Kosten, Formulierungen', art: 'ki', aktion: () => starten('frage'), ki: true },
-      { icon: '🏠', titel: 'Grundstückswert KI', text: 'Sachwert, Ertragswert, Bedarfswert', art: 'ki', aktion: wertKi, ki: true },
-    ] },
-    { titel: 'Vorgespräch und Bewertung', kacheln: [
-      { icon: '📋', titel: 'Vorgesprächsbogen', text: 'mit Erbspiegel und Kosten', art: 'pc', url: b + 'vorgespraech.html' },
-      { icon: '🧮', titel: 'Grundstückswert lokal', text: 'Rechner aus den Bögen', art: 'pc', url: rechner },
-      { icon: '🌳', titel: 'Erbspiegel', text: 'gesetzliche Erbfolge', art: 'pc', url: b + 'vorgespraech.html?nur=erbspiegel' },
-      { icon: '⚖️', titel: 'Geschäftswert', text: 'nach GNotKG', art: 'pc', url: b + 'vorgespraech.html?nur=geschaeftswert' },
-      { icon: '💶', titel: 'Kostenrechner', text: 'GNotKG, auch offline', art: 'pc', url: links.kosten },
-    ] },
-    { titel: 'Vollzug und Register', kacheln: [
-      { icon: '✅', titel: 'Vollzugsbogen', text: 'Vollzug und Verteiler', art: 'pc', url: b + 'vollzug.html' },
-      { icon: '📨', titel: 'XNP – Sonstige Anträge', text: 'Erbausschlagung, Erbschein u. a.', art: 'pc', url: t + 'xnp/' },
-      { icon: '🔍', titel: 'Geldwäscheprüfung', text: 'Kaufvertrag nach GwG', art: 'pc', url: t + 'geldwaesche/' },
-    ] },
-    { titel: 'Büro', kacheln: [
-      { icon: '🔒', titel: 'Tools intern', text: 'mit Passwort', art: 'pc', url: t + 'intern/' },
-    ] },
-    { titel: 'Karten und Register', kacheln: [
-      { icon: '🗺️', titel: 'BrandenburgViewer', text: 'springt zum Grundstück des Vorgangs', art: 'web', aktion: karteOeffnen },
-      { icon: '🏢', titel: 'Bilanzen und Firmendaten', text: '', art: 'web', firma: true },
-      { icon: '📜', titel: 'Gesetze im Internet', text: 'Bundesrecht', art: 'web', url: 'https://www.gesetze-im-internet.de/' },
-    ] },
-  ];
+  const liste = [{ titel: 'Claude', kacheln: [
+    { icon: '💬', titel: 'Frage an Claude', text: 'Rechtsfragen, Kosten, Formulierungen', art: 'ki', aktion: () => starten('frage'), ki: true },
+    { icon: '🏠', titel: 'Grundstückswert KI', text: 'Sachwert, Ertragswert, Bedarfswert', art: 'ki', aktion: wertKi, ki: true },
+  ] }];
+  if (intern.status === 'ok') {
+    const g = intern.gruppen.map(x => ({ titel: x.titel, kacheln: x.kacheln.slice() }));
+    if (rechner && !g.some(x => x.kacheln.some(k => k.url.includes('nur=bewertung')))) {
+      if (!g.length) g.push({ titel: 'Tools intern', kacheln: [] });
+      g[0].kacheln.unshift({ icon: '🧮', titel: 'Grundstückswert lokal', text: 'Rechner aus den Bögen', art: 'pc', url: rechner });
+    }
+    liste.push(...g);
+  } else {
+    const text = { laedt: 'wird geladen …', anmelden: 'einmal mit Passwort verbinden, danach ohne', netz: 'gerade nicht erreichbar (Internet?)' }[intern.status];
+    liste.push({ titel: 'Tools intern', kacheln: [{ icon: '🔒', titel: 'Tools intern verbinden', text, art: 'pc', url: location.origin + '/intern/', selbst: true }] });
+  }
+  liste.push({ titel: 'Karten und Register', kacheln: [
+    { icon: '🗺️', titel: 'BrandenburgViewer', text: 'springt zum Grundstück des Vorgangs', art: 'web', aktion: karteOeffnen },
+    { icon: '🏢', titel: 'Bilanzen und Firmendaten', text: '', art: 'web', firma: true },
+    { icon: '📜', titel: 'Gesetze im Internet', text: 'Bundesrecht', art: 'web', url: 'https://www.gesetze-im-internet.de/' },
+  ] });
+  return liste;
 }
 let kiAus = '';   // Grund, warum die KI-Kacheln gesperrt sind
 function startZeigen() {
@@ -437,7 +483,8 @@ function startZeigen() {
       t.querySelector('small').textContent = k.text;
       t.querySelector('.marke').textContent = MARKEN[k.art];
       t.querySelector('.marke').classList.add(k.art);
-      if (k.url) t.addEventListener('click', () => mitVorgang(() => { protokoll(`${k.titel} geöffnet (${k.url})`); window.open(k.url, '_blank', 'noopener'); }));
+      if (k.selbst) t.addEventListener('click', () => { location.href = k.url; });
+      else if (k.url) t.addEventListener('click', () => mitVorgang(() => { protokoll(`${k.titel} geöffnet`); window.open(k.url, '_blank', 'noopener'); }));
       else { t.addEventListener('click', () => mitVorgang(k.aktion)); if (k.ki && kiAus) { t.disabled = true; t.title = kiAus; } }
       el.querySelector('.kacheln').append(t);
     }
@@ -532,10 +579,9 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('vg-dial
 fetch('/api/claude').then(r => r.json()).then(d => {
   if (d.karte) karte = d.karte;
   if (d.rechner) rechner = d.rechner;
-  if (d.links) Object.assign(links, d.links);
   if (!d.lokal) kiAus = 'Claude geht nur an diesem PC selbst.';
   else if (!d.schluessel) kiAus = 'Noch kein API-Schlüssel: einmal „Einrichten.cmd“ im Claude-Ordner starten.';
   if (kiAus) $('start-hinweis').textContent = kiAus;
 }).catch(() => { kiAus = 'Claude-Server läuft nicht. Fenster schließen und das Desktop-Symbol neu anklicken.'; $('start-hinweis').textContent = kiAus; })
-  .finally(startZeigen);
+  .finally(() => { startZeigen(); internLaden().then(startZeigen); });
 fetch('/api/info').then(r => r.json()).then(d => { if (d.nurZiffern === false) nurZiffern = false; }).catch(() => {});
