@@ -63,6 +63,12 @@
   .vg-box { background: var(--hinter); border-radius: 12px; padding: 18px; width: min(360px, 90vw); }
   .vg-box p { margin: 0 0 10px; font-weight: 600; }
   .ablage .hinweis { flex-basis: 100%; margin: 0; }
+  #dl-liste { display: grid; gap: 6px; margin: 8px 0; max-height: 50vh; overflow: auto; }
+  #dl-liste button { text-align: left; }
+  #dl-liste small { display: block; opacity: .7; }
+  #ablegen-ziel { position: fixed; inset: 10px; border: 3px dashed #2e7d32; border-radius: 12px; background: rgba(46,125,50,.12);
+    display: flex; align-items: center; justify-content: center; font-size: 1.3em; z-index: 50; pointer-events: none; }
+  #ablegen-ziel[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -111,6 +117,17 @@
     <div class="zeile"><button id="kd-ok" class="haupt">Im Viewer zeigen</button><button id="kd-leer">Ohne Adresse</button><button id="kd-abbruch">Abbrechen</button></div>
   </div>
 </div>
+
+<div class="vg-dialog" id="dl-dialog" hidden>
+  <div class="vg-box">
+    <p>📥 Download in den Vorgang</p>
+    <p class="hilfe" id="dl-hinweis">Die neuesten PDFs aus Downloads. Anklicken legt eine Kopie im Vorgang ab.</p>
+    <div id="dl-liste"></div>
+    <div class="zeile"><button id="dl-abbruch">Schließen</button></div>
+  </div>
+</div>
+
+<div id="ablegen-ziel" hidden>📥 Loslassen: PDF wird im Vorgang abgelegt</div>
 
 <main class="chat" id="chat" hidden>
   <div class="kopf"><button id="zurueck" title="Zurück">←</button><b id="titel"></b><button id="neu">Neu</button></div>

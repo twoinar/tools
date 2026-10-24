@@ -8,7 +8,7 @@
 # Start: Desktop-Symbol „Claude“ (Claude-Starten.ps1). Einmalig vorher: „Einrichten.cmd“.
 
 $ErrorActionPreference = 'Stop'
-$Version = '1.0'
+$Version = '1.5'
 
 # ---------------------------------------------------------------- Einstellungen
 $cfg = [ordered]@{ Ablageordner = ''; Vorgangsordner = $false; NurZiffern = $true
@@ -151,6 +151,49 @@ function Invoke-Ablegen($ctx, $q) {
     Send-Json $ctx 200 @{ ok = $true; datei = $anzeige }
 }
 
+function Get-Downloads {
+    # Downloads-Ordner des Benutzers (kann umgeleitet sein), sonst %USERPROFILE%\Downloads
+    try {
+        $v = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders' -ErrorAction Stop).'{374DE290-123F-4565-9164-39C4925E467B}'
+        if ($v) { $v = [Environment]::ExpandEnvironmentVariables($v); if (Test-Path -LiteralPath $v) { return $v } }
+    } catch { }
+    return (Join-Path $env:USERPROFILE 'Downloads')
+}
+
+function Invoke-Downloads($ctx) {
+    # Die neuesten PDFs aus dem Downloads-Ordner (letzte 24 Stunden), neueste zuerst
+    if (-not $ctx.Request.IsLocal) { Send-Json $ctx 403 @{ ok = $false; fehler = 'Nur am PC selbst.' }; return }
+    $ordner = Get-Downloads
+    $liste = @(Get-ChildItem -LiteralPath $ordner -File -Filter '*.pdf' -ErrorAction SilentlyContinue |
+        Where-Object { $_.LastWriteTime -gt (Get-Date).AddHours(-24) } |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 8 |
+        ForEach-Object { @{ name = $_.Name; kb = [int][Math]::Ceiling($_.Length / 1KB); zeit = $_.LastWriteTime.ToString('dd.MM. HH:mm') } })
+    Send-Json $ctx 200 @{ ok = $true; ordner = $ordner; dateien = $liste }
+}
+
+function Invoke-DownloadAblegen($ctx, $q) {
+    # Eine PDF aus dem Downloads-Ordner in den Vorgang kopieren (Original bleibt in Downloads)
+    if (-not $ctx.Request.IsLocal) { Send-Json $ctx 403 @{ ok = $false; fehler = 'Nur am PC selbst.' }; return }
+    $nr = Get-Nummer $q['nr']
+    if (-not $nr) { Send-Json $ctx 400 @{ ok = $false; fehler = 'Vorgangsnummer fehlt oder ist ungültig.' }; return }
+    $name = [string]$q['name']
+    if ($name -eq '' -or $name -ne (Split-Path $name -Leaf) -or $name -notmatch '\.pdf$') { Send-Json $ctx 400 @{ ok = $false; fehler = 'Ungültiger Dateiname.' }; return }
+    $quelle = Join-Path (Get-Downloads) $name
+    if (-not (Test-Path -LiteralPath $quelle -PathType Leaf)) { Send-Json $ctx 404 @{ ok = $false; fehler = 'Datei nicht mehr in Downloads.' }; return }
+    if ($Basis -eq '' -or -not (Test-Path -LiteralPath $Basis)) { Send-Json $ctx 500 @{ ok = $false; fehler = 'Ablageordner nicht erreichbar.' }; return }
+    $bez = Get-Sauber ([IO.Path]::GetFileNameWithoutExtension($name)) 120
+    if ($bez -eq '') { $bez = 'Download' }
+    if ($MitVorgangsordner) { $ordner = Get-Vorgangsordner $nr; $datei = $bez }
+    else { $ordner = $Basis; $datei = if ($bez.StartsWith("$nr ")) { $bez } else { "$nr $bez" } }
+    $pfad = Join-Path $ordner "$datei.pdf"
+    $i = 2
+    while (Test-Path -LiteralPath $pfad) { $pfad = Join-Path $ordner "$datei ($i).pdf"; $i++ }
+    Copy-Item -LiteralPath $quelle -Destination $pfad
+    $anzeige = if ($MitVorgangsordner) { (Split-Path $ordner -Leaf) + '\' + (Split-Path $pfad -Leaf) } else { Split-Path $pfad -Leaf }
+    Protokoll ("Download abgelegt  V{0}  {1}" -f $nr, $anzeige)
+    Send-Json $ctx 200 @{ ok = $true; datei = $anzeige }
+}
+
 function Invoke-Protokoll($ctx, $q) {
     # Eine Zeile an "<Nummer> Claude-Fenster Protokoll.txt" im Vorgang anhängen (was im Fenster geöffnet wurde)
     $nr = Get-Nummer $q['nr']
@@ -289,6 +332,8 @@ while ($listener.IsListening) {
         if ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/info') { Invoke-Info $ctx }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/ablegen') { Invoke-Ablegen $ctx (Get-Query $req) }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/protokoll') { Invoke-Protokoll $ctx (Get-Query $req) }
+        elseif ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/downloads') { Invoke-Downloads $ctx }
+        elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/download-ablegen') { Invoke-DownloadAblegen $ctx (Get-Query $req) }
         elseif ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/vorgespraech') { Invoke-Vorgespraech $ctx (Get-Query $req) }
         elseif ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/claude') { Invoke-ClaudeStatus $ctx }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/claude') { Invoke-Claude $ctx }

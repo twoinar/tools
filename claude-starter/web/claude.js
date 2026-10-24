@@ -216,22 +216,33 @@ async function karteOeffnen() {
   $('karte-dialog').hidden = false;
   $('kd-adresse').focus();
 }
+// Ebenen-IDs aus der config.json des BrandenburgViewers (Masterportal 2): [ID, Transparenz in %]
+const BB_EBENEN = [['7004', 0], ['586', 40], ['73', 0], ['149', 0]];
 function karteZeigen(mitAdresse) {
   $('karte-dialog').hidden = true;
   let url = karte;
+  const p = new URLSearchParams();
+  if (/bb-viewer\.geobasis-bb\.de/.test(karte)) {
+    // Ebenen gleich einschalten: Luftbild mit Topographie, Bodenrichtwerte Bauland (halb durchsichtig), Fluren, Flurstücke
+    p.set('Map/layerIds', BB_EBENEN.map(e => e[0]).join(','));
+    p.set('visibility', BB_EBENEN.map(() => 'true').join(','));
+    p.set('transparency', BB_EBENEN.map(e => e[1]).join(','));
+  }
   if (mitAdresse) {
     objektAdresse($('kd-adresse').value);
-    const p = new URLSearchParams();
     if (objekt.lat && objekt.lon) {
       p.set('marker', `${objekt.lon},${objekt.lat}`);
       p.set('projection', 'EPSG:4326');
+      p.set('Map/zoomLevel', '11');   // 1:2.500, Flurstücke sind ab 1:5.000 sichtbar
     } else if (objekt.adresse) {
       // Adresssuche des Viewers: „Straße,Hausnummer“; der Ort hilft bei gleichen Straßennamen
       const m = objekt.adresse.match(/^(.*?)\s+(\d+\s*[a-zA-Z]?)\s*(?:,\s*(?:\d{5}\s+)?(.*))?$/);
       p.set('query', m ? `${m[1]},${m[2].replace(/\s+/g, '')}${m[3] ? ' ' + m[3] : ''}` : objekt.adresse);
     }
-    if ([...p].length) url += (url.includes('?') ? '&' : '?') + p;
   }
+  // Schlüssel wie „Map/layerIds“ nicht kodieren, sonst erkennt der Viewer sie nicht
+  const teile = [...p].map(([k, v]) => k + '=' + encodeURIComponent(v).replace(/%2C/g, ','));
+  if (teile.length) url += (url.includes('?') ? '&' : '?') + teile.join('&');
   protokoll(`BrandenburgViewer geöffnet${mitAdresse && objekt.adresse ? ` (${objekt.adresse})` : ''}`);
   window.open(url, '_blank', 'noopener');
 }
@@ -376,6 +387,66 @@ async function speichern() {
   }
 }
 
+// ------------------------------------------------------------------ Downloads und gezogene PDFs ablegen
+// Bleibt am PC: der Server kopiert die Datei aus Downloads in den Vorgang, nichts geht an Claude.
+async function downloadsZeigen() {
+  const liste = $('dl-liste');
+  liste.textContent = 'Wird geladen …';
+  $('dl-hinweis').textContent = `Die neuesten PDFs aus Downloads. Anklicken legt eine Kopie im Vorgang ${vorgang} ab.`;
+  $('dl-dialog').hidden = false;
+  try {
+    const d = await (await fetch('/api/downloads', { cache: 'no-store' })).json();
+    liste.textContent = '';
+    if (!d.dateien || !d.dateien.length) { liste.textContent = `Keine PDF aus den letzten 24 Stunden in ${d.ordner || 'Downloads'}.`; return; }
+    for (const f of d.dateien) {
+      const b = document.createElement('button');
+      b.textContent = f.name;
+      const s = document.createElement('small');
+      s.textContent = `${f.zeit} Uhr · ${f.kb} KB`;
+      b.append(s);
+      b.addEventListener('click', async () => {
+        b.disabled = true;
+        try {
+          const r = await fetch('/api/download-ablegen?' + new URLSearchParams({ nr: vorgang, name: f.name }), { method: 'POST' });
+          const e = await r.json().catch(() => ({}));
+          if (!r.ok || e.ok === false) throw new Error(e.fehler || `Fehler ${r.status}`);
+          s.textContent = `✓ abgelegt: ${e.datei}`;
+          protokoll(`Download abgelegt: ${e.datei}`);
+        } catch (err) { s.textContent = '✗ ' + err.message; b.disabled = false; }
+      });
+      liste.append(b);
+    }
+  } catch { liste.textContent = 'Downloads konnten nicht gelesen werden.'; }
+}
+$('dl-abbruch').addEventListener('click', () => { $('dl-dialog').hidden = true; });
+
+let ziehen = 0;
+document.addEventListener('dragenter', e => { if ([...e.dataTransfer.types].includes('Files')) { ziehen++; $('ablegen-ziel').hidden = false; } });
+document.addEventListener('dragleave', () => { if (--ziehen <= 0) { ziehen = 0; $('ablegen-ziel').hidden = true; } });
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  ziehen = 0; $('ablegen-ziel').hidden = true;
+  const dateien = [...e.dataTransfer.files];
+  if (!dateien.length) return;
+  mitVorgang(async () => {
+    const ergebnis = [];
+    for (const f of dateien) {
+      const daten = await f.arrayBuffer();
+      if (!/\.pdf$/i.test(f.name) || new TextDecoder().decode(daten.slice(0, 5)) !== '%PDF-') { ergebnis.push(`✗ ${f.name}: nur PDF`); continue; }
+      try {
+        const q = new URLSearchParams({ nr: vorgang, datei: f.name.replace(/\.pdf$/i, '') });
+        const r = await fetch('/api/ablegen?' + q, { method: 'POST', headers: { 'Content-Type': 'application/pdf' }, body: daten });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || d.ok === false) throw new Error(d.fehler || `Fehler ${r.status}`);
+        ergebnis.push(`✓ ${d.datei}`);
+        protokoll(`PDF ins Fenster gezogen und abgelegt: ${d.datei}`);
+      } catch (err) { ergebnis.push(`✗ ${f.name}: ${err.message}`); }
+    }
+    alert(`Im Vorgang ${vorgang}:\n` + ergebnis.join('\n'));
+  });
+});
+
 // ------------------------------------------------------------------ Start: Kacheln
 // art: ki = Eingaben gehen an Claude (Anthropic, USA); pc = bleibt auf diesem PC bzw. im Browser;
 // web = fremde Webseite, Eingaben gehen an deren Betreiber (nicht an eine KI).
@@ -386,6 +457,11 @@ const MARKEN = { ki: '🟠 KI – geht an Claude (USA)', pc: '🟢 bleibt am PC'
 // exportierbarer Schlüssel in der IndexedDB dieses PCs; danach kein Passwort mehr.
 const INTERN_DATEN = 'https://twoinar.github.io/tools/intern/';
 let intern = { status: 'laedt', gruppen: [], dateien: {} };
+const ORDNER_ICONS = { xnp: '📨', geldwaesche: '🔍', erbausschlagung: '⚖️', apps: '📲' };
+const BOEGEN = {
+  'vorgespraech.html': { icon: '📝' }, 'vollzug.html': { icon: '📋' }, 'erbspiegel.html': { icon: '🌳' },
+  'geschaeftswert.html': { icon: '💶' }, 'bewertung.html': { icon: '🧮', titel: 'Grundstückswert lokal' }, 'kosten.html': { icon: '🧾' },
+};
 function internDb() {
   return new Promise((ok, fehler) => {
     const r = indexedDB.open('tools-intern', 1);
@@ -412,27 +488,67 @@ async function internLaden() {
     try { verz = JSON.parse(new TextDecoder().decode(await internEntschluesseln(k, await holen('daten/inhalt.bin')))); }
     catch (e) { intern.status = e.message === 'netz' ? 'netz' : 'anmelden'; return; }
     intern.dateien = verz.dateien || {};
-    // Übersicht (app/index.html) lesen und ihre Links als Kacheln übernehmen, gruppiert nach Überschriften
-    const ein = intern.dateien['index.html'];
-    const html = ein ? new TextDecoder().decode(await internEntschluesseln(k, await holen('daten/' + ein.id + '.bin'))) : '';
-    const dom = new DOMParser().parseFromString(html, 'text/html');
-    const gruppen = [];
+    // Übersicht (app/index.html) lesen und ihre Links als Kacheln übernehmen, gruppiert nach Überschriften.
+    // Die Bögen-Übersicht wird ausgepackt (jeder Bogen eine Kachel), Handy-Scan bleibt draußen, Doppeltes nur einmal.
+    const lesen = async pfad => {
+      const d = intern.dateien[pfad];
+      return d ? new DOMParser().parseFromString(new TextDecoder().decode(await internEntschluesseln(k, await holen('daten/' + d.id + '.bin'))), 'text/html') : null;
+    };
+    const basis = location.origin + '/intern/app/';
+    const gruppen = [], gesehen = new Set();
     let akt = null;
-    for (const el of dom.body ? dom.body.querySelectorAll('h2, h3, a[href]') : []) {
-      if (el.tagName !== 'A') { akt = { titel: el.textContent.trim(), kacheln: [] }; gruppen.push(akt); continue; }
+    const kachelAus = (el, ordner) => {
       const href = el.getAttribute('href');
-      if (!href || /^(https?:|mailto:|#|\.\.|\/|\?)/.test(href)) continue;
+      if (!href || /^(https?:|mailto:|#|\/|\?)/.test(href)) return null;
+      const url = new URL(href, basis + ordner);
+      if (!url.href.startsWith(basis) || url.pathname.replace(/index\.html$/, '') === '/intern/app/') return null;
       const small = el.querySelector('small');
       const text = small ? small.textContent.trim() : '';
       const ohne = el.cloneNode(true);
       ohne.querySelectorAll('small').forEach(x => x.remove());
       const titel = ohne.textContent.replace(/\s+/g, ' ').trim();
-      if (!titel) continue;
-      const m = titel.match(/^(\p{Extended_Pictographic}️?)\s*(.*)$/u);
+      if (!titel) return null;
+      const m = titel.match(/^(\p{Extended_Pictographic}\uFE0F?)\s*(.*)$/u);
+      return { icon: m ? m[1] : '', titel: m ? m[2] : titel, text, art: 'pc', url: url.href, pfad: url.pathname.slice('/intern/app/'.length) };
+    };
+    const aufnehmen = (kachel, gruppe) => {
+      if (/handy/i.test(kachel.titel + ' ' + kachel.pfad)) return;
+      const pfad = kachel.pfad.replace(/(^|\/)index\.html$/, '$1');
+      const name = kachel.titel.toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
+      if (gesehen.has('p:' + pfad + new URL(kachel.url).search) || gesehen.has('t:' + name)) return;
+      gesehen.add('p:' + pfad + new URL(kachel.url).search); gesehen.add('t:' + name);
+      const bogen = BOEGEN[pfad.split('/').pop()];
+      if (/^boegen\//.test(pfad) && bogen) { if (bogen.titel) kachel.titel = bogen.titel; if (!kachel.icon) kachel.icon = bogen.icon; }
+      if (!kachel.icon) kachel.icon = ORDNER_ICONS[pfad.split('/')[0]] || '🧰';
+      gruppe.kacheln.push(kachel);
+    };
+    const dom = await lesen('index.html');
+    for (const el of dom && dom.body ? dom.body.querySelectorAll('h2, h3, a[href]') : []) {
+      if (el.tagName !== 'A') { akt = { titel: el.textContent.trim(), kacheln: [] }; gruppen.push(akt); continue; }
+      const kachel = kachelAus(el, '');
+      if (!kachel) continue;
       if (!akt) { akt = { titel: 'Tools intern', kacheln: [] }; gruppen.push(akt); }
-      akt.kacheln.push({ icon: m ? m[1] : '🧰', titel: m ? m[2] : titel, text, art: 'pc', url: new URL(href, location.origin + '/intern/app/').href });
+      // Verweis auf eine Übersichtsseite der Bögen: deren einzelne Bögen als eigene Gruppe
+      const unter = kachel.pfad.replace(/index\.html$/, '');
+      if (/^boegen\/?$/.test(unter) || (/b[öo]gen/i.test(kachel.titel) && unter.endsWith('/'))) {
+        const ordner = unter.endsWith('/') ? unter : unter + '/';
+        const sub = await lesen(ordner + 'index.html');
+        if (sub && sub.body) {
+          const g = { titel: 'Bögen', kacheln: [] };
+          gruppen.push(g);
+          for (const a of sub.body.querySelectorAll('a[href]')) { const kk = kachelAus(a, ordner); if (kk && kk.pfad !== ordner + 'index.html' && kk.pfad !== ordner) aufnehmen(kk, g); }
+          akt = { titel: akt.titel, kacheln: [] }; gruppen.push(akt);
+          continue;
+        }
+      }
+      aufnehmen(kachel, akt);
     }
-    intern.gruppen = gruppen.filter(g => g.kacheln.length);
+    intern.gruppen = [];
+    for (const g of gruppen.filter(x => x.kacheln.length)) {
+      const da = intern.gruppen.find(x => x.titel === g.titel);
+      if (da) da.kacheln.push(...g.kacheln); else intern.gruppen.push(g);
+    }
+    if (intern.dateien['boegen/bewertung.html'] && !rechner) rechner = basis + 'boegen/bewertung.html';
     if (intern.dateien['boegen/vorgespraech.html'] && !rechner) rechner = location.origin + '/intern/app/boegen/vorgespraech.html?nur=bewertung';
     intern.status = 'ok';
   } catch { intern.status = 'netz'; }
@@ -445,7 +561,7 @@ function gruppen() {
   ] }];
   if (intern.status === 'ok') {
     const g = intern.gruppen.map(x => ({ titel: x.titel, kacheln: x.kacheln.slice() }));
-    if (rechner && !g.some(x => x.kacheln.some(k => k.url.includes('nur=bewertung')))) {
+    if (rechner && !g.some(x => x.kacheln.some(k => k.titel === 'Grundstückswert lokal' || k.url.includes('nur=bewertung')))) {
       if (!g.length) g.push({ titel: 'Tools intern', kacheln: [] });
       g[0].kacheln.unshift({ icon: '🧮', titel: 'Grundstückswert lokal', text: 'Rechner aus den Bögen', art: 'pc', url: rechner });
     }
@@ -454,6 +570,9 @@ function gruppen() {
     const text = { laedt: 'wird geladen …', anmelden: 'einmal mit Passwort verbinden, danach ohne', netz: 'gerade nicht erreichbar (Internet?)' }[intern.status];
     liste.push({ titel: 'Tools intern', kacheln: [{ icon: '🔒', titel: 'Tools intern verbinden', text, art: 'pc', url: location.origin + '/intern/', selbst: true }] });
   }
+  liste.push({ titel: 'Ablage', kacheln: [
+    { icon: '📥', titel: 'Download in den Vorgang', text: 'z. B. abgerufene Bilanz; oder PDF ins Fenster ziehen', art: 'pc', aktion: downloadsZeigen },
+  ] });
   liste.push({ titel: 'Karten und Register', kacheln: [
     { icon: '🗺️', titel: 'BrandenburgViewer', text: 'springt zum Grundstück des Vorgangs', art: 'web', aktion: karteOeffnen },
     { icon: '🏢', titel: 'Bilanzen und Firmendaten', text: '', art: 'web', firma: true },
