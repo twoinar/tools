@@ -469,12 +469,12 @@ const MARKEN = { ki: '🟠 KI – geht an Claude (USA)', pc: '🟢 bleibt am PC'
 // exportierbarer Schlüssel in der IndexedDB dieses PCs; danach kein Passwort mehr.
 // Als Webseite auf dem IONOS-Server (browser-api.js) liegen Tools intern unter /tools/intern/ derselben Adresse.
 const WEB = window.CLAUDE_WEB || null;
-const INTERN_DATEN = WEB ? WEB.internDaten : 'https://twoinar.github.io/tools/intern/';
+const INTERN_DATEN = WEB ? WEB.internDaten : 'https://tools.notariat-woinar.de/tools/intern/';
 const INTERN_SW = WEB ? WEB.internSw : '/intern/sw.js';
 const INTERN_APP = WEB ? WEB.internApp : location.origin + '/intern/app/';
 const INTERN_ANMELDUNG = WEB ? WEB.internAnmeldung : location.origin + '/intern/';
 let intern = { status: 'laedt', gruppen: [], dateien: {} };
-const VORGESPRAECH_MASKE = (WEB ? location.origin : 'https://twoinar.github.io') + '/boegen/vorgespraech-maske.html';
+const VORGESPRAECH_MASKE = (WEB ? location.origin : 'https://tools.notariat-woinar.de') + '/boegen/vorgespraech-maske.html';
 const ORDNER_ICONS = { xnp: '📨', geldwaesche: '🔍', erbausschlagung: '⚖️', apps: '📲' };
 const BOEGEN = {
   'vorgespraech.html': { icon: '📝', titel: 'Vorgesprächsbogen klassisch' }, 'vollzug.html': { icon: '📋' }, 'erbspiegel.html': { icon: '🌳' },

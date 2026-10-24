@@ -5,7 +5,7 @@
 "use strict";
 const BASIS = new URL("./", self.location).href;          // …/intern/
 const APP = BASIS + "app/";
-const DATEN = "https://twoinar.github.io/tools/intern/";       // verschlüsselte Dateien (GitHub Pages)
+const DATEN = "https://tools.notariat-woinar.de/tools/intern/";   // verschlüsselte Dateien (IONOS-Server, ohne Login lesbar)
 let inhaltCache = null;                                    // {schluessel, dateien}
 let schluesselCache = null;                                // geladener CryptoKey
 

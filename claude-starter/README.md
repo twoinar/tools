@@ -17,7 +17,8 @@ Betreiber der Seite, nicht an eine KI).
   verschlüsselten Dateien von GitHub Pages und entschlüsselt sie im Browser; der Schlüssel liegt nicht
   exportierbar in der IndexedDB von `localhost:8766`. Grundstückswert lokal = `boegen/bewertung.html` (sonst `boegen/vorgespraech.html?nur=bewertung`).
 - **Vorgesprächsbogen klassisch / Maske** – der bisherige Bogen aus Tools intern und die neue Klick-Maske
-  (https://twoinar.github.io/boegen/vorgespraech-maske.html).
+  (https://tools.notariat-woinar.de/boegen/vorgespraech-maske.html, Login fragt Edge einmal ab). Tools intern
+  lädt die verschlüsselten Dateien von https://tools.notariat-woinar.de/tools/intern/ (ohne Login lesbar).
 - **BrandenburgViewer** – springt zum Grundstück des Vorgangs: Koordinaten aus dem Vorgesprächsbogen (bzw. der Maske, Info-Key `WoinarMaske` → `grundstuecke`)
   (`<Nr> … Vorgespräch….pdf` im Ablageordner, eingebettete Daten der Bögen) als `marker`, sonst
   Adresssuche (`query`). Öffnet gleich mit Luftbild und Topographie, Bodenrichtwerten Bauland, Fluren und
