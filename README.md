@@ -20,7 +20,8 @@ Jedes Tool liegt in einem eigenen Unterordner und läuft vollständig im Browser
   Verbesserungen dort bei Bedarf hierher übernehmen, ohne feste Notardaten.
   Die Maske (`boegen/vorgespraech-maske.html`) entsteht mit
   `python3 werkzeuge/maske-kollegen.py <twoinar/boegen>/vorgespraech-maske.html <version>` aus Thomas' Maske.
-  `/tools/boegen/` und `/kostenrechner/` sind auf dem Server ohne Login erreichbar (`server/Caddyfile`).
+  Auf dem Server sind alle Tools unter `/tools/` und der Kostenrechner ohne Login erreichbar; Login nur für
+  Tools intern, das Claude-Fenster, `/api/` und Thomas' eigene Bögen unter `/boegen/` (`server/Caddyfile`).
 - `apps/` – Handy-Apps mit QR-Code und Anleitung: Handy-Scan, Sprachnachricht (APK aus
   `twoinar/sprachnachricht`, Release „neueste“).
 

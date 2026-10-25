@@ -17,14 +17,14 @@
 		-Server
 	}
 
-	# Ein Login für alle Seiten und für Claude. Ausgenommen sind
-	# - die verschlüsselten Dateien von Tools intern (ohne Passwort unlesbar, lagen vorher öffentlich auf GitHub Pages):
-	#   die holt auch das Claude-Fenster am PC (http://localhost:8766), das den Login nicht mitschicken kann;
-	# - die öffentlichen Muster für Kollegen: die Bögen-Kopie /tools/boegen/ und der GNotKG-Kostenrechner, den diese
-	#   Bögen einbinden (beide ohne Daten des Notariats; die Notardaten bleiben im Browser des Kollegen).
+	# Login nur für das, was im Notariat bleibt: Thomas' eigene Bögen (/boegen/), Tools intern, das Claude-Fenster
+	# (/tools/claude-starter/, /claude) und der Claude-Zugang (/api/). Ohne Login für die Kollegen: alle übrigen Tools
+	# unter /tools/ (wie früher auf GitHub Pages) und der GNotKG-Kostenrechner. Die verschlüsselten Dateien von
+	# Tools intern sind ebenfalls frei (ohne Passwort unlesbar); die holt auch das Claude-Fenster am PC
+	# (http://localhost:8766), das den Login nicht mitschicken kann.
 	@verschluesselt path /tools/intern/daten/* /tools/intern/schluessel.json
 	header @verschluesselt Access-Control-Allow-Origin *
-	@geschuetzt not path /tools/intern/daten/* /tools/intern/schluessel.json /tools/boegen /tools/boegen/* /kostenrechner /kostenrechner/*
+	@geschuetzt expression `!path('/', '/tools', '/tools/*', '/kostenrechner', '/kostenrechner/*') || (path('/tools/intern', '/tools/intern/*', '/tools/claude-starter', '/tools/claude-starter/*') && !path('/tools/intern/daten/*', '/tools/intern/schluessel.json'))`
 	basic_auth @geschuetzt {
 		{$TOOLS_BENUTZER} {$TOOLS_PASSWORT_HASH}
 	}
