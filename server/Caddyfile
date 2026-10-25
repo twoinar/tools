@@ -17,12 +17,14 @@
 		-Server
 	}
 
-	# Ein Login für alle Seiten und für Claude. Ausgenommen sind nur die verschlüsselten Dateien von Tools intern
-	# (ohne Passwort unlesbar, lagen vorher öffentlich auf GitHub Pages): die holt auch das Claude-Fenster am PC
-	# (http://localhost:8766), das den Login nicht mitschicken kann.
+	# Ein Login für alle Seiten und für Claude. Ausgenommen sind
+	# - die verschlüsselten Dateien von Tools intern (ohne Passwort unlesbar, lagen vorher öffentlich auf GitHub Pages):
+	#   die holt auch das Claude-Fenster am PC (http://localhost:8766), das den Login nicht mitschicken kann;
+	# - die öffentlichen Muster für Kollegen: die Bögen-Kopie /tools/boegen/ und der GNotKG-Kostenrechner, den diese
+	#   Bögen einbinden (beide ohne Daten des Notariats; die Notardaten bleiben im Browser des Kollegen).
 	@verschluesselt path /tools/intern/daten/* /tools/intern/schluessel.json
 	header @verschluesselt Access-Control-Allow-Origin *
-	@geschuetzt not path /tools/intern/daten/* /tools/intern/schluessel.json
+	@geschuetzt not path /tools/intern/daten/* /tools/intern/schluessel.json /tools/boegen /tools/boegen/* /kostenrechner /kostenrechner/*
 	basic_auth @geschuetzt {
 		{$TOOLS_BENUTZER} {$TOOLS_PASSWORT_HASH}
 	}
