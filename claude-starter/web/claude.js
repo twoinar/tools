@@ -478,7 +478,7 @@ const VORGESPRAECH_MASKE = (WEB ? location.origin : 'https://tools.notariat-woin
 const ORDNER_ICONS = { xnp: '📨', geldwaesche: '🔍', erbausschlagung: '⚖️', apps: '📲' };
 const BOEGEN = {
   'vorgespraech.html': { icon: '📝', titel: 'Vorgesprächsbogen klassisch' }, 'vollzug.html': { icon: '📋' }, 'erbspiegel.html': { icon: '🌳' },
-  'geschaeftswert.html': { icon: '💶' }, 'bewertung.html': { icon: '🧮', titel: 'Grundstückswert lokal' }, 'kosten.html': { icon: '🧾' },
+  'geschaeftswert.html': { icon: '💶' }, 'bewertung.html': { icon: '🧮', titel: 'Grundstückswert lokal' }, 'vorgespraech-maske.html': { icon: '🧭' }, 'kosten.html': { icon: '🧾' },
 };
 function internDb() {
   return new Promise((ok, fehler) => {
@@ -537,7 +537,7 @@ async function internLaden() {
       gesehen.add('p:' + pfad + new URL(kachel.url).search); gesehen.add('t:' + name);
       const bogen = BOEGEN[pfad.split('/').pop()];
       if (/^boegen\//.test(pfad) && bogen) { if (bogen.titel) kachel.titel = bogen.titel; if (!kachel.icon) kachel.icon = bogen.icon; }
-      if (/^boegen\/vorgespraech\.html$/.test(pfad)) kachel.mitNr = true;
+      if (/^boegen\/vorgespraech(-maske)?\.html$/.test(pfad)) kachel.mitNr = true;
       if (!kachel.icon) kachel.icon = ORDNER_ICONS[pfad.split('/')[0]] || '🧰';
       gruppe.kacheln.push(kachel);
     };
@@ -563,7 +563,8 @@ async function internLaden() {
       aufnehmen(kachel, akt);
     }
     // Neue Vorgesprächsmaske (öffentliche Bögen-Seite; Ablageordner merkt sich der Browser je Adresse)
-    for (const g of gruppen) {
+    // Maske nur ergänzen, wenn die Bögen-Übersicht sie nicht schon selbst enthält
+    if (!gesehen.has('t:vorgesprächsbogenmaske')) for (const g of gruppen) {
       const i = g.kacheln.findIndex(k => /boegen\/vorgespraech\.html$/.test(k.pfad));
       if (i >= 0) { g.kacheln.splice(i + 1, 0, { icon: '🧭', titel: 'Vorgesprächsbogen Maske', text: 'zum Durchklicken: Beteiligte, Sachverhalt, …', art: 'pc', url: VORGESPRAECH_MASKE, pfad: '', mitNr: true }); break; }
     }
