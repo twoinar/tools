@@ -42,7 +42,8 @@ Betreiber der Seite, nicht an eine KI).
 (beim nächsten Klick und von selbst, solange das Fenster offen ist; nach „Abbrechen“ 5 Minuten Ruhe);
 oben steht der aktuelle Vorgang mit „wechseln“. Alles wird im Vorgang hinterlegt: jeder Chat als PDF
 `<Nr> Claude Frage <Datum Zeit>.pdf` bzw. `<Nr> Wertanalyse KI <Datum Zeit>.pdf` (nach jeder Antwort
-fortgeschrieben), jeder geöffnete Link und jede Firmensuche als Zeile in `<Nr> Claude-Fenster Protokoll.txt`.
+fortgeschrieben), dazu Registerauszüge und abgelegte Downloads. Ein Protokoll der geöffneten Links gibt es
+nicht mehr (Wunsch Thomas 26.10.: nur echte Dateien im Vorgang).
 Was in den geöffneten Webseiten und Tools passiert, sieht das Fenster nicht; deren Ergebnisse dort
 speichern. An Claude geht nur der getippte Text, die Vorgangsnummer bleibt am PC.
 
@@ -61,8 +62,7 @@ Protokoll: `%LOCALAPPDATA%\Claude-Starter\protokoll.txt`.
 
 - `Claude-Server.ps1` – PowerShell-HttpListener nur auf `http://localhost:8766/`. `POST /api/claude`
   reicht die Anfrage an `api.anthropic.com/v1/messages` weiter und hängt den Schlüssel an (eigener
-  Runspace, das Fenster bleibt bedienbar). `POST /api/ablegen` schreibt das PDF in den Ablageordner (`ersetzen=1` überschreibt), `POST /api/protokoll`
-  hängt eine Zeile an das Vorgangsprotokoll. `GET /api/downloads` listet neue PDFs aus Downloads,
+  Runspace, das Fenster bleibt bedienbar). `POST /api/ablegen` schreibt das PDF in den Ablageordner (`ersetzen=1` überschreibt), `GET /api/downloads` listet neue PDFs aus Downloads,
   `POST /api/download-ablegen` kopiert eine davon in den Vorgang.
 - `claude.json` – API-Schlüssel, DPAPI-verschlüsselt (nur dieser Windows-Benutzer). Nie ins Repo.
 - `einstellungen.json` – `Ablageordner`, `Vorgangsordner`, `NurZiffern`, `Kartenlink`, `Wertrechner`, `Port`, optional

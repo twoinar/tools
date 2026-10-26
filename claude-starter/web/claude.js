@@ -255,19 +255,12 @@ function karteZeigen(mitAdresse) {
   // Kommas in den Werten nicht kodieren (layerIDs=7004,586,…), so wie der Viewer sie erwartet
   const teile = [...p].map(([k, v]) => k + '=' + encodeURIComponent(v).replace(/%2C/g, ','));
   if (teile.length) url += (url.includes('?') ? '&' : '?') + teile.join('&');
-  protokoll(`BrandenburgViewer geöffnet${mitAdresse && objekt.adresse ? ` (${objekt.adresse})` : ''}`);
   window.open(url, '_blank', 'noopener');
 }
 $('kd-ok').addEventListener('click', () => karteZeigen(true));
 $('kd-leer').addEventListener('click', () => karteZeigen(false));
 $('kd-abbruch').addEventListener('click', () => { $('karte-dialog').hidden = true; });
 $('kd-adresse').addEventListener('keydown', e => { if (e.key === 'Enter') karteZeigen(true); if (e.key === 'Escape') $('kd-abbruch').click(); });
-
-function protokoll(text) {
-  if (!vorgang) return;
-  fetch('/api/protokoll?' + new URLSearchParams({ nr: vorgang }), { method: 'POST', headers: { 'Content-Type': 'text/plain; charset=utf-8' }, body: text })
-    .catch(() => {});
-}
 
 function knoepfe() {
   $('senden').disabled = laeuft || !$('text').value.trim();
@@ -423,7 +416,6 @@ async function downloadsZeigen() {
           const e = await r.json().catch(() => ({}));
           if (!r.ok || e.ok === false) throw new Error(e.fehler || `Fehler ${r.status}`);
           s.textContent = `✓ abgelegt: ${e.datei}`;
-          protokoll(`Download abgelegt: ${e.datei}`);
         } catch (err) { s.textContent = '✗ ' + err.message; b.disabled = false; }
       });
       liste.append(b);
@@ -452,7 +444,6 @@ document.addEventListener('drop', e => {
         const d = await r.json().catch(() => ({}));
         if (!r.ok || d.ok === false) throw new Error(d.fehler || `Fehler ${r.status}`);
         ergebnis.push(`✓ ${d.datei}`);
-        protokoll(`PDF ins Fenster gezogen und abgelegt: ${d.datei}`);
       } catch (err) { ergebnis.push(`✗ ${f.name}: ${err.message}`); }
     }
     alert(`Im Vorgang ${vorgang}:\n` + ergebnis.join('\n'));
@@ -631,7 +622,6 @@ function startZeigen() {
       t.querySelector('.marke').classList.add(k.art);
       if (k.selbst) t.addEventListener('click', () => { location.href = k.url; });
       else if (k.url) t.addEventListener('click', () => mitVorgang(() => {
-        protokoll(`${k.titel} geöffnet`);
         // Vorgesprächsbögen übernehmen die Vorgangsnummer aus #vorgang= (Hash geht nicht an den Server)
         const ziel = k.mitNr ? k.url.split('#')[0] + '#vorgang=' + encodeURIComponent(vorgang) : k.url;
         window.open(ziel, '_blank', 'noopener');
@@ -665,7 +655,6 @@ function firmaKachel(k) {
     knopf.title = r.text;
     knopf.addEventListener('click', () => mitVorgang(async () => {
       const name = feld.value.trim();
-      protokoll(`${r.name}: Suche${name ? ` nach „${name}“` : ''} geöffnet`);
       if (name) {
         try { await navigator.clipboard.writeText(name); info.textContent = `„${name}“ kopiert – ${r.weg}.`; }
         catch { info.textContent = `Bitte „${name}“ im Suchfeld eintippen.`; }
@@ -706,7 +695,6 @@ $('wf-los').addEventListener('click', () => {
   zeilen.push(`Wertermittlungsstichtag: ${new Date().toLocaleDateString('de-DE')}`);
   if ($('wf-sonst').value.trim()) zeilen.push(`Bekannt: ${$('wf-sonst').value.trim()}`);
   starten('wert');
-  protokoll(`Grundstückswert KI gestartet für ${objekt.adresse} (Einverständnis der Beteiligten bestätigt ${einwilligung})`);
   $('text').value = 'Bitte bewerten:\n' + zeilen.join('\n');
   senden();
 });
