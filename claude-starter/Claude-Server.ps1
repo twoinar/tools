@@ -8,7 +8,7 @@
 # Start: Desktop-Symbol „Claude“ (Claude-Starten.ps1). Einmalig vorher: „Einrichten.cmd“.
 
 $ErrorActionPreference = 'Stop'
-$Version = '1.6'
+$Version = '1.7'
 
 # ---------------------------------------------------------------- Einstellungen
 $cfg = [ordered]@{ Ablageordner = ''; Vorgangsordner = $false; NurZiffern = $true
@@ -319,21 +319,6 @@ function Invoke-HrAblegen($ctx, $q) {
     Send-Json $ctx 200 @{ ok = $true; datei = $anzeige }
 }
 
-function Invoke-Protokoll($ctx, $q) {
-    # Eine Zeile an "<Nummer> Claude-Fenster Protokoll.txt" im Vorgang anhängen (was im Fenster geöffnet wurde)
-    $nr = Get-Nummer $q['nr']
-    if (-not $nr) { Send-Json $ctx 400 @{ ok = $false; fehler = 'Vorgangsnummer fehlt oder ist ungültig.' }; return }
-    if ($ctx.Request.ContentLength64 -gt 4KB) { Send-Json $ctx 413 @{ ok = $false; fehler = 'Zu lang.' }; return }
-    $text = (New-Object IO.StreamReader($ctx.Request.InputStream, [Text.Encoding]::UTF8)).ReadToEnd()
-    $text = ($text -replace '[\x00-\x1F]', ' ').Trim()
-    if ($text -eq '') { Send-Json $ctx 400 @{ ok = $false; fehler = 'Leer.' }; return }
-    if ($Basis -eq '' -or -not (Test-Path -LiteralPath $Basis)) { Send-Json $ctx 500 @{ ok = $false; fehler = 'Ablageordner nicht erreichbar.' }; return }
-    if ($MitVorgangsordner) { $pfad = Join-Path (Get-Vorgangsordner $nr) 'Claude-Fenster Protokoll.txt' }
-    else { $pfad = Join-Path $Basis "$nr Claude-Fenster Protokoll.txt" }
-    Add-Content -LiteralPath $pfad -Encoding UTF8 -Value ("{0:dd.MM.yyyy HH:mm}  {1}" -f (Get-Date), $text)
-    Send-Json $ctx 200 @{ ok = $true }
-}
-
 function Invoke-Vorgespraech($ctx, $q) {
     # Neuesten Vorgesprächsbogen des Vorgangs ("<Nr> … Vorgespräch….pdf") an die Seite geben. Die Seite liest
     # daraus Anschrift und Lage des Grundstücks (eingebettete Daten). Nur am PC selbst.
@@ -462,7 +447,6 @@ while ($listener.IsListening) {
         }
         if ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/info') { Invoke-Info $ctx }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/ablegen') { Invoke-Ablegen $ctx (Get-Query $req) }
-        elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/protokoll') { Invoke-Protokoll $ctx (Get-Query $req) }
         elseif ($req.HttpMethod -eq 'GET' -and $pfad -eq '/api/downloads') { Invoke-Downloads $ctx }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/hr/neu') { Invoke-HrNeu $ctx }
         elseif ($req.HttpMethod -eq 'POST' -and $pfad -eq '/api/hr/http') { Invoke-HrHttp $ctx (Get-Query $req) }

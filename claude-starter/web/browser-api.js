@@ -1,7 +1,7 @@
 // Claude-Fenster als Webseite (IONOS-Server, https://tools.notariat-woinar.de/tools/claude-starter/web/claude.html).
 // Am PC beantwortet Claude-Server.ps1 die Aufrufe /api/…; auf dem Server übernimmt das diese Datei im Browser:
 // - Claude: über den Proxy des Servers (/api/claude/v1/messages), der den API-Schlüssel einsetzt;
-// - Ablage, Protokoll, Vorgesprächsbogen, Downloads: über die Ordnerfreigabe des Browsers (Chrome/Edge),
+// - Ablage, Vorgesprächsbogen, Downloads: über die Ordnerfreigabe des Browsers (Chrome/Edge),
 //   die Dateien gehen also direkt vom Browser nach Y:\Vorgänge und nie über den Server.
 // Am PC selbst (localhost) tut diese Datei nichts.
 'use strict';
@@ -161,25 +161,6 @@
       const z = await ziel(nr, sauber(q.get('datei'), 120) || 'Claude ' + new Date().toLocaleString('sv-SE').slice(0, 16).replace(':', '-'), '.pdf', q.get('ersetzen') === '1');
       await schreiben(z.ordner, z.name, daten);
       return json(200, { ok: true, datei: z.anzeige });
-    },
-
-    'POST /api/protokoll': async (q, init) => {
-      const nr = nummer(q.get('nr'));
-      if (!nr) return json(400, { ok: false, fehler: 'Vorgangsnummer fehlt oder ist ungültig.' });
-      const text = new TextDecoder().decode(await koerper(init)).replace(/[\x00-\x1F]/g, ' ').trim().slice(0, 4000);
-      if (!text) return json(400, { ok: false, fehler: 'Leer.' });
-      const basis = await vorgaenge();
-      const ordner = einst.vorgangsordner ? await vorgangsordner(basis, nr) : basis;
-      const name = einst.vorgangsordner ? 'Claude-Fenster Protokoll.txt' : `${nr} Claude-Fenster Protokoll.txt`;
-      const d = new Date();
-      const zeile = `${zwei(d.getDate())}.${zwei(d.getMonth() + 1)}.${d.getFullYear()} ${zwei(d.getHours())}:${zwei(d.getMinutes())}  ${text}\r\n`;
-      const h = await ordner.getFileHandle(name, { create: true });
-      const groesse = (await h.getFile()).size;
-      const w = await h.createWritable({ keepExistingData: true });
-      await w.seek(groesse);
-      await w.write(zeile);
-      await w.close();
-      return json(200, { ok: true });
     },
 
     // Neuester Vorgesprächsbogen „<Nr> … Vorgespr….pdf“ (auch im Unterordner des Vorgangs)

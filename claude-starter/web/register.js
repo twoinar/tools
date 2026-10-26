@@ -227,7 +227,6 @@ async function hrAblegen(d, name) {
   const r = await fetch('/api/hr/ablegen?' + new URLSearchParams({ nr: vorgang, id: d.datei, name }), { method: 'POST' });
   const e = await r.json().catch(() => ({}));
   if (!r.ok || e.ok === false) throw new Error(e.fehler || `Fehler ${r.status}`);
-  protokoll(`Registerabruf abgelegt: ${e.datei}`);
   return e.datei;
 }
 async function hrAbrufen() {
@@ -247,7 +246,6 @@ async function hrAbrufen() {
     const basis = (await (await fetch('/api/info')).json()).registerportal || 'https://www.handelsregister.de';
     if (info.abrufe >= info.grenze - arten.length - 1) hrMeldung(`Achtung: ${info.abrufe} von ${info.grenze} Abrufen dieser Stunde verbraucht.`, 'schlecht');
     const suche = `${firma}${regnr ? ` (${regnr.art} ${regnr.nr})` : ''}`;
-    protokoll(`Registerabruf: ${suche} – ${arten.map(a => a.k).join(', ')}`);
     let m = hrMeldung(`Suche „${suche}“ …`);
     let s = await hrSuchen(basis, firma, regnr, firma ? '3' : '1');
     if (!s.treffer.length && firma) { m.textContent += ' kein genauer Treffer, suche weiter …'; s = await hrSuchen(basis, firma, regnr, '1'); }
