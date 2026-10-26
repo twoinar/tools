@@ -1,0 +1,38 @@
+# Bringt die Bögen in „Tools intern“ auf den Stand von twoinar/boegen (täglich und auf Knopfdruck).
+# Braucht einmalig unter Settings › Secrets and variables › Actions das Secret INTERN_PASSWORT
+# (das aktuelle Passwort von Tools intern; es bleibt unverändert).
+name: "Tools intern: Bögen aktualisieren"
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * *"
+permissions:
+  contents: write
+concurrency: intern-passwort
+jobs:
+  boegen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: twoinar/boegen
+          path: _boegen
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet cryptography
+      - name: Bögen übernehmen
+        env:
+          INTERN_PASSWORT: ${{ secrets.INTERN_PASSWORT }}
+        run: |
+          if [ -z "$INTERN_PASSWORT" ]; then echo "::error::Secret INTERN_PASSWORT fehlt (Settings › Secrets and variables › Actions)."; exit 1; fi
+          python3 werkzeuge/intern-boegen.py _boegen
+      - name: Hochladen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A intern
+          if git diff --cached --quiet; then echo "Keine Änderung."; exit 0; fi
+          git commit -m "Tools intern: Bögen aus twoinar/boegen aktualisiert"
+          git push

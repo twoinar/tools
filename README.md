@@ -41,6 +41,11 @@ Neu bauen bzw. Passwort ändern:
     INTERN_PASSWORT='…' python3 werkzeuge/intern-bauen.py <ordner-mit-den-internen-seiten>
 
 Der Ordner mit den internen Seiten im Klartext gehört **nicht** in dieses Repository.
+
+Bögen in Tools intern aktualisieren: Die GitHub-Aktion „Tools intern: Bögen aktualisieren“
+(`werkzeuge/intern-boegen.py`) entschlüsselt mit dem Secret `INTERN_PASSWORT`, übernimmt alle
+`*.html` aus `twoinar/boegen` nach `boegen/` und verschlüsselt mit demselben Passwort neu.
+Sie läuft täglich und auf Knopfdruck; ohne inhaltliche Änderung passiert nichts.
 Zum Passwortwechsel zusätzlich `intern/schluessel.json` vorher löschen (neues Salz).
 
 Passwort wechseln ohne Klartext-Ordner: auf GitHub unter Settings › Secrets and variables › Actions
