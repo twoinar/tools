@@ -40,6 +40,30 @@ https://tools.notariat-woinar.de/ öffnen und mit Benutzername und Passwort anme
 Passwort oder Schlüssel ändern: `bash /opt/tools/aktualisieren.sh --einrichten` noch einmal.
 Protokoll: `/opt/tools/protokoll.txt`.
 
+## Mail „Vorgespräch abgelegt“
+
+Wird ein Vorgesprächsbogen abgelegt, schicken die Bögen `POST /api/mail/ablage` mit Vorgangsnummer und Bogenart.
+Der Container `tools-mail` (`mail/benachrichtigen.py`) verschickt daraufhin über Microsoft 365 eine kurze Mail an
+die fest eingestellten Empfänger („Vorgespräch 30519 abgelegt“, ohne Mandantendaten, ohne Anhang).
+
+Einmalig im Microsoft-Entra-Admincenter (https://entra.microsoft.com, als Administrator):
+
+1. *App-Registrierungen › Neue Registrierung*, Name „Tools-Server Mail“, nur dieses Verzeichnis, *Registrieren*.
+   Auf der Übersicht stehen **Anwendungs-ID (Client)** und **Verzeichnis-ID (Mandant)**.
+2. *API-Berechtigungen › Berechtigung hinzufügen › Microsoft Graph › Anwendungsberechtigungen › Mail.Send*,
+   dann *Administratorzustimmung für … erteilen*.
+3. *Zertifikate & Geheimnisse › Neuer geheimer Clientschlüssel* (Ablauf 24 Monate). Den **Wert** sofort kopieren,
+   er wird nur einmal angezeigt.
+4. Ein Absender-Postfach anlegen, z. B. `bogen@notar-woinar.de` (oder ein freigegebenes Postfach, das braucht
+   keine Lizenz).
+
+Dann als root auf dem Server: `bash /opt/tools/aktualisieren.sh --mail` und die Werte eingeben. Ohne diese
+Einrichtung antwortet der Dienst „noch nicht eingerichtet“; das Ablegen selbst funktioniert trotzdem.
+
+Hinweis: Mail.Send als Anwendungsberechtigung erlaubt der App das Senden aus jedem Postfach des Mandanten. Wer das
+auf das Absender-Postfach beschränken will, richtet in Exchange Online eine Application Access Policy bzw. RBAC für
+Anwendungen ein. Der Schlüssel liegt nur in `/opt/tools/konfig/.env` (nur root lesbar).
+
 ## Änderungen
 
 `Caddyfile`, `docker-compose.yml` und `aktualisieren.sh` in diesem Ordner gelten nach dem nächsten Lauf auf dem

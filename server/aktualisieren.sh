@@ -6,6 +6,7 @@
 #
 # Aufruf von Hand: bash aktualisieren.sh [--jetzt]   (--jetzt: alles neu holen und Container neu starten)
 #                  bash aktualisieren.sh --einrichten (Benutzer, Passwort und API-Schlüssel eingeben)
+#                  bash aktualisieren.sh --mail       (Mail-Benachrichtigung über Microsoft 365 einrichten)
 
 set -u
 umask 022
@@ -28,11 +29,35 @@ einrichten() {
     hash=$(printf '%s\n%s\n' "$passwort" "$passwort" | "$DOCKER" run --rm -i caddy:2.10 caddy hash-password 2>/dev/null | tail -n 1)
     case "$hash" in '$2'*) ;; *) echo "Passwort-Hash konnte nicht erzeugt werden."; return 1 ;; esac
     # Einfache Anführungszeichen: der Hash enthält $-Zeichen
+    # Mail-Einstellungen (--mail) bleiben erhalten
+    local mail; mail=$(grep -E '^(MAIL|GRAPH)_' "$KONFIG/.env" 2>/dev/null)
     printf "TOOLS_BENUTZER=%s\nTOOLS_PASSWORT_HASH='%s'\nANTHROPIC_API_KEY=%s\n" "$benutzer" "$hash" "$schluessel" > "$KONFIG/.env"
+    [ -n "$mail" ] && printf '%s\n' "$mail" >> "$KONFIG/.env"
     chmod 600 "$KONFIG/.env"
     echo "Zugangsdaten abgelegt in $KONFIG/.env (nur root lesbar)."
 }
 
+mail_einrichten() {
+    local tenant client secret absender an
+    [ -s "$KONFIG/.env" ] || { echo "Zuerst bash aktualisieren.sh --einrichten"; return 1; }
+    echo "Mail-Benachrichtigung über Microsoft 365 (Werte aus der App-Registrierung im Entra-Admincenter)."
+    read -rp "Verzeichnis-ID (Mandanten-ID): " tenant
+    read -rp "Anwendungs-ID (Client-ID): " client
+    read -rsp "Geheimer Clientschlüssel – der „Wert“ (Anzeige bleibt leer): " secret; echo
+    read -rp "Absender-Postfach (z. B. bogen@notar-woinar.de): " absender
+    read -rp "Empfänger (mehrere durch Komma): " an
+    [ -n "$tenant" ] && [ -n "$client" ] && [ -n "$secret" ] && [ -n "$absender" ] && [ -n "$an" ] || { echo "Eingabe fehlt."; return 1; }
+    grep -vE '^(MAIL|GRAPH)_' "$KONFIG/.env" > "$KONFIG/.env.neu"
+    printf "GRAPH_TENANT=%s\nGRAPH_CLIENT_ID=%s\nGRAPH_SECRET='%s'\nMAIL_ABSENDER=%s\nMAIL_AN=%s\n" \
+        "$tenant" "$client" "$secret" "$absender" "$an" >> "$KONFIG/.env.neu"
+    chmod 600 "$KONFIG/.env.neu" && mv "$KONFIG/.env.neu" "$KONFIG/.env"
+    echo "Mail-Einstellungen abgelegt in $KONFIG/.env (nur root lesbar)."
+}
+
+if [ "${1:-}" = "--mail" ]; then
+    mail_einrichten || exit 1
+    set -- --jetzt
+fi
 if [ "${1:-}" = "--einrichten" ]; then
     einrichten || exit 1
     set -- --jetzt
@@ -92,14 +117,25 @@ if [ $neu_caddy = 1 ]; then
 fi
 rm -f "$BASIS/pruef.env"
 [ $neu_compose = 1 ] && cp "$QUELLE/docker-compose.yml" "$KONFIG/docker-compose.yml"
+# Mail-Dienst: Skript neben die Einstellungen kopieren (der Web-Ordner wird bei jedem Stand ausgetauscht)
+neu_mail=0
+if [ -f "$QUELLE/mail/benachrichtigen.py" ] && ! cmp -s "$QUELLE/mail/benachrichtigen.py" "$KONFIG/mail/benachrichtigen.py"; then
+    mkdir -p "$KONFIG/mail" && cp "$QUELLE/mail/benachrichtigen.py" "$KONFIG/mail/benachrichtigen.py" && neu_mail=1
+fi
 
 [ -f "$KONFIG/Caddyfile" ] || { melde "Noch kein gültiges Caddyfile, Container nicht gestartet (siehe $PROTOKOLL)"; exit 1; }
 cd "$KONFIG" || exit 1
 if [ $neu_compose = 1 ] || [ "${1:-}" = "--jetzt" ] || [ -z "$("$DOCKER" compose ps -q tools-web 2>/dev/null)" ]; then
     "$DOCKER" compose up -d --force-recreate >> "$PROTOKOLL" 2>&1 && melde "Container tools-web gestartet" \
         || melde "Container tools-web konnte nicht starten (läuft die Buchhaltung mit dem Netz „werkzeuge“?)"
-elif [ $neu_caddy = 1 ]; then
-    "$DOCKER" compose exec -T tools-web caddy reload --config /etc/caddy/Caddyfile >> "$PROTOKOLL" 2>&1 \
-        && melde "Caddyfile neu geladen" || melde "Caddyfile konnte nicht neu geladen werden"
+else
+    if [ $neu_mail = 1 ]; then
+        "$DOCKER" compose up -d --force-recreate tools-mail >> "$PROTOKOLL" 2>&1 && melde "Container tools-mail neu gestartet" \
+            || melde "Container tools-mail konnte nicht starten"
+    fi
+    if [ $neu_caddy = 1 ]; then
+        "$DOCKER" compose exec -T tools-web caddy reload --config /etc/caddy/Caddyfile >> "$PROTOKOLL" 2>&1 \
+            && melde "Caddyfile neu geladen" || melde "Caddyfile konnte nicht neu geladen werden"
+    fi
 fi
 exit 0
