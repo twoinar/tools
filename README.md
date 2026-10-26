@@ -16,10 +16,12 @@ Jedes Tool liegt in einem eigenen Unterordner und läuft vollständig im Browser
 - `boegen/` – Bögen für Notariate in Brandenburg: allgemeine Kopie von Vorgesprächsbogen (mit Erbspiegel,
   Grundstückswert, Geschäftswert, Kostenberechnung) und Vollzugsbogen aus `twoinar/boegen`. Name, Anschrift,
   Kontakt und Mitarbeiter trägt jedes Notariat unter „Notardaten“ ein (`boegen/notar.js`, nur im Browser,
-  Export/Import als `Notardaten.json`). Die eigenen Bögen in `twoinar/boegen` bleiben unverändert;
-  Verbesserungen dort bei Bedarf hierher übernehmen, ohne feste Notardaten.
-  Die Maske (`boegen/vorgespraech-maske.html`) entsteht mit
-  `python3 werkzeuge/maske-kollegen.py <twoinar/boegen>/vorgespraech-maske.html <version>` aus Thomas' Maske.
+  Export/Import als `Notardaten.json`). Inhaltlich sind sie gleich wie Thomas' Bögen in `twoinar/boegen`:
+  `python3 werkzeuge/kollegen-boegen.py <twoinar/boegen>` erzeugt klassischen Bogen, Maske (über
+  `werkzeuge/maske-kollegen.py`) und Vollzugsbogen neu und ersetzt nur die Daten des Notariats Woinar sowie
+  KI über den Server und Mail-Benachrichtigung (Kollegen nutzen die KI mit eigenem API-Schlüssel). Die Aktion
+  „Bögen aktualisieren“ (`.github/workflows/intern-boegen.yml`) macht das stündlich. Bricht das Skript ab, hat
+  sich die Quelle geändert und das Skript muss angepasst werden; die Kollegen-Bögen bleiben dann unverändert.
   Auf dem Server sind alle Tools unter `/tools/` und der Kostenrechner ohne Login erreichbar; Login nur für
   Tools intern, das Claude-Fenster, `/api/` und Thomas' eigene Bögen unter `/boegen/` (`server/Caddyfile`).
 - `apps/` – Handy-Apps mit QR-Code und Anleitung: Handy-Scan, Sprachnachricht (APK aus

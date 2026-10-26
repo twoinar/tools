@@ -1,11 +1,13 @@
-# Bringt die Bögen in „Tools intern“ auf den Stand von twoinar/boegen (täglich und auf Knopfdruck).
+# Bringt die Bögen auf den Stand von twoinar/boegen (stündlich und auf Knopfdruck):
+# - Kollegen-Fassung in boegen/ (werkzeuge/kollegen-boegen.py, ohne die Daten des Notariats Woinar)
+# - Bögen in „Tools intern“ (werkzeuge/intern-boegen.py)
 # Braucht einmalig unter Settings › Secrets and variables › Actions das Secret INTERN_PASSWORT
 # (das aktuelle Passwort von Tools intern; es bleibt unverändert).
-name: "Tools intern: Bögen aktualisieren"
+name: "Bögen aktualisieren (Kollegen und Tools intern)"
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 4 * * *"
+    - cron: "17 * * * *"
 permissions:
   contents: write
 concurrency: intern-passwort
@@ -22,7 +24,16 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install --quiet cryptography
-      - name: Bögen übernehmen
+      - name: Kollegen-Bögen erzeugen
+        id: kollegen
+        continue-on-error: true
+        run: python3 werkzeuge/kollegen-boegen.py _boegen
+      - name: Hinweis, falls die Kollegen-Bögen nicht erzeugt werden konnten
+        if: steps.kollegen.outcome == 'failure'
+        run: |
+          git checkout -- boegen
+          echo "::error::Kollegen-Bögen nicht aktualisiert: Die Quelle in twoinar/boegen hat sich so geändert, dass werkzeuge/kollegen-boegen.py angepasst werden muss (Meldung im Schritt davor)."
+      - name: Bögen in Tools intern übernehmen
         env:
           INTERN_PASSWORT: ${{ secrets.INTERN_PASSWORT }}
         run: |
@@ -32,7 +43,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A intern
+          git add -A intern boegen
           if git diff --cached --quiet; then echo "Keine Änderung."; exit 0; fi
-          git commit -m "Tools intern: Bögen aus twoinar/boegen aktualisiert"
+          git commit -m "Bögen aus twoinar/boegen aktualisiert (Kollegen und Tools intern)"
           git push
