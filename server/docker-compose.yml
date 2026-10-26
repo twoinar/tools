@@ -13,8 +13,24 @@ services:
       - ../web:/srv/web:ro
     networks:
       - werkzeuge
+      - intern
+
+  # Benachrichtigung „Vorgespräch abgelegt“ (server/mail/benachrichtigen.py); nur für tools-web erreichbar
+  tools-mail:
+    image: python:3.12-alpine
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: Europe/Berlin
+    command: ["python", "-u", "/app/benachrichtigen.py"]
+    volumes:
+      - ./mail:/app:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    networks:
+      - intern
 
 networks:
+  intern: {}
   werkzeuge:
     # Legt die Buchhaltung an (deploy/synology/mietserver.yml); hier nur mitbenutzt.
     name: werkzeuge
