@@ -58,7 +58,7 @@ Bei Rückfragen im Verlauf nur die Änderung erläutern und die neue Ergebnistab
     datei: () => 'Wertanalyse KI',
     ueberschrift: 'Wertanalyse',
     betreff: () => 'Überschlägige Wertermittlung: Sachwert, Ertragswert (ImmoWertV), Bedarfswert (BewG)',
-    hinweis: 'Erstellt mit einem KI-Assistenten (Claude, Anthropic). Einverständnis der Beteiligten zur Übermittlung der Objektangaben (ohne Namen) lag vor (bestätigt EINWILLIGUNG). Diese Wertanalyse ist eine überschlägige Schätzung auf Grundlage der eingegebenen Angaben und öffentlich zugänglicher Marktdaten. Sie ist kein Verkehrswertgutachten nach § 194 BauGB und keine Feststellung des Finanzamts; sie ersetzt nicht die Begutachtung durch einen Sachverständigen oder den Gutachterausschuss.',
+    hinweis: 'Erstellt mit einem KI-Assistenten (Claude, Anthropic). Einverständnis der Beteiligten zur Übermittlung der Objektangaben (ohne Namen) lag vor (bestätigt EINWILLIGUNG), nach dem Hinweis, dass die Angaben an einen Anbieter in den USA (Anthropic PBC) übermittelt werden und dort möglicherweise kein dem europäischen Recht gleichwertiges Datenschutzniveau besteht. Diese Wertanalyse ist eine überschlägige Schätzung auf Grundlage der eingegebenen Angaben und öffentlich zugänglicher Marktdaten. Sie ist kein Verkehrswertgutachten nach § 194 BauGB und keine Feststellung des Finanzamts; sie ersetzt nicht die Begutachtung durch einen Sachverständigen oder den Gutachterausschuss.',
   },
 };
 
