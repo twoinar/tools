@@ -297,7 +297,7 @@ async function hrAbrufen() {
     if (hrWahl) { hrWahl = null; $('hr-treffer').textContent = ''; }
   }
 }
-$('hr-los').addEventListener('click', () => mitVorgang(hrAbrufen));
+$('hr-los').addEventListener('click', () => mitVorgang(hrAbrufen, true));
 $('hr-zu').addEventListener('click', () => {
   if (hrWahl) { const w = hrWahl; hrWahl = null; $('hr-treffer').textContent = ''; w(null); }
   if (!hrLaeuft) $('hr-dialog').hidden = true;

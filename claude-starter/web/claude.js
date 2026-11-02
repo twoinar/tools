@@ -126,10 +126,12 @@ function antwortHtml(r) {
 }
 
 // ------------------------------------------------------------------ Vorgang
-// Alles, was im Fenster passiert, gehört zum aktuellen Vorgang: Chats als PDF, geöffnete Links als
-// Zeile im Protokoll. Die Nummer bleibt am PC. Nach einer längeren Pause fragt das Fenster nach.
+// Alles, was im Fenster passiert, gehört zum aktuellen Vorgang: Chats als PDF, Registerauszüge, Downloads.
+// Die Nummer bleibt am PC. Nach einer längeren Pause fragt das Fenster nach. „Ohne Vorgang“ (z. B. beim
+// Vollzug, Wunsch Thomas 2.11.) öffnet die Tools trotzdem; abgelegt wird dann nichts.
 const PAUSE_MIN = 30;
 let vorgang = '';
+let ohne = false;   // „Ohne Vorgang“ gewählt (gilt, bis eine Nummer eingetragen wird oder das Fenster schließt)
 // Grundstück des Vorgangs: aus dem Vorgesprächsbogen (falls abgelegt) oder hier eingegeben
 let objekt = { adresse: '', lat: null, lon: null, lage: '', quelle: '' };
 let zuletzt = 0;
@@ -144,13 +146,14 @@ function vorgangHolen() {
   try { const v = JSON.parse(localStorage.getItem('claude-vorgang') || 'null'); if (v && v.nr) { vorgang = v.nr; zuletzt = v.zeit || 0; } } catch { /* egal */ }
 }
 function vorgangZeigen() {
-  $('vg-nr').textContent = vorgang || '–';
+  $('vg-nr').textContent = vorgang || (ohne ? 'ohne' : '–');
   $('vg-leiste').classList.toggle('leer', !vorgang);
 }
 let vorgangWeiter = null;
-function vorgangFragen(weiter, grund) {
+function vorgangFragen(weiter, grund, mussAblegen) {
   vorgangWeiter = weiter;
   $('vg-frage').textContent = grund || 'Zu welchem Vorgang?';
+  $('vg-ohne').hidden = $('vg-ohne-hilfe').hidden = !!mussAblegen;
   $('vg-eingabe').value = vorgang;
   $('vg-dialog').hidden = false;
   $('vg-eingabe').focus();
@@ -160,22 +163,39 @@ async function vorgangOk() {
   const nr = nummerSauber($('vg-eingabe').value);
   if (!nr) { $('vg-eingabe').focus(); return; }
   const neu = nr !== vorgang;
-  if (neu && runden.length) { runden = []; nachrichten = []; zeige('start'); }
+  // Ein Chat ohne Vorgang bleibt stehen und wird jetzt abgelegt; bei einem anderen Vorgang beginnt er neu
+  const nachtragen = !vorgang && runden.length > 0;
+  if (neu && runden.length && !nachtragen) { runden = []; nachrichten = []; zeige('start'); }
   vorgang = nr;
+  ohne = false;
   zuletzt = Date.now();
   if (neu || !objekt.adresse) { objekt = { adresse: '', lat: null, lon: null, lage: '', quelle: '' }; objektGeladen = objektLaden(nr); }
   vorgangMerken();
   $('vg-dialog').hidden = true;
   vorgangZeigen();
   await objektGeladen;
+  if (nachtragen) speichern();
+  const w = vorgangWeiter; vorgangWeiter = null;
+  if (w) w();
+}
+function vorgangOhne() {
+  vorgang = '';
+  ohne = true;
+  objekt = { adresse: '', lat: null, lon: null, lage: '', quelle: '' };
+  objektGeladen = Promise.resolve();
+  vorgangMerken();
+  $('vg-dialog').hidden = true;
+  vorgangZeigen();
   const w = vorgangWeiter; vorgangWeiter = null;
   if (w) w();
 }
 // Führt aktion aus, sobald ein Vorgang feststeht. zuletzt = letzte Bestätigung; alle 30 Minuten wird
 // nachgefragt (Wunsch Thomas): beim nächsten Klick und, falls das Fenster offen bleibt, auch von selbst.
 const NOCH = () => `Noch Vorgang ${vorgang}? Bestätigen oder neue Nummer eintragen.`;
-function mitVorgang(aktion) {
-  if (!vorgang) return vorgangFragen(aktion);
+// mussAblegen: die Aktion legt Dateien im Vorgang ab und braucht deshalb eine Nummer (kein „Ohne Vorgang“)
+function mitVorgang(aktion, mussAblegen) {
+  if (!vorgang && ohne && !mussAblegen) return aktion();
+  if (!vorgang) return vorgangFragen(aktion, mussAblegen ? 'Zum Ablegen bitte die Vorgangsnummer eintragen:' : '', mussAblegen);
   if (Date.now() - zuletzt > PAUSE_MIN * 60000) return vorgangFragen(aktion, NOCH());
   aktion();
 }
@@ -374,7 +394,8 @@ function abschnitte() {
 
 // Nach jeder Antwort automatisch im Vorgang speichern (gleiche Datei, wird fortgeschrieben)
 async function speichern() {
-  if (!vorgang || !runden.some(r => r.antwort)) return;
+  if (!runden.some(r => r.antwort)) return;
+  if (!vorgang) { meldung('Ohne Vorgang: nicht abgelegt. Zum Ablegen oben auf „wechseln“ und die Nummer eintragen.'); return; }
   const erste = runden[0].frage.replace(/\s+/g, ' ');
   try {
     const pdf = await aktenvermerkPdf({
@@ -447,7 +468,7 @@ document.addEventListener('drop', e => {
       } catch (err) { ergebnis.push(`✗ ${f.name}: ${err.message}`); }
     }
     alert(`Im Vorgang ${vorgang}:\n` + ergebnis.join('\n'));
-  });
+  }, true);
 });
 
 // ------------------------------------------------------------------ Start: Kacheln
@@ -555,10 +576,21 @@ async function internLaden() {
     }
     // Neue Vorgesprächsmaske (öffentliche Bögen-Seite; Ablageordner merkt sich der Browser je Adresse)
     // Maske nur ergänzen, wenn die Bögen-Übersicht sie nicht schon selbst enthält
-    if (!gesehen.has('t:vorgesprächsbogenmaske')) for (const g of gruppen) {
+    if (!gruppen.some(g => g.kacheln.some(k => /maske/i.test(k.titel + ' ' + k.pfad)))) for (const g of gruppen) {
       const i = g.kacheln.findIndex(k => /boegen\/vorgespraech\.html$/.test(k.pfad));
       if (i >= 0) { g.kacheln.splice(i + 1, 0, { icon: '🧭', titel: 'Vorgesprächsbogen Maske', text: 'zum Durchklicken: Beteiligte, Sachverhalt, …', art: 'pc', url: VORGESPRAECH_MASKE, pfad: '', mitNr: true }); break; }
     }
+    // Was dasselbe Werkzeug ist, nur einmal zeigen (Wunsch Thomas 2.11.): die Maske nur einmal, und die
+    // „Kostenberechnung“ (Teil des Vorgesprächsbogens) entfällt, wenn es den GNotKG-Kostenrechner gibt
+    const alle = gruppen.flatMap(g => g.kacheln);
+    const hatRechner = alle.some(k => /kostenrechner/i.test(k.titel));
+    let maske = false;
+    for (const g of gruppen) g.kacheln = g.kacheln.filter(k => {
+      if (hatRechner && /^boegen\/kosten\.html$/.test(k.pfad)) return false;
+      if (!/maske/i.test(k.titel + ' ' + k.pfad + ' ' + k.url)) return true;
+      if (maske) return false;
+      return (maske = true);
+    });
     intern.gruppen = [];
     for (const g of gruppen.filter(x => x.kacheln.length)) {
       const da = intern.gruppen.find(x => x.titel === g.titel);
@@ -587,7 +619,7 @@ function gruppen() {
     liste.push({ titel: 'Tools intern', kacheln: [{ icon: '🔒', titel: 'Tools intern verbinden', text, art: 'pc', url: INTERN_ANMELDUNG, selbst: true }] });
   }
   liste.push({ titel: 'Ablage', kacheln: [
-    { icon: '📥', titel: 'Download in den Vorgang', text: 'z. B. abgerufene Bilanz; oder PDF ins Fenster ziehen', art: 'pc', aktion: downloadsZeigen },
+    { icon: '📥', titel: 'Download in den Vorgang', text: 'z. B. abgerufene Bilanz; oder PDF ins Fenster ziehen', art: 'pc', aktion: downloadsZeigen, ablage: true },
   ] });
   liste.push({ titel: 'Karten und Register', kacheln: [
     { icon: '🗺️', titel: 'BrandenburgViewer', text: 'springt zum Grundstück des Vorgangs', art: 'web', aktion: karteOeffnen },
@@ -623,10 +655,10 @@ function startZeigen() {
       if (k.selbst) t.addEventListener('click', () => { location.href = k.url; });
       else if (k.url) t.addEventListener('click', () => mitVorgang(() => {
         // Vorgesprächsbögen übernehmen die Vorgangsnummer aus #vorgang= (Hash geht nicht an den Server)
-        const ziel = k.mitNr ? k.url.split('#')[0] + '#vorgang=' + encodeURIComponent(vorgang) : k.url;
+        const ziel = k.mitNr && vorgang ? k.url.split('#')[0] + '#vorgang=' + encodeURIComponent(vorgang) : k.url;
         window.open(ziel, '_blank', 'noopener');
       }));
-      else { t.addEventListener('click', () => mitVorgang(k.aktion)); if (k.ki && kiAus) { t.disabled = true; t.title = kiAus; } }
+      else { t.addEventListener('click', () => mitVorgang(k.aktion, k.ablage)); if (k.ki && kiAus) { t.disabled = true; t.title = kiAus; } }
       el.querySelector('.kacheln').append(t);
     }
     box.append(el);
@@ -710,6 +742,7 @@ $('text').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKe
 $('text').addEventListener('input', knoepfe);
 $('vg-wechseln').addEventListener('click', () => vorgangFragen(null, 'Neuer Vorgang:'));
 $('vg-ok').addEventListener('click', vorgangOk);
+$('vg-ohne').addEventListener('click', vorgangOhne);
 $('vg-abbruch').addEventListener('click', () => { $('vg-dialog').hidden = true; vorgangWeiter = null; ruheBis = Date.now() + 5 * 60000; });
 $('vg-eingabe').addEventListener('keydown', e => { if (e.key === 'Enter') vorgangOk(); if (e.key === 'Escape') $('vg-abbruch').click(); });
 vorgangHolen();
