@@ -122,6 +122,11 @@ neu_mail=0
 if [ -f "$QUELLE/mail/benachrichtigen.py" ] && ! cmp -s "$QUELLE/mail/benachrichtigen.py" "$KONFIG/mail/benachrichtigen.py"; then
     mkdir -p "$KONFIG/mail" && cp "$QUELLE/mail/benachrichtigen.py" "$KONFIG/mail/benachrichtigen.py" && neu_mail=1
 fi
+# Registerabruf-Dienst: ebenso
+neu_register=0
+if [ -f "$QUELLE/register/register.py" ] && ! cmp -s "$QUELLE/register/register.py" "$KONFIG/register/register.py"; then
+    mkdir -p "$KONFIG/register" && cp "$QUELLE/register/register.py" "$KONFIG/register/register.py" && neu_register=1
+fi
 
 [ -f "$KONFIG/Caddyfile" ] || { melde "Noch kein gültiges Caddyfile, Container nicht gestartet (siehe $PROTOKOLL)"; exit 1; }
 cd "$KONFIG" || exit 1
@@ -132,6 +137,10 @@ else
     if [ $neu_mail = 1 ]; then
         "$DOCKER" compose up -d --force-recreate tools-mail >> "$PROTOKOLL" 2>&1 && melde "Container tools-mail neu gestartet" \
             || melde "Container tools-mail konnte nicht starten"
+    fi
+    if [ $neu_register = 1 ]; then
+        "$DOCKER" compose up -d --force-recreate tools-register >> "$PROTOKOLL" 2>&1 && melde "Container tools-register neu gestartet" \
+            || melde "Container tools-register konnte nicht starten"
     fi
     if [ $neu_caddy = 1 ]; then
         "$DOCKER" compose exec -T tools-web caddy reload --config /etc/caddy/Caddyfile >> "$PROTOKOLL" 2>&1 \

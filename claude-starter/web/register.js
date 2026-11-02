@@ -290,7 +290,7 @@ async function hrAbrufen() {
     hrMeldung('Fertig.');
   } catch (e) {
     hrMeldung('✗ ' + e.message, 'schlecht');
-    hrMeldung('Falls das wieder passiert: bitte die Datei %LOCALAPPDATA%\\Claude-Starter\\register\\letzte-seite.html an Claude schicken (öffentliche Registerdaten).');
+    if (!window.CLAUDE_WEB) hrMeldung('Falls das wieder passiert: bitte die Datei %LOCALAPPDATA%\\Claude-Starter\\register\\letzte-seite.html an Claude schicken (öffentliche Registerdaten).');
   } finally {
     hrLaeuft = false;
     $('hr-los').disabled = false;
