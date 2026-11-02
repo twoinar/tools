@@ -64,10 +64,18 @@ Hinweis: Mail.Send als Anwendungsberechtigung erlaubt der App das Senden aus jed
 auf das Absender-Postfach beschränken will, richtet in Exchange Online eine Application Access Policy bzw. RBAC für
 Anwendungen ein. Der Schlüssel liegt nur in `/opt/tools/konfig/.env` (nur root lesbar).
 
+## Registerabruf (Claude-Fenster im Browser)
+
+Der Container `tools-register` (`register/register.py`) reicht die Anfragen des Claude-Fensters an das
+Registerportal (https://www.handelsregister.de, andere Adressen lehnt er ab) weiter und hält dabei die Sitzung.
+Erreichbar nur über `/api/hr/…` hinter dem Login. Abgerufene Auszüge und Dokumente bleiben höchstens 30 Minuten
+im Arbeitsspeicher, bis der Browser sie abholt und selbst im Vorgang ablegt. Suchen und Dokumentabrufe zählen für
+das ganze Büro, ab 50 je Stunde ist gesperrt (Nutzungsordnung: höchstens 60). Keine Einrichtung nötig.
+
 ## Änderungen
 
 `Caddyfile`, `docker-compose.yml` und `aktualisieren.sh` in diesem Ordner gelten nach dem nächsten Lauf auf dem
 Server. Ein ungültiges `Caddyfile` wird vorher geprüft und nicht übernommen.
 
 Auf dem Server werden keine Dateien gespeichert: die Seiten verarbeiten Dateien im Browser, Claude-Anfragen werden
-nur durchgereicht. Für Claude gelten die Datenschutzregeln des Notariats unverändert.
+nur durchgereicht (Registerauszüge liegen nur kurz im Arbeitsspeicher, siehe oben). Für Claude gelten die Datenschutzregeln des Notariats unverändert.

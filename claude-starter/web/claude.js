@@ -623,8 +623,8 @@ function gruppen() {
   ] });
   liste.push({ titel: 'Karten und Register', kacheln: [
     { icon: '🗺️', titel: 'BrandenburgViewer', text: 'springt zum Grundstück des Vorgangs', art: 'web', aktion: karteOeffnen },
-    // Registerabruf nur am PC: die Abrufgrenze des Registerportals gilt je Internetanschluss
-    ...(WEB ? [] : [{ icon: '🏛️', titel: 'Registerabruf', text: 'Auszüge, Gesellschaftsvertrag, Gesellschafterliste in den Vorgang', art: 'web', aktion: () => hrOeffnen() }]),
+    // Registerabruf: am PC über Claude-Server.ps1, im Browser über den Dienst tools-register des Servers
+    { icon: '🏛️', titel: 'Registerabruf', text: 'Auszüge, Gesellschaftsvertrag, Gesellschafterliste in den Vorgang', art: 'web', aktion: () => hrOeffnen() },
     { icon: '🏢', titel: 'Bilanzen und Firmendaten', text: '', art: 'web', firma: true },
     { icon: '📜', titel: 'Gesetze im Internet', text: 'Bundesrecht', art: 'web', url: 'https://www.gesetze-im-internet.de/' },
   ] });

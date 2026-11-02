@@ -29,6 +29,20 @@ services:
     networks:
       - intern
 
+  # Registerabruf im Claude-Fenster (Webversion, server/register/register.py); nur für tools-web erreichbar,
+  # darf selbst nur zum Registerportal (prüft der Dienst)
+  tools-register:
+    image: python:3.12-alpine
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Berlin
+    command: ["python", "-u", "/app/register.py"]
+    volumes:
+      - ./register:/app:ro
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
+    networks:
+      - intern
+
 networks:
   intern: {}
   werkzeuge:

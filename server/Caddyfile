@@ -59,6 +59,17 @@
 		}
 		reverse_proxy tools-mail:8080
 	}
+	# Registerabruf (handelsregister.de) für das Claude-Fenster im Browser (Container tools-register)
+	handle /api/hr/* {
+		request_body {
+			max_size 64KB
+		}
+		reverse_proxy tools-register:8081 {
+			transport http {
+				response_header_timeout 120s
+			}
+		}
+	}
 	handle /api/* {
 		respond 404
 	}

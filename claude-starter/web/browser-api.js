@@ -2,7 +2,9 @@
 // Am PC beantwortet Claude-Server.ps1 die Aufrufe /api/…; auf dem Server übernimmt das diese Datei im Browser:
 // - Claude: über den Proxy des Servers (/api/claude/v1/messages), der den API-Schlüssel einsetzt;
 // - Ablage, Vorgesprächsbogen, Downloads: über die Ordnerfreigabe des Browsers (Chrome/Edge),
-//   die Dateien gehen also direkt vom Browser nach Y:\Vorgänge und nie über den Server.
+//   die Dateien gehen also direkt vom Browser nach Y:\Vorgänge und nie über den Server;
+// - Registerabruf: über den Dienst tools-register des Servers (server/register/register.py), der die Sitzung
+//   beim Registerportal hält; die abgerufenen Dateien holt der Browser dort ab und legt sie selbst im Vorgang ab.
 // Am PC selbst (localhost) tut diese Datei nichts.
 'use strict';
 
@@ -131,6 +133,7 @@
   const istPdf = d => d.length >= 5 && String.fromCharCode(...d.slice(0, 5)) === '%PDF-';
   const json = (status, obj) => new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
   const zwei = n => String(n).padStart(2, '0');
+  let hrSitzung = '';
 
   // ------------------------------------------------------------------ die einzelnen Aufrufe
   const API = {
@@ -216,13 +219,41 @@
     },
   };
 
+  // Registerabruf über den Server (gleiche Antworten wie Claude-Server.ps1)
+  const HR = {
+    'POST /api/hr/neu': async () => {
+      const r = await echtesFetch('/api/hr/neu', { method: 'POST' });
+      const d = await r.json().catch(() => ({ ok: false, fehler: `Fehler ${r.status}` }));
+      if (d.sitzung) hrSitzung = d.sitzung;
+      return json(r.status, d);
+    },
+    'POST /api/hr/http': async (q, init) => {
+      q.set('sitzung', hrSitzung);
+      const r = await echtesFetch('/api/hr/http?' + q, { method: 'POST', body: init.body || '' });
+      const d = await r.json().catch(() => ({ ok: false, fehler: `Fehler ${r.status}` }));
+      if (d.datei) d.datei += d.endung || '.bin';   // wie am PC: Kennung mit Endung
+      return json(r.status, d);
+    },
+    'POST /api/hr/ablegen': async q => {
+      const nr = nummer(q.get('nr'));
+      if (!nr) return json(400, { ok: false, fehler: 'Vorgangsnummer fehlt oder ist ungültig.' });
+      const m = /^([0-9a-f]{32})(\.[a-z0-9]{2,5})$/.exec(q.get('id') || '');
+      if (!m) return json(400, { ok: false, fehler: 'Ungültige Datei.' });
+      const r = await echtesFetch('/api/hr/datei?' + new URLSearchParams({ sitzung: hrSitzung, id: m[1] }));
+      if (!r.ok) return json(404, { ok: false, fehler: 'Datei nicht mehr da.' });
+      const daten = new Uint8Array(await r.arrayBuffer());
+      const z = await ziel(nr, sauber(q.get('name'), 150) || 'Registerabruf', m[2], false);
+      await schreiben(z.ordner, z.name, daten);
+      return json(200, { ok: true, datei: z.anzeige });
+    },
+  };
+
   window.fetch = async (eingabe, init = {}) => {
     const roh = typeof eingabe === 'string' ? eingabe : eingabe instanceof URL ? eingabe.href : eingabe.url;
     const url = new URL(roh, location.href);
     if (url.origin !== location.origin || !url.pathname.startsWith('/api/') || url.pathname.startsWith('/api/claude/v1/')) return echtesFetch(eingabe, init);
     const methode = (init.method || (eingabe instanceof Request ? eingabe.method : 'GET')).toUpperCase();
-    if (url.pathname.startsWith('/api/hr/')) return json(501, { ok: false, fehler: 'Der Registerabruf geht nur im Claude-Fenster am PC (Desktop-Symbol).' });
-    const f = API[methode + ' ' + url.pathname];
+    const f = API[methode + ' ' + url.pathname] || HR[methode + ' ' + url.pathname];
     if (!f) return json(404, { ok: false, fehler: 'Nicht gefunden.' });
     try { return await f(url.searchParams, init); }
     catch (e) { return json(500, { ok: false, fehler: e.message || String(e) }); }
