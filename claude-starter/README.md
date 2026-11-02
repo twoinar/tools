@@ -40,7 +40,9 @@ Betreiber der Seite, nicht an eine KI).
 
 **Vorgang:** Beim ersten Klick fragt das Fenster nach der Vorgangsnummer, danach alle 30 Minuten „Noch Vorgang …?“
 (beim nächsten Klick und von selbst, solange das Fenster offen ist; nach „Abbrechen“ 5 Minuten Ruhe);
-oben steht der aktuelle Vorgang mit „wechseln“. Alles wird im Vorgang hinterlegt: jeder Chat als PDF
+oben steht der aktuelle Vorgang mit „wechseln“. „Ohne Vorgang“ in der Abfrage öffnet die Tools trotzdem (z. B. beim
+Vollzug); Chats werden dann nicht abgelegt, bis oben eine Nummer eingetragen wird. Download und
+Registerabruf fragen immer nach der Nummer. Alles wird im Vorgang hinterlegt: jeder Chat als PDF
 `<Nr> Claude Frage <Datum Zeit>.pdf` bzw. `<Nr> Wertanalyse KI <Datum Zeit>.pdf` (nach jeder Antwort
 fortgeschrieben), dazu Registerauszüge und abgelegte Downloads. Ein Protokoll der geöffneten Links gibt es
 nicht mehr (Wunsch Thomas 26.10.: nur echte Dateien im Vorgang).

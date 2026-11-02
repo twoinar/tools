@@ -8,7 +8,7 @@
 # Start: Desktop-Symbol „Claude“ (Claude-Starten.ps1). Einmalig vorher: „Einrichten.cmd“.
 
 $ErrorActionPreference = 'Stop'
-$Version = '1.7'
+$Version = '1.8'
 
 # ---------------------------------------------------------------- Einstellungen
 $cfg = [ordered]@{ Ablageordner = ''; Vorgangsordner = $false; NurZiffern = $true
