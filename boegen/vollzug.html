@@ -428,6 +428,7 @@ dialog.mail textarea{min-height:70px}
     <div class="knoepfe">
       <button type="button" id="mailAbbrechen">Abbrechen</button>
       <button type="submit" class="primary" id="mailOk">Mailentwurf erstellen</button>
+      <button type="submit" class="primary" id="mailDirekt" hidden>Direkt senden</button>
     </div>
   </form>
 </dialog>
@@ -1477,12 +1478,14 @@ document.getElementById("btnMail").onclick = ()=>{
   document.getElementById("mailText").value="";
   mailDialog.showModal();
 };
+async function direktSenden(){ throw new Error("Direkt senden gibt es hier nicht."); }
 document.getElementById("mailForm").addEventListener("submit", async ev=>{
   ev.preventDefault();
   const empfaenger = MITARBEITER.filter(([,a])=>mailBoxen().some(c=>c.checked && c.value===a));
   if (!empfaenger.length){ alert("Bitte mindestens einen Empfänger auswählen."); return; }
   lsSet("vb_mail_empfaenger", empfaenger.map(x=>x[1]).join(","));
   const notiz=document.getElementById("mailText").value;
+  const direkt = ev.submitter && ev.submitter.id==="mailDirekt";
   const auchAblegen=document.getElementById("mailAblegen").checked;
   mailDialog.close();
   try{
@@ -1498,6 +1501,7 @@ document.getElementById("mailForm").addEventListener("submit", async ev=>{
     }
     const name=dateiname();
     const pdf=await pdfErzeugen();
+    if (direkt){ await direktSenden(empfaenger, pdf, name, notiz); meldung(`Gesendet an ${empfaenger.map(x=>x[0]).join(", ")}.`); return; }
     const eml=emlBauen(empfaenger, pdf, name, notiz);
     const a=document.createElement("a");
     a.href=URL.createObjectURL(new Blob([eml],{type:"message/rfc822"}));
@@ -1515,6 +1519,6 @@ window.addEventListener("beforeprint", textfelderAnpassen);
 document.addEventListener("input", e=>{ if (e.target.matches('textarea[data-f="sonstiges_vollzug_text"]')){ e.target.style.height="auto"; e.target.style.height=(e.target.scrollHeight+2)+"px"; } });
 document.getElementById("btnDrucken").onclick = ()=>{ textfelderAnpassen(); window.print(); };
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.27 · Stand 03.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.28 · Stand 03.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
