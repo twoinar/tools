@@ -71,6 +71,7 @@ input[type=checkbox]:checked::after{content:"";width:9px;height:5px;border-left:
 .feldzeile{display:grid;grid-template-columns:80px minmax(0,1fr) auto 100px minmax(0,1.2fr);gap:10px;align-items:center}
 .feldzeile .l2{justify-self:end}
 .artzeile{display:grid;grid-template-columns:80px minmax(0,1fr);gap:10px;align-items:center;margin-bottom:10px}
+.artneu{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:-2px 0 10px 90px;padding:8px 10px;border:1px solid #c9d7ea;border-radius:8px;background:#f4f8fd;font-size:14px}.artneu[hidden]{display:none}.artneu input{flex:1 1 220px}.artneu .hilfe{flex-basis:100%;color:var(--muted);font-size:12.5px}
 .gw-feld{display:flex;gap:8px;align-items:center;max-width:520px}.gw-feld input{max-width:200px;text-align:right}
 dialog.gw{width:min(1100px,96vw);height:90vh;padding:0;border:0;border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
 dialog.gw form{display:flex;flex-direction:column;height:100%}dialog.gw iframe{flex:1;border:0;width:100%}
@@ -228,7 +229,15 @@ dialog.mail textarea{min-height:70px}
         <option value="testament">Testament / Erbvertrag</option>
         <option value="vorsorge">Vorsorgevollmacht</option>
         <option value="nachlass">Nachlassverzeichnis</option>
+        <option value="__neu">＋ Neue Urkundsart …</option>
       </select></div>
+    <div class="artneu nodruck" id="artNeu" hidden>
+      <label for="artNeuName">Bezeichnung:</label><input type="text" id="artNeuName" autocomplete="off" placeholder="z. B. Vermächtniserfüllungsvertrag">
+      <label for="artNeuBasis">Aufbau wie:</label><select id="artNeuBasis"></select>
+      <button type="button" id="artNeuOk">In die Liste aufnehmen</button><button type="button" id="artNeuAb">Abbrechen</button>
+      <div class="hilfe">Beteiligte, Vollzugsschritte, Löschungen und Geschäftswert richten sich nach dem gewählten Aufbau. Die neue Urkundsart bleibt dauerhaft in der Liste (auch für die Kollegen, die denselben Ablageordner nutzen).</div>
+    </div>
+    <div class="artneu nodruck" id="artEigen" hidden><span>Eigene Urkundsart.</span><button type="button" id="artWeg">Aus der Liste entfernen</button></div>
     <div class="artzeile" id="gwZeile"><label for="f_gw">Geschäftswert:</label>
       <div class="gw-feld"><input type="text" id="f_gw" data-f="geschaeftswert" inputmode="decimal" autocomplete="off" placeholder="von Hand eintragen oder ermitteln"><span>€</span>
         <button type="button" id="btnGw" class="nodruck">Geschäftswert ermitteln</button></div></div>
@@ -541,7 +550,47 @@ const ARTEN = {
                   hinweis:"Dem Pflichtteilsberechtigten und seinem Anwalt wird die Urkunde nur mit Einwilligung des Erben bzw. des Anwalts des Erben übersandt." },
 };
 const artWahl = () => document.querySelector('[data-f="urkundsart"]');
-const art = () => ARTEN[artWahl().value] ? artWahl().value : "kauf";
+const art = () => { const k = artWahl().value, c = ARTEN[k]; return c ? (c.basis || k) : "kauf"; };   // Logik: eigene Arten wie ihr Aufbau
+const artName = () => (ARTEN[artWahl().value] || ARTEN.kauf).name;
+
+/* ---------- Eigene Urkundsarten (z. B. Vermächtniserfüllungsvertrag) ----------
+   Wert im Bogen „eigen:<Aufbau>:<Bezeichnung>“, so öffnet sich ein abgelegter Bogen auch an einem PC, der die Art
+   nicht kennt. Die Liste liegt im Browser und als „Urkundsarten.json“ im Ablageordner (gemeinsam für alle).    */
+const EIGEN_DATEI = "Urkundsarten.json";
+const eigenWert = (basis, name) => `eigen:${basis}:${name}`;
+function eigenAusWert(w){ const m = /^eigen:([a-z]+):(.+)$/.exec(w||""); return m && ARTEN[m[1]] && !ARTEN[m[1]].basis ? {basis:m[1], name:m[2].trim()} : null; }
+function eigenOption(w){
+  const e = eigenAusWert(w); if (!e) return false;
+  if (!ARTEN[w]) ARTEN[w] = { ...ARTEN[e.basis], name:e.name, basis:e.basis, eigen:true };
+  if (![...artWahl().options].some(o=>o.value===w)){
+    const o = document.createElement("option"); o.value = w; o.textContent = e.name;
+    artWahl().insertBefore(o, artWahl().querySelector('option[value="__neu"]'));
+  }
+  return true;
+}
+function eigenListe(){ try{ return JSON.parse(localStorage.getItem("vollzug_urkundsarten")||"[]").filter(eigenAusWert); }catch{ return []; } }
+async function eigenSpeichern(liste){
+  try{ localStorage.setItem("vollzug_urkundsarten", JSON.stringify(liste)); }catch{}
+  try{
+    if (ordner && await ordner.queryPermission({mode:"readwrite"})==="granted"){
+      const w = await (await ordner.getFileHandle(EIGEN_DATEI,{create:true})).createWritable();
+      await w.write(JSON.stringify({urkundsarten:liste}, null, 1)); await w.close();
+    }
+  }catch{}
+}
+async function eigenLaden(){
+  let liste = eigenListe();
+  try{
+    if (ordner && await ordner.queryPermission({mode:"read"})==="granted"){
+      const d = JSON.parse(await (await (await ordner.getFileHandle(EIGEN_DATEI)).getFile()).text());
+      const weg = new Set((d.entfernt||[]));
+      liste = [...new Set([...(d.urkundsarten||[]), ...liste])].filter(w=>eigenAusWert(w) && !weg.has(w));
+    }
+  }catch{}
+  liste.forEach(eigenOption);
+  try{ localStorage.setItem("vollzug_urkundsarten", JSON.stringify(liste)); }catch{}
+}
+function eigenAnzeigen(){ document.getElementById("artEigen").hidden = !(ARTEN[artWahl().value]||{}).eigen; }
 function gruppenSetzen(){
   const a = ARTEN[art()];
   Object.assign(GRUPPEN.v, {name:a.v[0], min:a.v[1], aus:false});
@@ -699,10 +748,47 @@ window.addEventListener("message", e=>{
 });
 document.addEventListener("change", e=>{
   if (e.target!==artWahl()) return;
+  if (artWahl().value==="__neu"){ artWahl().value = artVorher; artNeuZeigen(); return; }
   if (!artAnwenden(true)){ artWahl().value = artVorher; gruppenSetzen(); return; }
-  artVorher = art();
+  artVorher = artWahl().value; eigenAnzeigen();
   beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); dynamik(); textfelderAnpassen();
 });
+
+function artNeuZeigen(){
+  const b = document.getElementById("artNeuBasis");
+  if (!b.options.length) Object.entries(ARTEN).filter(([,c])=>!c.basis).forEach(([k,c])=>{ const o=document.createElement("option"); o.value=k; o.textContent=c.name; b.append(o); });
+  b.value = art(); document.getElementById("artNeuName").value = "";
+  document.getElementById("artNeu").hidden = false; document.getElementById("artNeuName").focus();
+}
+document.getElementById("artNeuAb").onclick = ()=>{ document.getElementById("artNeu").hidden = true; };
+document.getElementById("artNeuName").addEventListener("keydown", e=>{ if (e.key==="Enter"){ e.preventDefault(); document.getElementById("artNeuOk").click(); } });
+document.getElementById("artNeuOk").onclick = async ()=>{
+  const name = document.getElementById("artNeuName").value.replace(/\s+/g," ").trim(), basis = document.getElementById("artNeuBasis").value;
+  if (!name){ document.getElementById("artNeuName").focus(); return; }
+  const doppelt = Object.entries(ARTEN).find(([,c])=>c.name.toLowerCase()===name.toLowerCase());
+  const w = doppelt ? doppelt[0] : eigenWert(basis, name);
+  if (!doppelt){ eigenOption(w); await eigenSpeichern([...new Set([...eigenListe(), w])]); }
+  document.getElementById("artNeu").hidden = true;
+  artWahl().value = w;
+  if (!artAnwenden(true)){ artWahl().value = artVorher; gruppenSetzen(); return; }
+  artVorher = w; eigenAnzeigen(); geaendert = true;
+  beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); dynamik(); textfelderAnpassen();
+  meldung(doppelt ? `„${name}“ gibt es schon in der Liste.` : `„${name}“ steht jetzt dauerhaft in der Liste der Urkundsarten.`);
+};
+document.getElementById("artWeg").onclick = async ()=>{
+  const w = artWahl().value, c = ARTEN[w]; if (!c || !c.eigen) return;
+  if (!confirm(`„${c.name}“ aus der Liste der Urkundsarten entfernen?\n\nDieser Bogen behält seine Urkundsart; nur für neue Bögen steht sie nicht mehr zur Wahl.`)) return;
+  await eigenSpeichern(eigenListe().filter(x=>x!==w));
+  try{
+    if (ordner && await ordner.queryPermission({mode:"readwrite"})==="granted"){
+      let d = {}; try{ d = JSON.parse(await (await (await ordner.getFileHandle(EIGEN_DATEI)).getFile()).text()); }catch{}
+      d.urkundsarten = (d.urkundsarten||[]).filter(x=>x!==w); d.entfernt = [...new Set([...(d.entfernt||[]), w])];
+      const h = await (await ordner.getFileHandle(EIGEN_DATEI,{create:true})).createWritable(); await h.write(JSON.stringify(d,null,1)); await h.close();
+    }
+  }catch{}
+  document.getElementById("artEigen").hidden = true;
+  meldung(`„${c.name}“ wird für neue Bögen nicht mehr angeboten.`);
+};
 
 /* Gruppen, in denen nur ein Kästchen sinnvoll ist (mit/ohne UB, Status je Löschung) */
 document.addEventListener("change", e=>{
@@ -772,7 +858,7 @@ async function ordnerMitRecht(){
   if (p!=="granted") throw new Error("Der Zugriff auf den Ablageordner wurde nicht erlaubt.");
   return ordner;
 }
-(async()=>{ if (dateisystemOk){ ordner = (await idbGet("ordner")) || null; } zeigeOrdner(); })();
+(async()=>{ if (dateisystemOk){ ordner = (await idbGet("ordner")) || null; } zeigeOrdner(); await eigenLaden(); })();
 
 /* ---------- PDF erzeugen ---------- */
 const WINANSI_EXTRA = "€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ";
@@ -869,7 +955,7 @@ async function pdfErzeugen(){
   // 1 Urkunde
   ueberschrift("1","Urkunde");
   { page.drawText("Urkundsart:",{x:ML,y:y-9.5,size:9.5,font:fN,color:GRAU});
-    page.drawText(pdfText(ARTEN[art()].name),{x:ML+60,y:y-10.5,size:10.5,font:fB,color:BLAU});
+    page.drawText(pdfText(artName()),{x:ML+60,y:y-10.5,size:10.5,font:fB,color:BLAU});
     if (ARTEN[art()].gw && v("geschaeftswert")){ const t=v("geschaeftswert")+" €", xr=W-MR-tw(t,fB,10.5);
       page.drawText(t,{x:xr,y:y-10.5,size:10.5,font:fB,color:TEXT}); page.drawText("Geschäftswert:",{x:xr-tw("Geschäftswert:",fN,9.5)-8,y:y-9.5,size:9.5,font:fN,color:GRAU}); }
     y-=17; }
@@ -1069,7 +1155,10 @@ async function pdfErzeugen(){
 
 const vorgangWert = () => document.querySelector('[data-f="vorgang_nr"]').value.trim();
 const uvzWert = () => document.querySelector('[data-f="uvz_nr"]').value.trim();
-const dateiname = () => uvzWert().replace(/[\\/:*?"<>|]/g,"-") + " Vollzugsbogen.pdf";
+// Dateiname nach der Vorgangsnummer (Wunsch Thomas 3.11.2026); die UVZ-Nr. kommt dahinter, weil ein Vorgang
+// mehrere Urkunden haben kann (z. B. Kaufvertrag und Grundschuld)
+const sauberName = s => s.replace(/[\\/:*?"<>|]/g,"-").replace(/\s+/g," ").trim();
+const dateiname = () => sauberName(vorgangWert()) + " Vollzugsbogen" + (uvzWert() ? " UVZ " + sauberName(uvzWert()) : "") + ".pdf";
 
 /* Schreiben mit Wiederholung: Windows sperrt Dateien kurzzeitig (Virenscanner,
    Synchronisierung) oder dauerhaft, solange sie in einem PDF-Programm geöffnet sind. */
@@ -1093,7 +1182,7 @@ async function schreibenMitWiederholung(dir, name, pdf){
 
 /* ---------- Ablegen ---------- */
 async function ablegen(){
-  if (!uvzWert()){ meldung("Bitte zuerst die UVZ-Nr. eintragen – sie bestimmt den Dateinamen.","err"); document.querySelector('[data-f="uvz_nr"]').focus(); return false; }
+  if (!vorgangWert()){ meldung("Bitte zuerst die Vorgangs-Nr. eintragen – sie bestimmt den Dateinamen.","err"); document.querySelector('[data-f="vorgang_nr"]').focus(); return false; }
   const name = dateiname();
   const pdf = await pdfErzeugen();
   if (!dateisystemOk){
@@ -1120,9 +1209,10 @@ async function bogenLaden(bytes, name){
     const ALT = {sg_genehmigung:"gen_sammel", sg_grdstvg:"gen_grdstvg", sg_zust_eigentuemer:"zust_eigentuemer", sg_zust_verwalter:"zust_verwalter", sg_betreuungsgericht:"gen_betreuungsgericht", sg_familiengericht:"gen_familiengericht"};
     for (const [a,n] of Object.entries(ALT)) if (f[a]) f[n] = true;
     if (["gen_grdstvg","zust_eigentuemer","zust_verwalter","gen_sanierung","gen_entwicklung","gen_betreuungsgericht","gen_nachlassgericht","gen_familiengericht"].some(n=>f[n])) f.gen_sammel = true;
+    if (f.urkundsart) eigenOption(f.urkundsart);
     for (const el of felder()){ const w=f[el.dataset.f]; if (el.type==="checkbox") el.checked=!!w; else el.value = w===undefined ? "" : w; }
     if (!ARTEN[artWahl().value]) artWahl().value = "kauf";
-    artAnwenden(false); artVorher = art();
+    artAnwenden(false); artVorher = artWahl().value; eigenAnzeigen();
     beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); dynamik(); textfelderAnpassen(); geaendert=false;
     meldung(`„${name}“ geöffnet. Änderungen mit „Vollzugsbogen ablegen“ speichern.`);
     return;
@@ -1139,7 +1229,7 @@ async function bogenLaden(bytes, name){
   document.querySelectorAll("[data-zeigen-wenn][data-leeren]").forEach(c=>{
     const b=c.dataset.zeigenWenn; if (!b.startsWith("!") && hatInhalt(c)){ const k=document.querySelector(`[data-f="${b}"]`); if(k) k.checked=true; }
   });
-  artAnwenden(false); artVorher = art();
+  artAnwenden(false); artVorher = artWahl().value; eigenAnzeigen();
   beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); dynamik(); textfelderAnpassen(); geaendert=false; meldung(`„${name}“ geöffnet. Änderungen mit „Vollzugsbogen ablegen“ speichern.`);
 }
 async function oeffnen(){
@@ -1159,7 +1249,7 @@ async function oeffnen(){
 function neu(){
   if (geaendert && !confirm("Alle Eingaben leeren und einen neuen Bogen beginnen?")) return;
   for (const el of felder()){ if (el.type==="checkbox") el.checked=false; else el.value=""; }
-  artWahl().value = "kauf"; artAnwenden(false); artVorher = "kauf";
+  artWahl().value = "kauf"; artAnwenden(false); artVorher = "kauf"; eigenAnzeigen();
   beteiligteZuruecksetzen(false); loeschZuruecksetzen(false); dynamik(); textfelderAnpassen(); geaendert=false; document.getElementById("msg").innerHTML=""; window.scrollTo(0,0);
   document.querySelector('[data-f="uvz_nr"]').focus();
 }
@@ -1325,15 +1415,15 @@ function namenListe(prefix){
 }
 function mailBetreff(){
   const uvz=document.querySelector('[data-f="uvz_nr"]').value.trim();
-  return `UVZ-Nr. ${uvz}`;
+  return uvz ? `UVZ-Nr. ${uvz}` : `Vorgang ${vorgangWert()}`;
 }
 function mailText(notiz){
   const uvz=document.querySelector('[data-f="uvz_nr"]').value.trim();
   const v=namenListe("v"), e=namenListe("e");
-  const z=["Hallo,","","anbei der Vollzugsbogen zur UVZ-Nr. "+uvzWert()+"."];
+  const z=["Hallo,","","anbei der Vollzugsbogen zur "+(uvz ? "UVZ-Nr. "+uvz : "Vorgangs-Nr. "+vorgangWert())+"."];
   if (notiz.trim()) z.push("", notiz.trim());
   z.push("");
-  z.push("Urkundsart:   "+ARTEN[art()].name);
+  z.push("Urkundsart:   "+artName());
   if (ARTEN[art()].gw && document.getElementById("f_gw").value.trim()) z.push("Geschäftswert: "+document.getElementById("f_gw").value.trim()+" €");
   if (uvz) z.push("UVZ-Nr.:      "+uvz);
   if (vorgangWert()) z.push("Vorgangs-Nr.: "+vorgangWert());
@@ -1374,7 +1464,7 @@ function emlBauen(empfaenger, pdf, name, notiz){
 }
 
 document.getElementById("btnMail").onclick = ()=>{
-  if (!uvzWert()){ meldung("Bitte zuerst die UVZ-Nr. eintragen – sie bestimmt Betreff und Dateinamen.","err"); document.querySelector('[data-f="uvz_nr"]').focus(); return; }
+  if (!vorgangWert()){ meldung("Bitte zuerst die Vorgangs-Nr. eintragen – sie bestimmt den Dateinamen.","err"); document.querySelector('[data-f="vorgang_nr"]').focus(); return; }
   if (!mailListeAufbauen()){ meldung("Bitte zuerst unter „Notardaten“ die Mitarbeiter mit E-Mail-Adresse eintragen.","err"); return; }
   const zuletzt = lsGet("vb_mail_empfaenger") ? lsGet("vb_mail_empfaenger").split(",").filter(Boolean) : notarStandardEmpfaenger();
   mailBoxen().forEach(c=>c.checked=zuletzt.includes(c.value));
@@ -1419,6 +1509,6 @@ window.addEventListener("beforeprint", textfelderAnpassen);
 document.addEventListener("input", e=>{ if (e.target.matches('textarea[data-f="sonstiges_vollzug_text"]')){ e.target.style.height="auto"; e.target.style.height=(e.target.scrollHeight+2)+"px"; } });
 document.getElementById("btnDrucken").onclick = ()=>{ textfelderAnpassen(); window.print(); };
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.25 · Stand 25.10.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.26 · Stand 03.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
