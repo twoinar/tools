@@ -60,6 +60,12 @@ Einmalig im Microsoft-Entra-Admincenter (https://entra.microsoft.com, als Admini
 Dann als root auf dem Server: `bash /opt/tools/aktualisieren.sh --mail` und die Werte eingeben. Ohne diese
 Einrichtung antwortet der Dienst „noch nicht eingerichtet“; das Ablegen selbst funktioniert trotzdem.
 
+Derselbe Dienst verschickt auch den **Vollzugsbogen direkt** an Mitarbeiter (`POST /api/mail/vollzug`, Knopf
+„Direkt senden“ im Vollzugsbogen unter /boegen/): nur an Adressen `@notar-woinar.de` (Einstellung `MAIL_DOMAIN`),
+PDF bis 3 MB, nichts wird gespeichert. Der Knopf erscheint erst, wenn der Versand eingerichtet ist
+(`GET /api/mail/status`). Für diesen Versand reicht die Einrichtung oben; die Empfänger der Meldung
+„Vorgespräch abgelegt“ dürfen leer bleiben.
+
 Hinweis: Mail.Send als Anwendungsberechtigung erlaubt der App das Senden aus jedem Postfach des Mandanten. Wer das
 auf das Absender-Postfach beschränken will, richtet in Exchange Online eine Application Access Policy bzw. RBAC für
 Anwendungen ein. Der Schlüssel liegt nur in `/opt/tools/konfig/.env` (nur root lesbar).

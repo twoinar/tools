@@ -60,6 +60,16 @@
 		reverse_proxy tools-mail:8080
 	}
 	# Registerabruf (handelsregister.de) für das Claude-Fenster im Browser (Container tools-register)
+	# Vollzugsbogen direkt per Mail an Mitarbeiter (nur @notar-woinar.de, prüft tools-mail) und ob das eingerichtet ist
+	handle /api/mail/vollzug {
+		request_body {
+			max_size 6MB
+		}
+		reverse_proxy tools-mail:8080
+	}
+	handle /api/mail/status {
+		reverse_proxy tools-mail:8080
+	}
 	handle /api/hr/* {
 		request_body {
 			max_size 64KB

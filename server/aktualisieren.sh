@@ -40,13 +40,13 @@ einrichten() {
 mail_einrichten() {
     local tenant client secret absender an
     [ -s "$KONFIG/.env" ] || { echo "Zuerst bash aktualisieren.sh --einrichten"; return 1; }
-    echo "Mail-Benachrichtigung über Microsoft 365 (Werte aus der App-Registrierung im Entra-Admincenter)."
+    echo "Mailversand über Microsoft 365 (Vollzugsbogen direkt senden, Meldung Vorgespräch; Werte aus der App-Registrierung im Entra-Admincenter)."
     read -rp "Verzeichnis-ID (Mandanten-ID): " tenant
     read -rp "Anwendungs-ID (Client-ID): " client
     read -rsp "Geheimer Clientschlüssel – der „Wert“ (Anzeige bleibt leer): " secret; echo
     read -rp "Absender-Postfach (z. B. bogen@notar-woinar.de): " absender
-    read -rp "Empfänger (mehrere durch Komma): " an
-    [ -n "$tenant" ] && [ -n "$client" ] && [ -n "$secret" ] && [ -n "$absender" ] && [ -n "$an" ] || { echo "Eingabe fehlt."; return 1; }
+    read -rp "Empfänger der Meldung „Vorgespräch abgelegt“ (mehrere durch Komma, leer = keine Meldung): " an
+    [ -n "$tenant" ] && [ -n "$client" ] && [ -n "$secret" ] && [ -n "$absender" ] || { echo "Eingabe fehlt."; return 1; }
     grep -vE '^(MAIL|GRAPH)_' "$KONFIG/.env" > "$KONFIG/.env.neu"
     printf "GRAPH_TENANT=%s\nGRAPH_CLIENT_ID=%s\nGRAPH_SECRET='%s'\nMAIL_ABSENDER=%s\nMAIL_AN=%s\n" \
         "$tenant" "$client" "$secret" "$absender" "$an" >> "$KONFIG/.env.neu"
