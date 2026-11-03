@@ -206,6 +206,9 @@ def vollzug(quelle):
     d.ersetzen('  doc.setAuthor("Notar Thomas Woinar");', '  if (notarFuss()) doc.setAuthor(pdfText(notarFuss()));')
     d.muster(MITARBEITER_MUSTER, MITARBEITER_NEU)
     d.ersetzen(MAILLISTE_ALT, MAILLISTE_NEU)
+    # „Direkt senden“ läuft über den Mail-Dienst des Notariats Woinar: in der Kollegen-Fassung nur Outlook-Entwurf
+    d.muster(r"/\* DIREKT-ANFANG.*?/\* DIREKT-ENDE \*/\n",
+             'async function direktSenden(){ throw new Error("Direkt senden gibt es hier nicht."); }\n', flags=re.S)
     d.ersetzen('z.push("","Viele Grüße","Thomas Woinar");', 'z.push("","Viele Grüße",notarGruss());')
     d.ersetzen('  const zuletzt = (lsGet("vb_mail_empfaenger")||"").split(",").filter(Boolean);',
                OHNE_MITARBEITER + '  const zuletzt = lsGet("vb_mail_empfaenger") ? lsGet("vb_mail_empfaenger").split(",").filter(Boolean) : notarStandardEmpfaenger();')
