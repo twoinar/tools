@@ -199,9 +199,9 @@ dialog.mail textarea{min-height:70px}
   <button type="button" id="btnOrdner">Ablageordner wählen</button>
   <button type="button" id="btnOeffnen">Bogen öffnen</button>
   <button type="button" id="btnNeu">Neuer Bogen</button>
-  <button type="button" id="btnVersand" hidden title="Versand aus dem Word-Makro „Verteilerzettel versenden“ eintragen">Versand übernehmen</button>
+  <button type="button" id="btnVersand" hidden title="Trägt ein, was mit dem Word-Makro „Verteilerzettel versenden“ an die Beteiligten verschickt wurde (passiert beim Öffnen eines Bogens auch von selbst)">Verteilerzettel eintragen</button>
   <button type="button" id="btnDrucken">Drucken</button>
-  <button type="button" id="btnMail">Mailen</button>
+  <button type="button" id="btnMail">Per E-Mail versenden</button>
   <button type="button" id="btnNotar" title="Name, Anschrift und Mitarbeiter des Notariats">Notardaten</button>
   <button type="button" class="primary" id="btnAblegen">Vollzugsbogen ablegen</button>
 </div></div>
@@ -418,7 +418,7 @@ dialog.mail textarea{min-height:70px}
 
 <dialog class="mail nodruck" id="mailDialog">
   <form method="dialog" id="mailForm">
-    <h3>Vollzugsbogen an Mitarbeiter mailen</h3>
+    <h3>Vollzugsbogen per E-Mail an Mitarbeiter versenden</h3>
     <p class="info">Es wird ein Outlook-Entwurf mit dem Vollzugsbogen als PDF-Anhang erstellt. Sie prüfen ihn und klicken auf „Senden“.</p>
     <div class="alle"><span>Empfänger:</span><button type="button" id="mailAlle">alle</button><button type="button" id="mailKeine">keine</button></div>
     <div class="liste" id="mailListe"></div>
@@ -1158,7 +1158,13 @@ const uvzWert = () => document.querySelector('[data-f="uvz_nr"]').value.trim();
 // Dateiname nach der Vorgangsnummer (Wunsch Thomas 3.11.2026); die UVZ-Nr. kommt dahinter, weil ein Vorgang
 // mehrere Urkunden haben kann (z. B. Kaufvertrag und Grundschuld)
 const sauberName = s => s.replace(/[\\/:*?"<>|]/g,"-").replace(/\s+/g," ").trim();
-const dateiname = () => sauberName(vorgangWert()) + " Vollzugsbogen" + (uvzWert() ? " UVZ " + sauberName(uvzWert()) : "") + ".pdf";
+const dateiname = () => vorgangWert()
+  ? sauberName(vorgangWert()) + " Vollzugsbogen" + (uvzWert() ? " UVZ " + sauberName(uvzWert()) : "") + ".pdf"
+  : "UVZ " + sauberName(uvzWert()) + " Vollzugsbogen.pdf";
+const nummerFehlt = () => {
+  if (vorgangWert() || uvzWert()) return false;
+  meldung("Bitte die Vorgangs-Nr. (oder die UVZ-Nr.) eintragen – sie bestimmt den Dateinamen.","err"); document.querySelector('[data-f="vorgang_nr"]').focus(); return true;
+};
 
 /* Schreiben mit Wiederholung: Windows sperrt Dateien kurzzeitig (Virenscanner,
    Synchronisierung) oder dauerhaft, solange sie in einem PDF-Programm geöffnet sind. */
@@ -1182,7 +1188,7 @@ async function schreibenMitWiederholung(dir, name, pdf){
 
 /* ---------- Ablegen ---------- */
 async function ablegen(){
-  if (!vorgangWert()){ meldung("Bitte zuerst die Vorgangs-Nr. eintragen – sie bestimmt den Dateinamen.","err"); document.querySelector('[data-f="vorgang_nr"]').focus(); return false; }
+  if (nummerFehlt()) return false;
   const name = dateiname();
   const pdf = await pdfErzeugen();
   if (!dateisystemOk){
@@ -1330,7 +1336,7 @@ function namenAusVerteiler(liste){
 const deDatum = iso => { const [j,m,t] = iso.slice(0,10).split("-"); return `${t}.${m}.${j}`; };
 async function versandUebernehmen(still){
   const uvz = uvzWert();
-  if (!uvz){ if (!still) meldung("Bitte zuerst einen Bogen öffnen oder die UVZ-Nr. eintragen.","err"); return; }
+  if (!uvz){ if (!still) meldung("Der Verteilerzettel wird über die UVZ-Nr. gefunden. Bitte erst die UVZ-Nr. eintragen (zum Versenden an Mitarbeiter ist sie nicht nötig: „Per E-Mail versenden“)."); return; }
   if (!dateisystemOk || !ordner){ if (!still) meldung("Bitte zuerst den Ablageordner wählen (nur Chrome oder Edge).","err"); return; }
   let p = await ordner.queryPermission({mode:"read"});
   if (p!=="granted" && !still) p = await ordner.requestPermission({mode:"read"});
@@ -1376,7 +1382,7 @@ async function versandUebernehmen(still){
   }
   feld.value = [...erledigt].join("|");
   dynamik(); textfelderAnpassen(); geaendert = true;
-  meldung(`Versand übernommen (${protokoll.length}): ${protokoll.join(" · ")}. Bitte „Vollzugsbogen ablegen“, damit es gespeichert wird.`);
+  meldung(`Verteilerzettel eingetragen (${protokoll.length}): ${protokoll.join(" · ")}. Bitte „Vollzugsbogen ablegen“, damit es gespeichert wird.`);
 }
 
 /* ---------- E-Mail an Mitarbeiter (Outlook-Entwurf mit Anhang) ----------
@@ -1415,12 +1421,12 @@ function namenListe(prefix){
 }
 function mailBetreff(){
   const uvz=document.querySelector('[data-f="uvz_nr"]').value.trim();
-  return uvz ? `UVZ-Nr. ${uvz}` : `Vorgang ${vorgangWert()}`;
+  return "Vollzugsbogen " + [vorgangWert() && `Vorgang ${vorgangWert()}`, uvz && `UVZ-Nr. ${uvz}`].filter(Boolean).join(" · ");
 }
 function mailText(notiz){
   const uvz=document.querySelector('[data-f="uvz_nr"]').value.trim();
   const v=namenListe("v"), e=namenListe("e");
-  const z=["Hallo,","","anbei der Vollzugsbogen zur "+(uvz ? "UVZ-Nr. "+uvz : "Vorgangs-Nr. "+vorgangWert())+"."];
+  const z=["Hallo,","","anbei der Vollzugsbogen zum "+[vorgangWert() && "Vorgang "+vorgangWert(), uvz && "UVZ-Nr. "+uvz].filter(Boolean).join(", ")+"."];
   if (notiz.trim()) z.push("", notiz.trim());
   z.push("");
   z.push("Urkundsart:   "+artName());
@@ -1464,7 +1470,7 @@ function emlBauen(empfaenger, pdf, name, notiz){
 }
 
 document.getElementById("btnMail").onclick = ()=>{
-  if (!vorgangWert()){ meldung("Bitte zuerst die Vorgangs-Nr. eintragen – sie bestimmt den Dateinamen.","err"); document.querySelector('[data-f="vorgang_nr"]').focus(); return; }
+  if (nummerFehlt()) return;
   if (!mailListeAufbauen()){ meldung("Bitte zuerst unter „Notardaten“ die Mitarbeiter mit E-Mail-Adresse eintragen.","err"); return; }
   const zuletzt = lsGet("vb_mail_empfaenger") ? lsGet("vb_mail_empfaenger").split(",").filter(Boolean) : notarStandardEmpfaenger();
   mailBoxen().forEach(c=>c.checked=zuletzt.includes(c.value));
@@ -1509,6 +1515,6 @@ window.addEventListener("beforeprint", textfelderAnpassen);
 document.addEventListener("input", e=>{ if (e.target.matches('textarea[data-f="sonstiges_vollzug_text"]')){ e.target.style.height="auto"; e.target.style.height=(e.target.scrollHeight+2)+"px"; } });
 document.getElementById("btnDrucken").onclick = ()=>{ textfelderAnpassen(); window.print(); };
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.26 · Stand 03.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.27 · Stand 03.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
