@@ -859,7 +859,19 @@ async function ordnerMitRecht(){
   if (p!=="granted") throw new Error("Der Zugriff auf den Ablageordner wurde nicht erlaubt.");
   return ordner;
 }
-(async()=>{ if (dateisystemOk){ ordner = (await idbGet("ordner")) || null; } zeigeOrdner(); await eigenLaden(); })();
+(async()=>{ if (dateisystemOk){ ordner = (await idbGet("ordner")) || null; } zeigeOrdner(); await eigenLaden(); await ausAufruf(); })();
+/* Aufruf aus dem Word-Makro nach dem Versand: vollzug.html?uvz=2050/2026&vorgang=30462 trägt UVZ- und
+   Vorgangs-Nr. ein und übernimmt den Versand, sobald der Ablageordner freigegeben ist.                    */
+async function ausAufruf(){
+  const q = new URLSearchParams(location.search), uvz = (q.get("uvz")||"").trim(), vg = (q.get("vorgang")||"").trim();
+  if (!uvz && !vg) return;
+  if (uvz) document.querySelector('[data-f="uvz_nr"]').value = uvz;
+  if (vg) document.querySelector('[data-f="vorgang_nr"]').value = vg;
+  history.replaceState(null, "", location.pathname);   // beim Neuladen nicht erneut eintragen
+  if (!uvz || !dateisystemOk) return;
+  if (ordner && await ordner.queryPermission({mode:"read"})==="granted") return versandUebernehmen(false).catch(fehler);
+  meldung(`UVZ-Nr. ${uvz} übernommen. Bitte auf „Verteilerzettel eintragen“ klicken, dann wird der Versand eingetragen.`);
+}
 
 /* ---------- PDF erzeugen ---------- */
 const WINANSI_EXTRA = "€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ";
@@ -1519,6 +1531,6 @@ window.addEventListener("beforeprint", textfelderAnpassen);
 document.addEventListener("input", e=>{ if (e.target.matches('textarea[data-f="sonstiges_vollzug_text"]')){ e.target.style.height="auto"; e.target.style.height=(e.target.scrollHeight+2)+"px"; } });
 document.getElementById("btnDrucken").onclick = ()=>{ textfelderAnpassen(); window.print(); };
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.29 · Stand 03.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.30 · Stand 05.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
