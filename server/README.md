@@ -85,3 +85,22 @@ Server. Ein ungültiges `Caddyfile` wird vorher geprüft und nicht übernommen.
 
 Auf dem Server werden keine Dateien gespeichert: die Seiten verarbeiten Dateien im Browser, Claude-Anfragen werden
 nur durchgereicht (Registerauszüge liegen nur kurz im Arbeitsspeicher, siehe oben). Für Claude gelten die Datenschutzregeln des Notariats unverändert.
+
+## KI bei IONOS Cloud (AI Model Hub)
+
+Für Aufgaben mit Mandantendaten gibt es neben Claude einen zweiten KI-Zugang: den AI Model Hub von IONOS Cloud
+(nur Rechenzentren in Deutschland, Ein- und Ausgaben werden laut IONOS weder gespeichert noch zum Training genutzt).
+Die Seiten rufen `/api/ionos/v1/chat/completions` und `/api/ionos/v1/models` auf (OpenAI-Format, hinter dem Login);
+andere Pfade lehnt der Server ab. Der Token liegt nur in `/opt/tools/konfig/.env`.
+
+Vor der ersten echten Urkunde: Verschwiegenheitsvereinbarung nach § 26a BNotO mit IONOS abschließen.
+
+Einmalig im Data Center Designer (https://dcd.ionos.com): *Management › Token Manager*, Laufzeit wählen,
+*Generate Token*, Token kopieren (wird nur einmal angezeigt). Dann als root auf dem Server:
+
+```sh
+bash /opt/tools/aktualisieren.sh --ionos
+```
+
+Das Skript prüft den Token gleich bei IONOS, legt ihn ab und startet die Container neu. Läuft der Token ab,
+denselben Befehl mit einem neuen Token wiederholen.
