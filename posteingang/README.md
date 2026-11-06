@@ -38,9 +38,12 @@ Zahlung / Bestätigung) und daraus eine **Aufgabe**:
 | Aufgabe | wann |
 |---|---|
 | mit Akte vorlegen | vollzugsrelevant (Vorkaufsrecht, Genehmigungen, Grundbuchamt, Unbedenklichkeitsbescheinigung, Löschung/Treuhand, Register, Vollmachten, Fristen) oder Absender im Briefkopf ist Behörde/Gericht/Bank |
-| nur elektronisch ablegen | Schriftverkehr mit Beteiligten, Zahlungs- und Eingangsbestätigungen, Werbung, alles ohne Treffer (`standard_aktion`) |
+| nur elektronisch ablegen | nur wenn eine Ablage-Regel sicher passt (Zahlungs- und Eingangsbestätigungen, Werbung) |
 | bitte zuordnen | keine sichere UVZ-/Vorgangsnummer |
 | nichts (Dublette) | schon einmal gescannt |
+
+**Im Zweifel vorlegen:** Passt keine Regel, gilt `standard_aktion` = vorlegen. Ein Brief soll nie übersehen werden;
+lieber einmal zu viel vorgelegt.
 
 Die Arten stehen in `einstellungen.json` unter `"arten"` (der Reihe nach geprüft, erste passende gilt;
 `"bereich": "oben"` = nur Briefkopf/Betreff der ersten Seite). Die Art steht im Dateinamen

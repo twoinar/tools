@@ -36,7 +36,7 @@
     "\\bNr\\.?\\s*(?P<nr>\\d{1,5})\\s*/\\s*(?P<jahr>(?:19|20)?\\d{2})\\s+(?:der|des|meiner|seiner)\\s+(?:Urkundenrolle|UR|UVZ|Urkundenverzeichnis)"
   ],
 
-  "standard_aktion": "ablegen",
+  "standard_aktion": "vorlegen",
   "arten": [
       {
           "name": "Vorkaufsrecht",

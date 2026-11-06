@@ -28,7 +28,7 @@ def main():
     print("ERWARTET", erwartet); print("IST     ", ist); print("OK" if ok else "ABWEICHUNG")
     # Was muss der Mitarbeiter tun?
     soll_aktion = ["vorlegen", "vorlegen", "vorlegen", "zuordnen", "vorlegen", "vorlegen", "vorlegen",
-                   "zuordnen", "vorlegen", "ablegen", "ablegen"]
+                   "zuordnen", "vorlegen", "ablegen", "vorlegen"]
     ist_aktion = [r["aktion"] for r in erg]
     print("AKTION SOLL", soll_aktion); print("AKTION IST ", ist_aktion)
     print("  Arten:", [r["schreiben_art"] for r in erg])
@@ -54,7 +54,7 @@ def main():
     ok = ok and dub_ok
     liste = os.path.join(Y, "Posteingang", "Tageslisten", f"Posteingang {P.dt.date.today():%Y-%m-%d}.html")
     html = open(liste, encoding="utf-8").read() if os.path.exists(liste) else ""
-    liste_ok = "Mit der Akte vorlegen (7)" in html and "Nur elektronisch abgelegt (2)" in html \
+    liste_ok = "Mit der Akte vorlegen (8)" in html and "Nur elektronisch abgelegt (1)" in html \
         and "Bitte zuordnen (2)" in html and "Doppelt gescannt (11)" in html
     print("TAGESLISTE", "OK" if liste_ok else "ABWEICHUNG")
     if not liste_ok:
