@@ -69,6 +69,13 @@ Einstellbar über `dubletten_schwelle` (0 schaltet die Prüfung ab) und `dublett
 
 Zwei PCs können nicht gleichzeitig sortieren (Sperrdatei `~sortiert-gerade.lock`).
 
+## Updates
+Das Programm im Dauerbetrieb (Post-PC) schaut stündlich bei GitHub nach einer neueren `posteingang-<Version>`
+(nur Herunterladen, es wird nichts hochgeladen). Gibt es eine, lädt es das Paket, beendet sich, ein kleines
+Skript kopiert die neuen Dateien nach `Y:\Posteingang-Programm` (alte Einstellungen als
+`einstellungen.vorher.json`) und startet die neue Version. Geänderte `einstellungen.json` gelten sofort,
+ohne Neustart. Abschalten: `"update_pruefen_minuten": 0`.
+
 ## Entwicklung
 `python test/testlauf.py` erzeugt einen erfundenen Poststapel und prüft Zerlegung und Zuordnung.
 Die Windows-Version (.exe) baut GitHub Actions (`.github/workflows/posteingang-exe.yml`) und legt sie als
