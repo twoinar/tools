@@ -31,6 +31,29 @@ Folgeseiten) gehören zum vorigen Schreiben. Leere Rückseiten fallen weg.
   Ordner `Y:\Vorgänge`). Unbekannte Nummern → „Nicht zugeordnet“ (mit Grund im Protokoll).
 - Mehrere verschiedene Nummern in einem Schreiben → „Nicht zugeordnet“. Die UVZ hat immer Vorrang (`"vorrang"`).
 
+## Was muss der Mitarbeiter tun? (Tagesliste)
+Jedes Schreiben bekommt eine **Art** (z. B. Vorkaufsrecht, Genehmigung, Grundbuchamt, Bank / Löschung,
+Zahlung / Bestätigung) und daraus eine **Aufgabe**:
+
+| Aufgabe | wann |
+|---|---|
+| mit Akte vorlegen | vollzugsrelevant (Vorkaufsrecht, Genehmigungen, Grundbuchamt, Unbedenklichkeitsbescheinigung, Löschung/Treuhand, Register, Vollmachten, Fristen) oder Absender im Briefkopf ist Behörde/Gericht/Bank |
+| nur elektronisch ablegen | nur wenn eine Ablage-Regel sicher passt (Zahlungs- und Eingangsbestätigungen, Werbung) |
+| bitte zuordnen | keine sichere UVZ-/Vorgangsnummer |
+| nichts (Dublette) | schon einmal gescannt |
+
+**Im Zweifel vorlegen:** Passt keine Regel, gilt `standard_aktion` = vorlegen. Ein Brief soll nie übersehen werden;
+lieber einmal zu viel vorgelegt.
+
+Die Arten stehen in `einstellungen.json` unter `"arten"` (der Reihe nach geprüft, erste passende gilt;
+`"bereich": "oben"` = nur Briefkopf/Betreff der ersten Seite). Die Art steht im Dateinamen
+(`Eingang … Nr 03 - Vorkaufsrecht.pdf`) und im Protokoll.
+
+Nach jedem Scan schreibt das Programm die **Tagesliste** `Y:\Posteingang\Tageslisten\Posteingang <Datum>.html`
+(und `Posteingang heute.html`): Abschnitte „Mit der Akte vorlegen“, „Bitte zuordnen“, „Nur elektronisch
+abgelegt“, „Doppelt gescannt“, je Zeile Uhrzeit, UVZ/Vorgang, Art, Absender, Seiten und Link zur Datei.
+Öffnet im Browser, lässt sich ausdrucken und abhaken.
+
 ## Dubletten
 Wird ein Schreiben ein zweites Mal gescannt, erkennt das Programm das am fast gleichen Text (mindestens 95 %
 gleiche Wörter, Zahlen wie Datum und Aktenzeichen praktisch identisch, gleiche Seitenzahl, Vergleich mit den
