@@ -346,7 +346,7 @@ dialog.mail textarea{min-height:70px}
       <div class="aufklapp" data-zeigen-wenn="kauf_grundschuld" data-leeren>
         <div class="gs-reihe"><label for="f_kgsuvz">UVZ-Nr. Grundschuld:</label><input type="text" id="f_kgsuvz" data-f="kgs_uvz" autocomplete="off"></div>
         <div class="kgs-ng" id="kgsNg">
-          <label class="cb"><input type="checkbox" data-f="kgs_ng"><span><b>Ein Beteiligter muss noch nachgenehmigen.</b> <span data-zeigen-wenn="kgs_ng">Genehmigung als Erstes einholen.</span></span></label>
+          <label class="cb"><input type="checkbox" data-f="kgs_ng"><span><b>Ein Beteiligter muss noch nachgenehmigen.</b> <span id="kgsNgErstes">Genehmigung als Erstes einholen.</span></span></label>
           <div class="aufklapp" data-zeigen-wenn="kgs_ng" data-leeren>
             <div class="reihe"><label for="f_kgsngd">Nachgenehmigung durch:</label><input type="text" id="f_kgsngd" data-f="kgs_ng_durch"></div>
             <div class="eingeholt"><label class="cb"><input type="checkbox" data-f="kgs_ng_eingeholt"><span>bereits vom Notar eingeholt am:</span></label>
@@ -827,7 +827,9 @@ function dynamik(ausloeser){
   document.getElementById("ngTitelAlarm").hidden = !ngRot;
   document.getElementById("ngTitelRuhig").hidden = ngRot;
   document.getElementById("ngErstes").hidden = !ngRot;
-  document.getElementById("kgsNg").classList.toggle("aktiv", istAn("kgs_ng"));
+  const kgsRot = istAn("kgs_ng") && !istAn("kgs_ng_eingeholt");
+  document.getElementById("kgsNg").classList.toggle("aktiv", kgsRot);
+  document.getElementById("kgsNgErstes").hidden = !kgsRot;
 }
 document.addEventListener("change", e=>{ if (e.target.type==="checkbox"){ dynamik(e.target); if (e.target.dataset.f==="cb_loeschung") loeschZuruecksetzen(true); } });
 artAnwenden(false); beteiligteZuruecksetzen(false);
@@ -867,6 +869,45 @@ async function ordnerMitRecht(){
 (async()=>{ if (dateisystemOk){ ordner = (await idbGet("ordner")) || null; } zeigeOrdner(); await eigenLaden(); await ausAufruf(); })();
 /* Aufruf aus dem Word-Makro nach dem Versand: vollzug.html?uvz=2050/2026&vorgang=30462 trägt UVZ- und
    Vorgangs-Nr. ein und übernimmt den Versand, sobald der Ablageordner freigegeben ist.                    */
+const vorgangNorm = s => (s||"").replace(/\D/g,"").replace(/^0+/,"");
+async function bogenZumAufruf(vg, uvz){
+  const kand = [];
+  for await (const [name, h] of ordner.entries()){
+    const m = h.kind==="file" && /^(.*) Vollzugsbogen(?: UVZ (.*))?\.pdf$/i.exec(name);
+    if (m && vorgangNorm(m[1]) && vorgangNorm(m[1])===vorgangNorm(vg)) kand.push({name, h, uvz:(m[2]||"").trim()});
+  }
+  if (!kand.length) return;
+  let treffer = kand.find(k=>k.uvz===sauberName(uvz)), alsGs = false, bytes;
+  if (!treffer){
+    // anderer Bogen im selben Vorgang: nur ein Kaufvertrag mit (noch offener oder gleicher) Grundschuld-UVZ passt
+    for (const k of kand){
+      const b = await (await k.h.getFile()).arrayBuffer(), f = await bogenFelder(b);
+      if (!f) continue;
+      const fu = String(f.uvz_nr||"").trim();
+      if (!fu || fu===uvz){ treffer = k; bytes = b; break; }   // Bogen derselben Urkunde, nur anders benannt
+      if ((f.urkundsart||"kauf")==="kauf" && (!f.kgs_uvz || String(f.kgs_uvz).trim()===uvz)){ treffer = k; bytes = b; alsGs = true; break; }
+    }
+    if (!treffer) return;
+  }
+  await bogenLaden(bytes || await (await treffer.h.getFile()).arrayBuffer(), treffer.name);
+  if (!uvzWert()){ document.querySelector('[data-f="uvz_nr"]').value = uvz; geaendert = true; }
+  if (alsGs){
+    const gsFeld = document.querySelector('[data-f="kgs_uvz"]');
+    if (gsFeld.value.trim()!==uvz){
+      if (!confirm(`Zu Vorgang ${vg} gibt es den Bogen „${treffer.name}“.\n\nUVZ-Nr. ${uvz} dort als mitbeurkundete Grundschuld eintragen?`)){ return; }
+      document.querySelector('[data-f="kauf_grundschuld"]').checked = true; dynamik();
+      gsFeld.value = uvz; geaendert = true;
+    }
+  }
+}
+// gespeicherte Felder eines Bogens lesen, ohne ihn zu öffnen
+async function bogenFelder(bytes){
+  try {
+    const doc = await PDFLib.PDFDocument.load(bytes, { updateMetadata:false });
+    const roh = doc.getInfoDict().lookup(PDFLib.PDFName.of(DATENSCHLUESSEL));
+    return roh && roh.decodeText ? (JSON.parse(roh.decodeText()).f || {}) : null;
+  } catch { return null; }
+}
 async function ausAufruf(){
   const q = new URLSearchParams(location.search), uvz = (q.get("uvz")||"").trim(), vg = (q.get("vorgang")||"").trim();
   if (!uvz && !vg) return;
@@ -874,7 +915,12 @@ async function ausAufruf(){
   if (vg) document.querySelector('[data-f="vorgang_nr"]').value = vg;
   history.replaceState(null, "", location.pathname);   // beim Neuladen nicht erneut eintragen
   if (!uvz || !dateisystemOk) return;
-  if (ordner && await ordner.queryPermission({mode:"read"})==="granted") return versandUebernehmen(false).catch(fehler);
+  if (ordner && await ordner.queryPermission({mode:"read"})==="granted"){
+    // Liegt zum Vorgang schon ein Bogen, wird er geöffnet. Kommt der Aufruf vom Verteilerzettel der Grundschuld,
+    // ist das der Kaufvertrags-Bogen: der Versand landet dann im Abschnitt Finanzierungsgrundschuld.
+    if (vg) try { await bogenZumAufruf(vg, uvz); } catch(e){ fehler(e); }
+    return versandUebernehmen(false).catch(fehler);
+  }
   meldung(`UVZ-Nr. ${uvz} übernommen. Bitte auf „Verteilerzettel eintragen“ klicken, dann wird der Versand eingetragen.`);
 }
 
@@ -1085,11 +1131,14 @@ async function pdfErzeugen(){
           const zl=[["Nachgenehmigung durch:", v("kgs_ng_durch")], ["Hinweis:", v("kgs_ng_hinweis")]].filter(x=>x[1]).map(([l,w])=>[l, umbrechen(w,fN,9,BW-170)]);
           const h = 34 + zl.reduce((n,[,z])=>n+z.length*12,0);
           platz(h+6); y-=3;
-          page.drawRectangle({x:ML+16,y:y-h,width:BW-16,height:h,color:ROTBG,borderColor:ROT,borderWidth:1});
-          page.drawRectangle({x:ML+16,y:y-h,width:4,height:h,color:ROT});
+          const rot = !v("kgs_ng_eingeholt");
+          if (rot){
+            page.drawRectangle({x:ML+16,y:y-h,width:BW-16,height:h,color:ROTBG,borderColor:ROT,borderWidth:1});
+            page.drawRectangle({x:ML+16,y:y-h,width:4,height:h,color:ROT});
+          } else page.drawRectangle({x:ML+16,y:y-h,width:BW-16,height:h,borderColor:LINIE,borderWidth:1});
           let yy=y-13;
           kaestchen(ML+28, yy-1.5, true);
-          page.drawText(pdfText("Ein Beteiligter muss noch nachgenehmigen. Genehmigung als Erstes einholen."),{x:ML+44,y:yy,size:9,font:fB,color:ROT}); yy-=13;
+          page.drawText(pdfText(rot?"Ein Beteiligter muss noch nachgenehmigen. Genehmigung als Erstes einholen.":"Ein Beteiligter muss noch nachgenehmigen."),{x:ML+44,y:yy,size:9,font:fB,color:rot?ROT:TEXT}); yy-=13;
           for (const [l,z] of zl){ page.drawText(pdfText(l),{x:ML+44,y:yy,size:9,font:fN,color:GRAU}); z.forEach(t=>{ page.drawText(t,{x:ML+165,y:yy,size:9,font:fN,color:TEXT}); yy-=12; }); }
           kaestchen(ML+44, yy-1.5, v("kgs_ng_eingeholt"));
           page.drawText(pdfText("bereits vom Notar eingeholt am:"),{x:ML+60,y:yy,size:9,font:fN,color:TEXT});
@@ -1291,13 +1340,14 @@ document.getElementById("btnVersand").onclick = ()=>versandUebernehmen(false).ca
 // Neuer Bogen: liegt zur eingetragenen UVZ-Nr. schon ein Versand vor, wird er übernommen (samt Namen), solange
 // noch keine Namen eingetragen sind; sonst nur Hinweis
 document.querySelector('[data-f="uvz_nr"]').addEventListener("change", ()=>versandPruefen().catch(()=>{}));
+document.querySelector('[data-f="kgs_uvz"]').addEventListener("change", ()=>versandPruefen().catch(()=>{}));
 async function versandPruefen(){
   if (!dateisystemOk || !ordner || !uvzWert()) return;
   if (await ordner.queryPermission({mode:"read"}) !== "granted") return;
-  const praefix = uvzWert().replace(/[\\/:*?"<>|]/g,"-").replace(/\s+/g,"") + " Versand ";
+  const praefix = versandPraefix(uvzWert()), pGs = gsUvzWert() ? versandPraefix(gsUvzWert()) : null;
   const erledigt = new Set(document.querySelector('[data-f="versand_uebernommen"]').value.split("|").filter(Boolean));
   for await (const [name, h] of ordner.entries())
-    if (h.kind==="file" && name.startsWith(praefix) && !erledigt.has(name)){
+    if (h.kind==="file" && (name.startsWith(praefix) || (pGs && name.startsWith(pGs))) && !erledigt.has(name)){
       // noch keine Namen: alles aus dem Verteilerzettel übernehmen; sonst nur Hinweis, damit nichts überschrieben wird
       if (keineNamen()) return versandUebernehmen(true);
       meldung(`Zu UVZ-Nr. ${uvzWert()} liegt ein Versand aus dem Verteilerzettel vor. Mit „Versand übernehmen“ eintragen.`);
@@ -1353,6 +1403,33 @@ function namenAusVerteiler(liste){
   }
   beteiligteAnzeigen();
 }
+const versandPraefix = u => u.replace(/[\\/:*?"<>|]/g,"-").replace(/\s+/g,"") + " Versand ";
+// UVZ-Nr. der mitbeurkundeten Finanzierungsgrundschuld (nur beim Kaufvertrag)
+const gsUvzWert = () => (art()==="kauf" && istAn("kauf_grundschuld")) ? document.querySelector('[data-f="kgs_uvz"]').value.trim() : "";
+/* Verteilerzettel der Grundschuld: Kopien und Nachgenehmigung im Abschnitt Finanzierungsgrundschuld.
+   Wer im Bogen nicht als Veräußerer/Erwerber steht (meist die Bank), kommt in die Zeile Gläubiger. */
+function grundschuldVersand(d, protokoll){
+  const tag = deDatum(d.zeit||new Date().toISOString()), iso = (d.zeit||new Date().toISOString()).slice(0,10);
+  const q = s => document.querySelector(`[data-f="${s}"]`);
+  for (const e of d.eintraege||[]){
+    const post = !!e.perPost, tr = zeileFuerName(e.name);
+    const k = tr && KGS_ROLLEN.includes(tr.dataset.rolle) ? tr.dataset.rolle : "gl";
+    const was = [!post&&e.eabschrift&&"eAbschrift per E-Mail", !post&&e.einfach&&"einfache Abschrift per E-Mail", e.genehmigung&&(post?"Genehmigungserklärung für die Post ausgedruckt":"Genehmigungserklärung per E-Mail"), e.papier&&"Kopie auf Papier", e.ben&&"eAbschrift für beN abgelegt (in XNP versenden)"].filter(Boolean);
+    protokoll.push(`Grundschuld ${e.name}${k==="gl"&&!tr?" (als Gläubiger)":""}: ${was.join(", ")}`);
+    const n = (e.eabschrift?1:0) + (e.einfach?1:0) + (e.papier?1:0);
+    if (n) q(`kgs_${k}_kopien_erteilt`).value = (parseInt(q(`kgs_${k}_kopien_erteilt`).value,10)||0) + n;
+    if (!post && (e.eabschrift || e.einfach)) q(`kgs_${k}_kopie_email`).checked = true;
+    if (e.papier) q(`kgs_${k}_kopie_post`).checked = true;
+    if (e.genehmigung){
+      q("kgs_ng").checked = true;
+      if (!q("kgs_ng_durch").value.includes(e.name)) q("kgs_ng_durch").value = [q("kgs_ng_durch").value, e.name].filter(Boolean).join(", ");
+      if (!post){ q("kgs_ng_eingeholt").checked = true; if (!q("kgs_ng_am").value || iso < q("kgs_ng_am").value) q("kgs_ng_am").value = iso; }
+      q("kgs_ng_hinweis").value = [q("kgs_ng_hinweis").value, `Genehmigungserklärung${e.genehmigungOhneBegl?" (ohne Beglaubigung)":""} am ${tag} ${post?`ausgedruckt, per Post an ${e.name}`:`per E-Mail an ${e.name} (${e.email})`} versandt.`].filter(Boolean).join("\n");
+    }
+  }
+  const bem = q("bemerkungen");
+  bem.value = [bem.value, `Versand Grundschuld ${d.uvz||gsUvzWert()} am ${tag} (${d.von||"Verteilerzettel"}): ` + (d.eintraege||[]).map(e=>e.name+" – "+[e.eabschrift&&"eAbschrift",e.einfach&&"einfache Abschrift",e.genehmigung&&"Genehmigung",e.papier&&"Papier",e.ben&&"beN offen"].filter(Boolean).join("+")).join("; ")].filter(Boolean).join("\n");
+}
 const deDatum = iso => { const [j,m,t] = iso.slice(0,10).split("-"); return `${t}.${m}.${j}`; };
 async function versandUebernehmen(still){
   const uvz = uvzWert();
@@ -1362,19 +1439,24 @@ async function versandUebernehmen(still){
   if (p!=="granted" && !still) p = await ordner.requestPermission({mode:"read"});
   if (p!=="granted") return;
 
-  const praefix = uvz.replace(/[\\/:*?"<>|]/g,"-").replace(/\s+/g,"") + " Versand ";
   const feld = document.querySelector('[data-f="versand_uebernommen"]');
   const erledigt = new Set(feld.value.split("|").filter(Boolean));
+  const gsUvz = gsUvzWert();
+  const pKv = versandPraefix(uvz), pGs = gsUvz ? versandPraefix(gsUvz) : null;
   const dateien = [];
-  for await (const [name, h] of ordner.entries())
-    if (h.kind==="file" && name.startsWith(praefix) && name.toLowerCase().endsWith(".json") && !erledigt.has(name)) dateien.push([name,h]);
-  if (!dateien.length){ if (!still) meldung(`Kein neuer Versand zu UVZ-Nr. ${uvz} im Ablageordner.`); return; }
-  dateien.sort((a,b)=>a[0].localeCompare(b[0]));
+  for await (const [name, h] of ordner.entries()){
+    if (h.kind!=="file" || !name.toLowerCase().endsWith(".json") || erledigt.has(name)) continue;
+    if (name.startsWith(pKv)) dateien.push([name,h,false]);
+    else if (pGs && name.startsWith(pGs)) dateien.push([name,h,true]);
+  }
+  if (!dateien.length){ if (!still) meldung(`Kein neuer Versand zu UVZ-Nr. ${uvz}${gsUvz?` (Grundschuld ${gsUvz})`:""} im Ablageordner.`); return; }
+  dateien.sort((a,b)=>(a[2]-b[2]) || a[0].localeCompare(b[0]));
 
   const protokoll = [];
-  for (const [name, h] of dateien){
+  for (const [name, h, gs] of dateien){
     let d; try { d = JSON.parse(await (await h.getFile()).text()); } catch { continue; }
     if (d.art!=="WoinarVersand") continue;
+    if (gs){ grundschuldVersand(d, protokoll); erledigt.add(name); continue; }
     if (keineNamen() && d.beteiligte && d.beteiligte.length) namenAusVerteiler(d.beteiligte);
     const tag = deDatum(d.zeit||new Date().toISOString());
     for (const e of d.eintraege||[]){
@@ -1543,6 +1625,6 @@ window.addEventListener("beforeprint", textfelderAnpassen);
 document.addEventListener("input", e=>{ if (e.target.matches('textarea[data-f="sonstiges_vollzug_text"]')){ e.target.style.height="auto"; e.target.style.height=(e.target.scrollHeight+2)+"px"; } });
 document.getElementById("btnDrucken").onclick = ()=>{ textfelderAnpassen(); window.print(); };
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.31 · Stand 06.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.32 · Stand 06.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
