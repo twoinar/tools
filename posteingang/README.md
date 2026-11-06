@@ -25,6 +25,7 @@ Folgeseiten) gehören zum vorigen Schreiben. Leere Rückseiten fallen weg.
 ## Wie wird zugeordnet?
 - UVZ: „UVZ-Nr. 2048/2026“, „UR-Nr. 2048/26“, „Urkunde Nr. 2048/2026“, „Urkundenrolle Nr.“, „W 2048-2026“,
   „UVZ-Nr. 2048 für 2026“. Ohne Jahr wird im laufenden und im Vorjahr gesucht.
+- Kostenrechnung (Bruchnummer): „W 2006/0/1 - 2025“, „W 2048/1/1-2026“ → zur Urkunde 2006-2025 bzw. 2048-2026.
 - Vorgang: „Ihr Zeichen: 30513“, „Ihr Az. 30513“, „Vorgang 30513“ (fünfstellig).
 - Jede Nummer wird gegen den Bestand geprüft (Schattenarchiv `Y:\Scanner\URKUNDEN\Urkunden <Jahr>`,
   Ordner `Y:\Vorgänge`). Unbekannte Nummern → „Nicht zugeordnet“ (mit Grund im Protokoll).
