@@ -14,6 +14,8 @@
 <style>
 :root{--blau:#1a5fa0;--blau-hell:#eef3f8;--rand:#cfd6de;--text:#1f2328;--grau:#5b6570;--gruen:#1f7a3a;--gruen-hell:#e7f4ea;--orange:#b25e00;--orange-hell:#fff4e5;--rot:#b3261e;--rot-hell:#fdecea;--weiss:#fff;--hinter:#f6f8fa}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
+body.ohne .tagwahl,body.ohne #drucken,body.ohne #stand{visibility:hidden}
 body{margin:0;font:15px/1.45 "Segoe UI",system-ui,Arial,sans-serif;color:var(--text);background:var(--hinter)}
 a{color:var(--blau)}
 button{font:inherit;cursor:pointer;border:1px solid var(--rand);background:var(--weiss);border-radius:6px;padding:5px 12px;color:var(--text)}
@@ -53,11 +55,11 @@ th,td{border-bottom:1px solid #e3e7eb;padding:6px 8px;text-align:left;vertical-a
 th{background:var(--blau-hell);font-weight:600}
 td.k{width:1%;text-align:center}
 td.nr,td.zeit{white-space:nowrap}
-td.datei{word-break:break-word}
+td.datei{word-break:break-word;min-width:190px}
 td.k input{width:20px;height:20px;cursor:pointer;accent-color:var(--gruen)}
 tr.erledigt td{color:var(--grau)}
 tr.erledigt td.datei a{color:var(--grau)}
-.wer{font-size:12px;color:var(--gruen);white-space:nowrap}
+.wer{font-size:12px;color:var(--gruen)}
 .leer{color:var(--grau);font-style:italic;margin:0}
 .ganzfertig{background:var(--gruen-hell);color:var(--gruen);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-weight:600;display:none}
 #meldung{color:var(--rot);font-size:14px}
@@ -231,6 +233,8 @@ tr.erledigt td.datei a{color:var(--grau)}
   const kurzerTag = s => new Date(s + 'T12:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
   const ist = e => !!(erledigt[e.id] && erledigt[e.id].erledigt);
 
+  // „Eingang 2026-11-06 18-02 Nr 03 - Vorkaufsrecht.pdf“ → „Nr 03 - Vorkaufsrecht.pdf“ (ganzer Name als Tooltip)
+  const kurz = d => String(d || '').replace(/^Eingang \d{4}-\d{2}-\d{2} \d{2}-\d{2} /, '');
   function nummerText(e) {
     if (e.nummer) return (e.zuordnung === 'Urkunde' ? 'UVZ ' : 'Vorgang ') + e.nummer;
     return e.aktion === 'dublette' ? '–' : (e.hinweis || '–');
@@ -248,14 +252,14 @@ tr.erledigt td.datei a{color:var(--grau)}
       const kopf = `<h2>${esc(a.titel)} (${g.length}) ${PFLICHT.includes(a.k) ? zahl : ''}</h2>`;
       let tabelle = '<p class="leer">keine</p>';
       if (g.length) {
-        tabelle = `<table><tr>${a.haken ? '<th>✓</th>' : ''}<th>Zeit</th><th>Akte</th><th>Art</th><th>Absender</th><th>Seiten</th><th>Datei</th>${a.haken ? '<th>Erledigt</th>' : ''}</tr>` +
+        tabelle = `<table><tr>${a.haken ? '<th>✓</th>' : ''}<th>Zeit</th><th>Akte</th><th>Art</th><th>Absender</th><th>Seiten</th><th>Datei</th>${a.haken ? '<th>Erledigt von</th>' : ''}</tr>` +
           g.map(e => {
             const w = erledigt[e.id];
             const fertig = ist(e);
             return `<tr class="${fertig ? 'erledigt' : ''}" data-id="${esc(e.id)}">` +
               (a.haken ? `<td class="k"><input type="checkbox" ${fertig ? 'checked' : ''} aria-label="erledigt"></td>` : '') +
               `<td class="zeit">${esc(e.zeit)}</td><td class="nr">${esc(nummerText(e))}</td><td>${esc(e.art) || '–'}</td><td>${esc(e.absender)}</td><td>${esc(e.seiten)}</td>` +
-              `<td class="datei">${e.pfad || e.datei ? `<a data-oeffnen>${esc(e.datei)}</a>` : ''}</td>` +
+              `<td class="datei">${e.pfad || e.datei ? `<a data-oeffnen title="${esc(e.datei)}">${esc(kurz(e.datei))}</a>` : ''}</td>` +
               (a.haken ? `<td>${fertig && w ? `<span class="wer">${esc(w.wer)}, ${esc(w.anzeige)}</span>` : ''}</td>` : '') + '</tr>';
           }).join('') + '</table>';
       }
@@ -294,7 +298,7 @@ tr.erledigt td.datei a{color:var(--grau)}
     try {
       ordner = await freigegeben();
       if (!ordner) { leiste(); return; }
-      $('leiste').classList.remove('zeigen'); $('start').hidden = true; $('inhalt').hidden = false;
+      $('leiste').classList.remove('zeigen'); $('start').hidden = true; $('inhalt').hidden = false; document.body.classList.remove('ohne');
       const proto = await unterordner(ordner, 'Protokoll');
       if (!proto) { $('meldung').textContent = `Im Ordner „${ordner.name}“ fehlt der Unterordner „Protokoll“. Ist Y:\\Posteingang gewählt?`; eintraegeTag = []; erledigt = {}; zeichnen(); return; }
       const m = monat(tag);
@@ -314,7 +318,7 @@ tr.erledigt td.datei a{color:var(--grau)}
       ? `Bitte den Ordner „${h.name}“ für diese Sitzung freigeben.`
       : 'Einmal den Ordner Y:\\Posteingang wählen, dann erscheint hier die Tagesliste.';
     $('freigeben').textContent = h ? 'Freigeben' : 'Ordner wählen';
-    $('leiste').classList.add('zeigen');
+    $('leiste').classList.add('zeigen'); document.body.classList.add('ohne');
     $('start').hidden = !!h; $('inhalt').hidden = true;
   }
 
