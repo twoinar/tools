@@ -62,6 +62,8 @@ def main():
     ok = ok and liste_ok
     if "--liste" in sys.argv:
         shutil.copy(liste, sys.argv[-1])
+    if "--ordner" in sys.argv:   # ganzen Testordner behalten, z. B. für die Web-Tagesliste
+        shutil.copytree(os.path.join(Y, "Posteingang"), sys.argv[-1], dirs_exist_ok=True)
     for wurzel, _, dateien in os.walk(os.path.join(Y, "Posteingang")):
         for d in dateien: print("  ", os.path.relpath(os.path.join(wurzel, d), Y))
     shutil.rmtree(tmp)

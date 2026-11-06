@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Posteingang Tagesliste</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='14' width='52' height='38' rx='5' fill='%231a5fa0'/%3E%3Cpath d='M8 18l24 18 24-18' stroke='white' stroke-width='5' fill='none'/%3E%3C/svg%3E">
+<!--
+  Tagesliste des Posteingangs als Webseite (https://tools.notariat-woinar.de/tools/posteingang/tagesliste/).
+  Die Seite liest das Protokoll des Sortier-Programms (Y:\Posteingang\Protokoll\Protokoll JJJJ-MM.csv) direkt
+  über die Ordnerfreigabe des Browsers (Chrome/Edge). Abgehakt wird in Y:\Posteingang\Protokoll\Erledigt JJJJ-MM.json,
+  das alle Mitarbeiter gemeinsam sehen. Es gehen keine Daten an den Server: von dort kommt nur diese Seite.
+-->
+<style>
+:root{--blau:#1a5fa0;--blau-hell:#eef3f8;--rand:#cfd6de;--text:#1f2328;--grau:#5b6570;--gruen:#1f7a3a;--gruen-hell:#e7f4ea;--orange:#b25e00;--orange-hell:#fff4e5;--rot:#b3261e;--rot-hell:#fdecea;--weiss:#fff;--hinter:#f6f8fa}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.45 "Segoe UI",system-ui,Arial,sans-serif;color:var(--text);background:var(--hinter)}
+a{color:var(--blau)}
+button{font:inherit;cursor:pointer;border:1px solid var(--rand);background:var(--weiss);border-radius:6px;padding:5px 12px;color:var(--text)}
+button:hover{border-color:var(--blau)}
+button.haupt{background:var(--blau);border-color:var(--blau);color:#fff}
+#leiste{background:var(--orange-hell);border-bottom:1px solid #f0c27b;padding:10px 20px;display:none;gap:12px;align-items:center;flex-wrap:wrap}
+#leiste.zeigen{display:flex}
+header{background:var(--weiss);border-bottom:1px solid var(--rand);padding:12px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:2}
+header h1{font-size:20px;margin:0 8px 0 0}
+.tagwahl{display:flex;gap:6px;align-items:center}
+.tagwahl input{font:inherit;padding:4px 6px;border:1px solid var(--rand);border-radius:6px}
+#tagname{font-weight:600;min-width:13em}
+.rechts{margin-left:auto;display:flex;gap:12px;align-items:center;color:var(--grau);font-size:14px}
+main{display:grid;grid-template-columns:240px 1fr;gap:20px;padding:20px;max-width:1400px;margin:0 auto}
+aside{background:var(--weiss);border:1px solid var(--rand);border-radius:8px;padding:12px 14px;align-self:start;position:sticky;top:76px}
+aside h2{font-size:15px;margin:0 0 8px}
+aside ul{list-style:none;margin:0;padding:0}
+aside li{margin:2px 0}
+aside li button{width:100%;text-align:left;display:flex;justify-content:space-between;border:none;padding:5px 8px}
+aside li button:hover{background:var(--blau-hell)}
+aside li button.aktiv{background:var(--blau-hell);font-weight:600}
+.zahl{border-radius:10px;padding:0 8px;font-size:13px;font-weight:600}
+.zahl.offen{background:var(--orange-hell);color:var(--orange)}
+.zahl.fertig{background:var(--gruen-hell);color:var(--gruen)}
+aside p{color:var(--grau);font-size:13px;margin:8px 0 0}
+section{background:var(--weiss);border:1px solid var(--rand);border-radius:8px;padding:12px 16px;margin-bottom:16px}
+section h2{font-size:17px;margin:0;display:flex;gap:10px;align-items:center}
+section p.hinweis{color:var(--grau);margin:2px 0 10px;font-size:14px}
+section.vorlegen h2{color:var(--blau)}
+section.zuordnen h2{color:var(--orange)}
+details>summary{cursor:pointer;list-style:none}
+details>summary::-webkit-details-marker{display:none}
+details>summary h2::before{content:"▸";color:var(--grau)}
+details[open]>summary h2::before{content:"▾"}
+table{border-collapse:collapse;width:100%}
+th,td{border-bottom:1px solid #e3e7eb;padding:6px 8px;text-align:left;vertical-align:top;font-size:14px}
+th{background:var(--blau-hell);font-weight:600}
+td.k{width:1%;text-align:center}
+td.nr,td.zeit{white-space:nowrap}
+td.datei{word-break:break-word}
+td.k input{width:20px;height:20px;cursor:pointer;accent-color:var(--gruen)}
+tr.erledigt td{color:var(--grau)}
+tr.erledigt td.datei a{color:var(--grau)}
+.wer{font-size:12px;color:var(--gruen);white-space:nowrap}
+.leer{color:var(--grau);font-style:italic;margin:0}
+.ganzfertig{background:var(--gruen-hell);color:var(--gruen);border-radius:8px;padding:10px 16px;margin-bottom:16px;font-weight:600;display:none}
+#meldung{color:var(--rot);font-size:14px}
+.datei a{cursor:pointer}
+#start{max-width:640px;margin:60px auto;background:var(--weiss);border:1px solid var(--rand);border-radius:8px;padding:24px 28px}
+#start h2{margin-top:0}
+#start ol{padding-left:20px}
+@media (max-width:900px){main{grid-template-columns:1fr}aside{position:static}}
+@media print{#leiste,aside,.tagwahl button,.rechts,header .knopf{display:none!important}header{position:static;border:none}main{display:block;padding:0}section{border:none;padding:0}details{display:block}td.k input{appearance:none;border:1px solid #000;width:14px;height:14px}a{color:#000;text-decoration:none}}
+</style>
+</head>
+<body>
+<div id="leiste"><span id="leistetext"></span><button type="button" class="haupt" id="freigeben">Ordner wählen</button></div>
+<header>
+  <h1>Posteingang</h1>
+  <div class="tagwahl">
+    <button type="button" id="zurueck" title="Tag davor">‹</button>
+    <span id="tagname"></span>
+    <button type="button" id="vor" title="Tag danach">›</button>
+    <input type="date" id="datum" aria-label="Tag wählen">
+    <button type="button" id="heute">Heute</button>
+  </div>
+  <button type="button" class="knopf" id="drucken">Drucken</button>
+  <div class="rechts"><span id="stand"></span><span>Bearbeiter: <a href="#" id="namelink"></a></span></div>
+</header>
+<div id="start" hidden>
+  <h2>Einmal einrichten</h2>
+  <ol>
+    <li>Oben auf <b>„Ordner wählen“</b> klicken.</li>
+    <li>Den Ordner <b>Y:\Posteingang</b> auswählen und „Ordner auswählen“ klicken.</li>
+    <li>Die Frage des Browsers mit <b>„Bearbeitung zulassen“</b> beantworten (bzw. „Bei jedem Besuch zulassen“).</li>
+  </ol>
+  <p>Danach sehen Sie hier die Tagesliste. Die Dateien bleiben auf Y:, die Seite schickt nichts ins Internet.</p>
+</div>
+<main id="inhalt" hidden>
+  <aside>
+    <h2>Noch offen</h2>
+    <ul id="offeneTage"></ul>
+    <p>Tage mit Schreiben, die vorgelegt oder zugeordnet werden müssen und noch nicht abgehakt sind (letzte 3 Monate).</p>
+  </aside>
+  <div>
+    <div class="ganzfertig" id="ganzfertig">✓ Alles für diesen Tag erledigt.</div>
+    <div id="meldung"></div>
+    <div id="abschnitte"></div>
+  </div>
+</main>
+<script>
+'use strict';
+(() => {
+  const ABSCHNITTE = [
+    { k: 'vorlegen', titel: 'Mit der Akte vorlegen', hinweis: 'Vollzugsrelevant: bitte ausdrucken bzw. mit der Akte vorlegen und dann abhaken.', haken: true },
+    { k: 'zuordnen', titel: 'Bitte zuordnen', hinweis: 'Keine sichere UVZ- oder Vorgangsnummer erkannt, liegt in „Nicht zugeordnet“. Bitte ansehen, in die richtige Akte geben und abhaken.', haken: true },
+    { k: 'ablegen', titel: 'Nur elektronisch abgelegt', hinweis: 'Nichts zu tun, das Schreiben liegt im Ordner der Urkunde bzw. des Vorgangs. Wer es doch vorlegt, kann es abhaken.', haken: true, zu: true },
+    { k: 'dublette', titel: 'Doppelt gescannt', hinweis: 'Lag schon vor und wurde nach „Dubletten“ gelegt. Nichts zu tun.', haken: false, zu: true },
+  ];
+  const PFLICHT = ['vorlegen', 'zuordnen'];
+  const MONATE_ZURUECK = 3;
+  const $ = id => document.getElementById(id);
+  const demo = new URLSearchParams(location.search).has('demo');
+
+  // ------------------------------------------------------------ Ordner (wie im Claude-Fenster)
+  function db() {
+    return new Promise((ok, fehler) => {
+      const r = indexedDB.open('posteingang-tagesliste', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('ordner');
+      r.onsuccess = () => ok(r.result);
+      r.onerror = () => fehler(r.error);
+    });
+  }
+  async function ordnerHolen() {
+    if (demo) return (await navigator.storage.getDirectory()).getDirectoryHandle('Posteingang', { create: true });   // Vorführung/Test mit Beispieldaten im Browser
+    try {
+      const d = await db();
+      return await new Promise(ok => { const r = d.transaction('ordner').objectStore('ordner').get('posteingang'); r.onsuccess = () => ok(r.result || null); r.onerror = () => ok(null); });
+    } catch { return null; }
+  }
+  async function ordnerMerken(h) {
+    const d = await db();
+    await new Promise((ok, fehler) => { const t = d.transaction('ordner', 'readwrite'); t.objectStore('ordner').put(h, 'posteingang'); t.oncomplete = ok; t.onerror = () => fehler(t.error); });
+  }
+  async function freigegeben() {
+    const h = await ordnerHolen();
+    if (!h) return null;
+    if (demo) return h;
+    return (await h.queryPermission({ mode: 'readwrite' })) === 'granted' ? h : null;
+  }
+  async function ordnerFreigeben() {   // nur aus einem Klick heraus
+    if (!window.showDirectoryPicker) throw new Error('Dieser Browser kann keine Ordner freigeben. Bitte Chrome oder Edge nehmen.');
+    let h = await ordnerHolen();
+    if (h && (await h.requestPermission({ mode: 'readwrite' })) === 'granted') return h;
+    h = await window.showDirectoryPicker({ id: 'posteingang', mode: 'readwrite' });
+    if (!(await unterordner(h, 'Protokoll'))) {
+      if (!confirm(`Im Ordner „${h.name}“ gibt es keinen Unterordner „Protokoll“. Ist das wirklich Y:\\Posteingang?`)) throw new Error('Bitte den Ordner Y:\\Posteingang wählen.');
+    }
+    await ordnerMerken(h);
+    return h;
+  }
+  async function unterordner(h, name) { try { return await h.getDirectoryHandle(name); } catch { return null; } }
+  async function dateiLesen(ordner, name) {
+    try { return await (await (await ordner.getFileHandle(name)).getFile()).text(); } catch { return null; }
+  }
+
+  // ------------------------------------------------------------ Protokoll lesen
+  // CSV wie Pythons csv.writer (Semikolon, Felder mit ; " oder Zeilenumbruch in Anführungszeichen)
+  function csvZeilen(text) {
+    const zeilen = []; let z = [], f = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) {
+        if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; }
+        else f += c;
+      } else if (c === '"') q = true;
+      else if (c === ';') { z.push(f); f = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        z.push(f); f = ''; if (z.length > 1 || z[0]) zeilen.push(z); z = [];
+      } else f += c;
+    }
+    if (f || z.length) { z.push(f); zeilen.push(z); }
+    return zeilen;
+  }
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const monat = s => s.slice(0, 7);
+  function eintrag(z) {
+    while (z.length < 11) z.push('');
+    const [tt, mm, jjjj] = z[0].slice(0, 10).split('.');
+    if (!jjjj) return null;
+    const aktion = z[8] || (z[3] === 'nicht zugeordnet' ? 'zuordnen' : 'vorlegen');
+    return {
+      id: `${z[0]}|${z[1]}|${z[5]}`, tag: `${jjjj}-${mm}-${tt}`, zeit: z[0].slice(11, 16),
+      scan: z[1], seiten: z[2], zuordnung: z[3], nummer: z[4], datei: z[5], hinweis: z[6],
+      art: z[7], aktion: ABSCHNITTE.some(a => a.k === aktion) ? aktion : 'vorlegen', absender: z[9], pfad: z[10],
+    };
+  }
+  const cache = {};   // Monat -> { geaendert, eintraege }
+  async function monatLesen(proto, m) {
+    let fh; try { fh = await proto.getFileHandle(`Protokoll ${m}.csv`); } catch { return []; }
+    const f = await fh.getFile();
+    const c = cache[m];
+    if (c && c.geaendert === f.lastModified && c.groesse === f.size) return c.eintraege;
+    const eintraege = csvZeilen(await f.text()).filter(z => z[0] && z[0] !== 'Zeit').map(eintrag).filter(Boolean);
+    cache[m] = { geaendert: f.lastModified, groesse: f.size, eintraege };
+    return eintraege;
+  }
+  async function erledigtLesen(proto, m) {
+    try { return JSON.parse((await dateiLesen(proto, `Erledigt ${m}.json`)) || '{}'); } catch { return {}; }
+  }
+  // Gemeinsame Datei: kurz vor dem Schreiben neu lesen und nur den einen Eintrag ändern
+  async function erledigtSetzen(proto, m, id, wert) {
+    const daten = await erledigtLesen(proto, m);
+    daten[id] = wert;
+    const w = await (await proto.getFileHandle(`Erledigt ${m}.json`, { create: true })).createWritable();
+    await w.write(JSON.stringify(daten, null, 1));
+    await w.close();
+    return daten;
+  }
+
+  // ------------------------------------------------------------ Bearbeiter
+  function name() { try { return localStorage.getItem('posteingang-name') || ''; } catch { return ''; } }
+  function nameFragen() {
+    const n = (prompt('Ihr Name oder Kürzel (erscheint beim Abhaken):', name()) || '').trim();
+    if (n) { try { localStorage.setItem('posteingang-name', n); } catch { /* egal */ } }
+    $('namelink').textContent = name() || 'eintragen';
+    return name();
+  }
+
+  // ------------------------------------------------------------ Anzeige
+  let ordner = null, tag = iso(new Date()), erledigt = {}, eintraegeTag = [];
+  const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const langerTag = s => new Date(s + 'T12:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+  const kurzerTag = s => new Date(s + 'T12:00').toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
+  const ist = e => !!(erledigt[e.id] && erledigt[e.id].erledigt);
+
+  function nummerText(e) {
+    if (e.nummer) return (e.zuordnung === 'Urkunde' ? 'UVZ ' : 'Vorgang ') + e.nummer;
+    return e.aktion === 'dublette' ? '–' : (e.hinweis || '–');
+  }
+  function zeichnen() {
+    $('tagname').textContent = langerTag(tag);
+    $('datum').value = tag;
+    const teile = [];
+    let offen = 0;
+    for (const a of ABSCHNITTE) {
+      const g = eintraegeTag.filter(e => e.aktion === a.k);
+      const nochOffen = g.filter(e => !ist(e)).length;
+      if (PFLICHT.includes(a.k)) offen += nochOffen;
+      const zahl = a.haken && g.length ? `<span class="zahl ${nochOffen ? 'offen' : 'fertig'}">${nochOffen ? nochOffen + ' offen' : 'erledigt'}</span>` : '';
+      const kopf = `<h2>${esc(a.titel)} (${g.length}) ${PFLICHT.includes(a.k) ? zahl : ''}</h2>`;
+      let tabelle = '<p class="leer">keine</p>';
+      if (g.length) {
+        tabelle = `<table><tr>${a.haken ? '<th>✓</th>' : ''}<th>Zeit</th><th>Akte</th><th>Art</th><th>Absender</th><th>Seiten</th><th>Datei</th>${a.haken ? '<th>Erledigt</th>' : ''}</tr>` +
+          g.map(e => {
+            const w = erledigt[e.id];
+            const fertig = ist(e);
+            return `<tr class="${fertig ? 'erledigt' : ''}" data-id="${esc(e.id)}">` +
+              (a.haken ? `<td class="k"><input type="checkbox" ${fertig ? 'checked' : ''} aria-label="erledigt"></td>` : '') +
+              `<td class="zeit">${esc(e.zeit)}</td><td class="nr">${esc(nummerText(e))}</td><td>${esc(e.art) || '–'}</td><td>${esc(e.absender)}</td><td>${esc(e.seiten)}</td>` +
+              `<td class="datei">${e.pfad || e.datei ? `<a data-oeffnen>${esc(e.datei)}</a>` : ''}</td>` +
+              (a.haken ? `<td>${fertig && w ? `<span class="wer">${esc(w.wer)}, ${esc(w.anzeige)}</span>` : ''}</td>` : '') + '</tr>';
+          }).join('') + '</table>';
+      }
+      const inhalt = `<p class="hinweis">${esc(a.hinweis)}</p>${tabelle}`;
+      teile.push(a.zu
+        ? `<section class="${a.k}"><details><summary>${kopf}</summary>${inhalt}</details></section>`
+        : `<section class="${a.k}">${kopf}${inhalt}</section>`);
+    }
+    $('abschnitte').innerHTML = teile.join('');
+    $('ganzfertig').style.display = eintraegeTag.length && !offen ? 'block' : 'none';
+    if (!eintraegeTag.length) $('abschnitte').insertAdjacentHTML('afterbegin', '<section><p class="leer">An diesem Tag wurde keine Post sortiert.</p></section>');
+  }
+
+  async function offeneTageZeigen(proto) {
+    const heute = new Date();
+    const tage = {};
+    for (let i = MONATE_ZURUECK - 1; i >= 0; i--) {
+      const m = iso(new Date(heute.getFullYear(), heute.getMonth() - i, 1)).slice(0, 7);
+      const eintraege = await monatLesen(proto, m);
+      const erl = m === monat(tag) ? erledigt : await erledigtLesen(proto, m);
+      for (const e of eintraege) {
+        if (!PFLICHT.includes(e.aktion)) continue;
+        tage[e.tag] = tage[e.tag] || 0;
+        if (!(erl[e.id] && erl[e.id].erledigt)) tage[e.tag]++;
+      }
+    }
+    const liste = Object.keys(tage).filter(t => tage[t] > 0 || t === tag).sort().reverse();
+    $('offeneTage').innerHTML = liste.length
+      ? liste.map(t => `<li><button type="button" data-tag="${t}" class="${t === tag ? 'aktiv' : ''}"><span>${esc(kurzerTag(t))}</span><span class="zahl ${tage[t] ? 'offen' : 'fertig'}">${tage[t] || '✓'}</span></button></li>`).join('')
+      : '<li class="leer">Nichts offen.</li>';
+  }
+
+  let laeuft = false;
+  async function laden() {
+    if (laeuft) return; laeuft = true;
+    try {
+      ordner = await freigegeben();
+      if (!ordner) { leiste(); return; }
+      $('leiste').classList.remove('zeigen'); $('start').hidden = true; $('inhalt').hidden = false;
+      const proto = await unterordner(ordner, 'Protokoll');
+      if (!proto) { $('meldung').textContent = `Im Ordner „${ordner.name}“ fehlt der Unterordner „Protokoll“. Ist Y:\\Posteingang gewählt?`; eintraegeTag = []; erledigt = {}; zeichnen(); return; }
+      const m = monat(tag);
+      erledigt = await erledigtLesen(proto, m);
+      eintraegeTag = (await monatLesen(proto, m)).filter(e => e.tag === tag);
+      $('meldung').textContent = '';
+      zeichnen();
+      await offeneTageZeigen(proto);
+      $('stand').textContent = 'Stand ' + new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr';
+    } catch (e) {
+      $('meldung').textContent = 'Fehler beim Lesen: ' + e.message;
+    } finally { laeuft = false; }
+  }
+  async function leiste() {
+    const h = await ordnerHolen();
+    $('leistetext').textContent = h
+      ? `Bitte den Ordner „${h.name}“ für diese Sitzung freigeben.`
+      : 'Einmal den Ordner Y:\\Posteingang wählen, dann erscheint hier die Tagesliste.';
+    $('freigeben').textContent = h ? 'Freigeben' : 'Ordner wählen';
+    $('leiste').classList.add('zeigen');
+    $('start').hidden = !!h; $('inhalt').hidden = true;
+  }
+
+  // Pfad aus dem Protokoll (z. B. Y:\Posteingang\Urkunden\539-2026\…pdf) relativ zum freigegebenen Ordner auflösen
+  async function dateiFinden(e) {
+    const teile = (e.pfad || '').split(/[\\/]+/).filter(Boolean);
+    const ab = teile.findIndex(t => t.toLowerCase() === ordner.name.toLowerCase());
+    if (ab >= 0) {
+      try {
+        let h = ordner;
+        for (const t of teile.slice(ab + 1, -1)) h = await h.getDirectoryHandle(t);
+        return await h.getFileHandle(teile[teile.length - 1]);
+      } catch { /* weiter unten suchen */ }
+    }
+    // Datei verschoben oder anderer Pfad: in den Ablageordnern nach dem Dateinamen suchen
+    const gesucht = (e.datei || teile[teile.length - 1] || '').toLowerCase();
+    async function suche(h, tiefe) {
+      for await (const [n, k] of h.entries()) {
+        if (k.kind === 'file' && n.toLowerCase() === gesucht) return k;
+        if (k.kind === 'directory' && tiefe < 2) { const f = await suche(k, tiefe + 1); if (f) return f; }
+      }
+      return null;
+    }
+    for (const n of ['Urkunden', 'Vorgänge', 'Nicht zugeordnet', 'Dubletten']) {
+      const h = await unterordner(ordner, n);
+      const f = h && await suche(h, 0);
+      if (f) return f;
+    }
+    return null;
+  }
+  async function oeffnen(e) {
+    const fenster = window.open('', '_blank');   // gleich im Klick öffnen, sonst blockiert der Browser
+    try {
+      const fh = await dateiFinden(e);
+      if (!fh) throw new Error(`Die Datei „${e.datei}“ wurde nicht gefunden (verschoben oder umbenannt?).`);
+      const url = URL.createObjectURL(await fh.getFile());
+      if (fenster) fenster.location = url; else location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
+    } catch (err) {
+      if (fenster) fenster.close();
+      alert(err.message);
+    }
+  }
+
+  // ------------------------------------------------------------ Bedienung
+  $('freigeben').addEventListener('click', async () => {
+    try { await ordnerFreigeben(); await laden(); }
+    catch (e) { if (e.name !== 'AbortError') $('leistetext').textContent = e.message; }
+  });
+  const wechseln = t => { tag = t; laden(); };
+  const verschieben = n => { const d = new Date(tag + 'T12:00'); d.setDate(d.getDate() + n); wechseln(iso(d)); };
+  $('zurueck').addEventListener('click', () => verschieben(-1));
+  $('vor').addEventListener('click', () => verschieben(1));
+  $('heute').addEventListener('click', () => wechseln(iso(new Date())));
+  $('datum').addEventListener('change', () => { if ($('datum').value) wechseln($('datum').value); });
+  $('drucken').addEventListener('click', () => { document.querySelectorAll('details').forEach(d => d.open = true); window.print(); });
+  $('namelink').addEventListener('click', ev => { ev.preventDefault(); nameFragen(); });
+  $('offeneTage').addEventListener('click', ev => { const b = ev.target.closest('button[data-tag]'); if (b) wechseln(b.dataset.tag); });
+  $('abschnitte').addEventListener('click', ev => {
+    const a = ev.target.closest('a[data-oeffnen]');
+    if (!a) return;
+    ev.preventDefault();
+    const e = eintraegeTag.find(x => x.id === a.closest('tr').dataset.id);
+    if (e) oeffnen(e);
+  });
+  $('abschnitte').addEventListener('change', async ev => {
+    const box = ev.target.closest('input[type=checkbox]');
+    if (!box) return;
+    const id = box.closest('tr').dataset.id;
+    const wer = name() || nameFragen();
+    if (!wer) { box.checked = !box.checked; return; }
+    const jetzt = new Date();
+    const wert = { erledigt: box.checked, wer, zeit: jetzt.toISOString(),
+      anzeige: jetzt.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' ' + jetzt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) };
+    box.disabled = true;
+    try {
+      const proto = await unterordner(ordner, 'Protokoll');
+      erledigt = await erledigtSetzen(proto, monat(tag), id, wert);
+      zeichnen();
+      await offeneTageZeigen(proto);
+    } catch (e) {
+      box.checked = !box.checked; box.disabled = false;
+      $('meldung').textContent = 'Abhaken hat nicht geklappt: ' + e.message;
+    }
+  });
+
+  $('namelink').textContent = name() || 'eintragen';
+  const h = location.hash.slice(1);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(h)) tag = h;
+  laden();
+  // Neue Scans und Haken der Kollegen erscheinen von selbst
+  setInterval(() => { if (!document.hidden) laden(); }, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) laden(); });
+})();
+</script>
+</body>
+</html>
