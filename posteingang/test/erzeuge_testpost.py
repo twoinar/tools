@@ -11,14 +11,14 @@ BRIEFE = [
     # (Absender, Zeilen oben, Text, Seiten, erwartete Zuordnung)
     ("Amtsgericht Frankfurt (Oder) - Grundbuchamt", "Ihr Zeichen: UR-Nr. 2048/2026\nUnser Zeichen: Gb 1234/26",
      "Eintragungsnachricht. Die beantragte Eintragung ist erfolgt.", 2, "U:2048-2026"),
-    ("Sparkasse Oder-Spree", "Ihr Zeichen: 4711\nDatum: 03.11.2026",
-     "Wir übersenden die Löschungsbewilligung für die Grundschuld.", 1, "V:4711"),
+    ("Sparkasse Oder-Spree", "Ihr Zeichen: 30471\nDatum: 03.11.2026",
+     "Wir übersenden die Löschungsbewilligung für die Grundschuld.", 1, "V:30471"),
     ("Stadt Frankfurt (Oder) - Vorkaufsrecht", "Betreff: Kaufvertrag UVZ-Nr. 1925 für 2026",
      "Ein Vorkaufsrecht wird nicht ausgeübt.", 1, "U:1925-2026"),
     ("Werbung GmbH", "Datum: 02.11.2026", "Neue Büromöbel zu Sonderpreisen!", 1, "unklar"),
     ("Finanzamt Frankfurt (Oder)", "Ihr Zeichen: W 2057/2026\nSteuernummer 061/123/45678",
      "Unbedenklichkeitsbescheinigung Grunderwerbsteuer.", 3, "U:2057-2026"),
-    ("Landkreis Oder-Spree", "Vorgang 4712", "Genehmigung nach dem Grundstücksverkehrsgesetz.", 1, "V:4712"),
+    ("Landkreis Oder-Spree", "Vorgang 30472", "Genehmigung nach dem Grundstücksverkehrsgesetz.", 1, "V:30472"),
     ("Herr Max Mustermann", "Datum 01.11.2026", "Anbei die unterschriebene Vollmacht zu Ihrer Urkunde Nr. 1999/2026.",
      1, "U:1999-2026"),
     ("Amtsgericht Cottbus - Nachlassgericht", "Ihr Zeichen: UR-Nr. 9999/2026",   # existiert nicht
@@ -61,7 +61,7 @@ def erzeuge(ziel):
     for n in ["W2048-2026!Urkunde.pdf", "W1925-2026!Urkunde.pdf", "W 2057-2026.pdf", "W1999-2026oE.pdf"]:
         open(os.path.join(arch26, n), "w").close()
     open(os.path.join(arch25, "W512-2025!Urkunde.pdf"), "w").close()
-    for n in ["4711 Mustermann Kaufvertrag", "4712 Musterfrau Schenkung", "0815 Beispiel GmbH"]:
+    for n in ["30471 Mustermann Kaufvertrag", "30472 Musterfrau Schenkung", "29815 Beispiel GmbH"]:
         os.makedirs(os.path.join(vorg, n), exist_ok=True)
 
     doc = fitz.open()

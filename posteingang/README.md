@@ -25,10 +25,10 @@ Folgeseiten) gehören zum vorigen Schreiben. Leere Rückseiten fallen weg.
 ## Wie wird zugeordnet?
 - UVZ: „UVZ-Nr. 2048/2026“, „UR-Nr. 2048/26“, „Urkunde Nr. 2048/2026“, „Urkundenrolle Nr.“, „W 2048-2026“,
   „UVZ-Nr. 2048 für 2026“. Ohne Jahr wird im laufenden und im Vorjahr gesucht.
-- Vorgang: „Ihr Zeichen: 4711“, „Ihr Az. 4711“, „Vorgang 4711“.
+- Vorgang: „Ihr Zeichen: 30513“, „Ihr Az. 30513“, „Vorgang 30513“ (fünfstellig).
 - Jede Nummer wird gegen den Bestand geprüft (Schattenarchiv `Y:\Scanner\URKUNDEN\Urkunden <Jahr>`,
   Ordner `Y:\Vorgänge`). Unbekannte Nummern → „Nicht zugeordnet“ (mit Grund im Protokoll).
-- Mehrere verschiedene Nummern in einem Schreiben → „Nicht zugeordnet“. Vorrang hat die UVZ (`"vorrang"`).
+- Mehrere verschiedene Nummern in einem Schreiben → „Nicht zugeordnet“. Die UVZ hat immer Vorrang (`"vorrang"`).
 
 ## Bedienung
 - `Posteingang jetzt sortieren.cmd` – sortiert sofort, von jedem PC aus.

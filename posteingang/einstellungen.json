@@ -32,6 +32,6 @@
   ],
 
   "muster_vorgang": [
-    "\\b(?:Ihr(?:e)?\\s+(?:Zeichen|Z\\.|Az\\.?|Aktenzeichen|Vorgang)|Vorgang(?:s)?(?:\\s*-?\\s*Nr\\.?|nummer)?)\\s*[:.]?\\s*(?:Nr\\.?\\s*)?(?P<nr>\\d{3,7})\\b(?!\\s*[/-]\\s*\\d)"
+    "\\b(?:Ihr(?:e)?\\s+(?:Zeichen|Z\\.|Az\\.?|Aktenzeichen|Vorgang)|Vorgang(?:s)?(?:\\s*-?\\s*Nr\\.?|nummer)?)\\s*[:.]?\\s*(?:Nr\\.?\\s*)?(?P<nr>\\d{5})\\b(?!\\s*[/-]\\s*\\d)"
   ]
 }
