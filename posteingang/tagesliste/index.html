@@ -29,7 +29,7 @@ header h1{font-size:20px;margin:0 8px 0 0}
 .tagwahl input{font:inherit;padding:4px 6px;border:1px solid var(--rand);border-radius:6px}
 #tagname{font-weight:600;min-width:13em}
 .rechts{margin-left:auto;display:flex;gap:12px;align-items:center;color:var(--grau);font-size:14px}
-main{display:grid;grid-template-columns:240px 1fr;gap:20px;padding:20px;max-width:1400px;margin:0 auto}
+main{display:grid;grid-template-columns:210px minmax(0,1fr);gap:20px;padding:20px;max-width:1400px;margin:0 auto}
 aside{background:var(--weiss);border:1px solid var(--rand);border-radius:8px;padding:12px 14px;align-self:start;position:sticky;top:76px}
 aside h2{font-size:15px;margin:0 0 8px}
 aside ul{list-style:none;margin:0;padding:0}
@@ -41,7 +41,7 @@ aside li button.aktiv{background:var(--blau-hell);font-weight:600}
 .zahl.offen{background:var(--orange-hell);color:var(--orange)}
 .zahl.fertig{background:var(--gruen-hell);color:var(--gruen)}
 aside p{color:var(--grau);font-size:13px;margin:8px 0 0}
-section{background:var(--weiss);border:1px solid var(--rand);border-radius:8px;padding:12px 16px;margin-bottom:16px}
+section{overflow-x:auto;background:var(--weiss);border:1px solid var(--rand);border-radius:8px;padding:12px 16px;margin-bottom:16px}
 section h2{font-size:17px;margin:0;display:flex;gap:10px;align-items:center}
 section p.hinweis{color:var(--grau);margin:2px 0 10px;font-size:14px}
 section.vorlegen h2{color:var(--blau)}
@@ -55,7 +55,14 @@ th,td{border-bottom:1px solid #e3e7eb;padding:6px 8px;text-align:left;vertical-a
 th{background:var(--blau-hell);font-weight:600}
 td.k{width:1%;text-align:center}
 td.nr,td.zeit{white-space:nowrap}
-td.datei{word-break:break-word;min-width:190px}
+td.inhalt{min-width:200px}
+td.art{min-width:120px;max-width:190px;hyphens:auto;overflow-wrap:anywhere}
+td.inhalt a{cursor:pointer;text-decoration:none;color:var(--text)}
+td.inhalt a:hover{color:var(--blau);text-decoration:underline}
+tr.detail td{background:#fbfcfd;padding:4px 16px 10px 56px}
+tr.detail p{margin:4px 0;max-width:900px}
+tr.detail p.hinweis{font-size:13px}
+td.datei{white-space:nowrap}
 td.k input{width:20px;height:20px;cursor:pointer;accent-color:var(--gruen)}
 tr.erledigt td{color:var(--grau)}
 tr.erledigt td.datei a{color:var(--grau)}
@@ -184,14 +191,14 @@ tr.erledigt td.datei a{color:var(--grau)}
   const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const monat = s => s.slice(0, 7);
   function eintrag(z) {
-    while (z.length < 11) z.push('');
+    while (z.length < 13) z.push('');
     const [tt, mm, jjjj] = z[0].slice(0, 10).split('.');
     if (!jjjj) return null;
     const aktion = z[8] || (z[3] === 'nicht zugeordnet' ? 'zuordnen' : 'vorlegen');
     return {
       id: `${z[0]}|${z[1]}|${z[5]}`, tag: `${jjjj}-${mm}-${tt}`, zeit: z[0].slice(11, 16),
       scan: z[1], seiten: z[2], zuordnung: z[3], nummer: z[4], datei: z[5], hinweis: z[6],
-      art: z[7], aktion: ABSCHNITTE.some(a => a.k === aktion) ? aktion : 'vorlegen', absender: z[9], pfad: z[10],
+      art: z[7], aktion: ABSCHNITTE.some(a => a.k === aktion) ? aktion : 'vorlegen', absender: z[9], pfad: z[10], betreff: z[11], kurz: /^\(.*\)$/.test(z[12]) ? '' : z[12],
     };
   }
   const cache = {};   // Monat -> { geaendert, eintraege }
@@ -235,6 +242,21 @@ tr.erledigt td.datei a{color:var(--grau)}
 
   // „Eingang 2026-11-06 18-02 Nr 03 - Vorkaufsrecht.pdf“ → „Nr 03 - Vorkaufsrecht.pdf“ (ganzer Name als Tooltip)
   const kurz = d => String(d || '').replace(/^Eingang \d{4}-\d{2}-\d{2} \d{2}-\d{2} /, '');
+  // Kurzfassung: Betreff + erste Sätze, vom Sortier-Programm aus dem Schreiben geschnitten (ohne KI)
+  const offeneZeilen = new Set();
+  const kuerzen = (t, n) => t.length > n ? t.slice(0, n).replace(/\s+\S*$/, '') + ' …' : t;
+  function inhaltZelle(e) {
+    const t = e.betreff || e.kurz;
+    if (!t) return '<td class="inhalt leer">–</td>';
+    return `<td class="inhalt"><a data-auf title="Kurzfassung anzeigen">${offeneZeilen.has(e.id) ? '▾' : '▸'} ${esc(kuerzen(t, 70))}</a></td>`;
+  }
+  function detailZeile(e, spalten) {
+    return `<tr class="detail" data-id="${esc(e.id)}"><td colspan="${spalten}"><div>` +
+      (e.betreff ? `<p><b>Betreff:</b> ${esc(e.betreff)}</p>` : '') +
+      (e.kurz ? `<p>${esc(e.kurz)}</p>` : '') +
+      (e.hinweis ? `<p class="hinweis">Hinweis: ${esc(e.hinweis)}</p>` : '') +
+      `<p class="hinweis">Kurzfassung = Betreff und Anfang des Schreibens, automatisch herausgeschnitten (ohne KI). Maßgeblich ist das Schreiben selbst: <a data-oeffnen>öffnen</a></p></div></td></tr>`;
+  }
   function nummerText(e) {
     if (e.nummer) return (e.zuordnung === 'Urkunde' ? 'UVZ ' : 'Vorgang ') + e.nummer;
     return e.aktion === 'dublette' ? '–' : (e.hinweis || '–');
@@ -252,15 +274,16 @@ tr.erledigt td.datei a{color:var(--grau)}
       const kopf = `<h2>${esc(a.titel)} (${g.length}) ${PFLICHT.includes(a.k) ? zahl : ''}</h2>`;
       let tabelle = '<p class="leer">keine</p>';
       if (g.length) {
-        tabelle = `<table><tr>${a.haken ? '<th>✓</th>' : ''}<th>Zeit</th><th>Akte</th><th>Art</th><th>Absender</th><th>Seiten</th><th>Datei</th>${a.haken ? '<th>Erledigt von</th>' : ''}</tr>` +
+        tabelle = `<table><tr>${a.haken ? '<th>✓</th>' : ''}<th>Zeit</th><th>Akte</th><th>Art</th><th>Absender</th><th>Inhalt</th><th>Seiten</th><th>Datei</th>${a.haken ? '<th>Erledigt von</th>' : ''}</tr>` +
           g.map(e => {
             const w = erledigt[e.id];
             const fertig = ist(e);
             return `<tr class="${fertig ? 'erledigt' : ''}" data-id="${esc(e.id)}">` +
               (a.haken ? `<td class="k"><input type="checkbox" ${fertig ? 'checked' : ''} aria-label="erledigt"></td>` : '') +
-              `<td class="zeit">${esc(e.zeit)}</td><td class="nr">${esc(nummerText(e))}</td><td>${esc(e.art) || '–'}</td><td>${esc(e.absender)}</td><td>${esc(e.seiten)}</td>` +
-              `<td class="datei">${e.pfad || e.datei ? `<a data-oeffnen title="${esc(e.datei)}">${esc(kurz(e.datei))}</a>` : ''}</td>` +
-              (a.haken ? `<td>${fertig && w ? `<span class="wer">${esc(w.wer)}, ${esc(w.anzeige)}</span>` : ''}</td>` : '') + '</tr>';
+              `<td class="zeit">${esc(e.zeit)}</td><td class="nr">${esc(nummerText(e))}</td><td class="art">${esc(e.art) || '–'}</td><td>${esc(e.absender)}</td>${inhaltZelle(e)}<td>${esc(e.seiten)}</td>` +
+              `<td class="datei">${e.pfad || e.datei ? `<a data-oeffnen title="${esc(e.datei)}">📄 ${esc(kurz(e.datei).replace(/^(Nr \d+).*$/, '$1'))}</a>` : ''}</td>` +
+              (a.haken ? `<td>${fertig && w ? `<span class="wer">${esc(w.wer)}, ${esc(w.anzeige)}</span>` : ''}</td>` : '') + '</tr>' +
+              (offeneZeilen.has(e.id) ? detailZeile(e, a.haken ? 9 : 7) : '');
           }).join('') + '</table>';
       }
       const inhalt = `<p class="hinweis">${esc(a.hinweis)}</p>${tabelle}`;
@@ -378,6 +401,14 @@ tr.erledigt td.datei a{color:var(--grau)}
   $('namelink').addEventListener('click', ev => { ev.preventDefault(); nameFragen(); });
   $('offeneTage').addEventListener('click', ev => { const b = ev.target.closest('button[data-tag]'); if (b) wechseln(b.dataset.tag); });
   $('abschnitte').addEventListener('click', ev => {
+    const auf = ev.target.closest('a[data-auf]');
+    if (auf) {
+      ev.preventDefault();
+      const id = auf.closest('tr').dataset.id;
+      if (offeneZeilen.has(id)) offeneZeilen.delete(id); else offeneZeilen.add(id);
+      zeichnen();
+      return;
+    }
     const a = ev.target.closest('a[data-oeffnen]');
     if (!a) return;
     ev.preventDefault();

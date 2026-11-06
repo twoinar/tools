@@ -62,6 +62,11 @@ Beim ersten Mal einmal den Ordner `Y:\Posteingang` freigeben („Bearbeitung zul
 - Haken setzen = erledigt; gespeichert mit Name und Uhrzeit in `Y:\Posteingang\Protokoll\Erledigt <JJJJ-MM>.json`,
   das sehen alle. Die Liste aktualisiert sich alle 30 Sekunden (neue Scans, Haken der Kollegen).
 - Klick auf die Datei öffnet das PDF.
+- Spalte „Inhalt“: Klick klappt die **Kurzfassung** auf (Betreff und die ersten Sätze nach der Anrede, vom
+  Sortier-Programm ohne KI aus dem Text geschnitten; steht im Protokoll in den Spalten Betreff/Kurzfassung).
+
+Ab 1.5 ergänzt das Programm beim Start ältere Protokollzeilen (vor 1.3 ohne Art/Absender) um Art, Absender, Betreff
+und Kurzfassung (`--nachtragen` macht das von Hand). Die Dateien werden dabei nur gelesen.
 
 Die Seite liest das Protokoll direkt über die Ordnerfreigabe des Browsers. Vom Server kommt nur die Seite;
 Post, Namen und Haken bleiben auf Y:. Vorführung mit Beispieldaten im Browser: `…/tagesliste/?demo`.
