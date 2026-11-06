@@ -60,6 +60,25 @@ def main():
     if not liste_ok:
         print(re.findall(r"<h2>(.*?)</h2>", html))
     ok = ok and liste_ok
+    # Kurzfassung im Protokoll; danach alte Zeilen (Stand 1.2: nur 7 Spalten) nachtragen lassen
+    proto = os.path.join(Y, "Posteingang", "Protokoll", f"Protokoll {P.dt.date.today():%Y-%m}.csv")
+    import csv
+    with open(proto, encoding="utf-8-sig", newline="") as f:
+        zeilen = list(csv.reader(f, delimiter=";"))
+    kurz_ok = sum(1 for z in zeilen[1:] if z[12]) == len(zeilen) - 1 and \
+        any("Vorkaufsrecht" in z[11] or "1925" in z[11] for z in zeilen[1:])
+    print("KURZFASSUNG", "OK" if kurz_ok else "ABWEICHUNG", [(z[11], z[12][:60]) for z in zeilen[1:4]])
+    with open(proto, "w", encoding="utf-8-sig", newline="") as f:
+        csv.writer(f, delimiter=";").writerows([z[:7] for z in zeilen])
+    P.nachtragen(e)
+    with open(proto, encoding="utf-8-sig", newline="") as f:
+        neu = list(csv.reader(f, delimiter=";"))
+    nach_ok = neu[0] == P.SPALTEN and [z[7:10] + z[11:] for z in neu[1:]] == [z[7:10] + z[11:] for z in zeilen[1:]]
+    print("NACHTRAGEN", "OK" if nach_ok else "ABWEICHUNG")
+    if not nach_ok:
+        for a, b in zip(zeilen[1:], neu[1:]):
+            if a[7:] != b[7:]: print("  vorher", a[7:], "\n  nachher", b[7:])
+    ok = ok and kurz_ok and nach_ok
     if "--liste" in sys.argv:
         shutil.copy(liste, sys.argv[-1])
     if "--ordner" in sys.argv:   # ganzen Testordner behalten, z. B. für die Web-Tagesliste

@@ -36,7 +36,7 @@ try:
 except ImportError:  # ältere PyMuPDF-Versionen
     import fitz
 
-VERSION = "1.4"
+VERSION = "1.5"
 
 # Windows-Konsole (cp850/cp1252) kann nicht jedes Zeichen darstellen: lieber ersetzen als abstürzen.
 for _strom in (sys.stdout, sys.stderr):
@@ -416,6 +416,47 @@ def absender(seite, e):
     return ""
 
 
+RE_BETREFF = re.compile(r"^\s*(?:Betreff|Betr\.|Gegenstand)\s*[:.]?\s*(.{4,})$", re.I | re.M)
+RE_ANREDE = re.compile(r"^\s*(?:Sehr\s+geehrte|Guten\s+Tag|Hallo|Liebe[rs]?\s)[^\n]*$", re.I | re.M)
+RE_GRUSS = re.compile(r"(?:Mit\s+freundlichen|Freundliche\s+Grü|Mit\s+besten\s+Grü|Hochachtungsvoll|Viele\s+Grü)", re.I)
+RE_KOPFFELD = re.compile(r"^(?:Unser(?:e)?\s+(?:Zeichen|Az|Aktenzeichen|Nachricht)|Ihr(?:e)?\s+(?:Zeichen|Az|Aktenzeichen|Nachricht\s+vom|Schreiben\s+vom)|Datum|Az|Aktenzeichen|Gesch(?:ä|ae)ftszeichen|Zeichen|Tel|Telefon|Fax|E-?Mail|"
+                         r"Durchwahl|Sachbearbeit|Bearbeiter|Kassenzeichen|Steuernummer|Kundennummer|Seite|Vorgang|UVZ|Urk\w*|"
+                         r"Herrn?|Frau|Notar\w*|\d)\b|\b\d{5}\s+\w", re.I)
+RE_SEITE_X = re.compile(r"\bSeite\s*\d{1,2}(?:\s*(?:von|/)\s*\d{1,2})?\b\s*", re.I)
+RE_NUR_DATUM = re.compile(r"^[\w ,.()-]*\d{1,2}\.\s?(?:\d{1,2}\.|[A-Za-zäÄ]+)\s?\d{2,4}\s*$")
+
+
+def kurzfassung(seiten, laenge=320):
+    """Betreff und die ersten Sätze nach der Anrede (ohne KI, nur aus dem Text herausgeschnitten)."""
+    t = seiten[0].text
+    betreff = ""
+    m = RE_BETREFF.search(t)
+    if m:
+        betreff = " ".join(m.group(1).split())
+    a = RE_ANREDE.search(t)
+    if a:
+        if not betreff:   # oft steht der Betreff (fett, ohne „Betreff:“) direkt über der Anrede
+            for z in reversed(t[:a.start()].strip().splitlines()[-3:]):
+                z = " ".join(z.split())
+                if len(z) >= 8 and not RE_NUR_DATUM.match(z) and not RE_KOPFFELD.search(z) and re.search(r"[A-Za-zäöü]{4}", z):
+                    betreff = z
+                    break
+        rumpf = t[a.end():]
+        if len(seiten) > 1 and len(rumpf) < laenge:
+            rumpf += "\n" + seiten[1].text
+    else:
+        rumpf = t[len(seiten[0].oben):] if t.startswith(seiten[0].oben) else t
+    g = RE_GRUSS.search(rumpf)
+    if g:
+        rumpf = rumpf[:g.start()]
+    inhalt = " ".join(RE_SEITE_X.sub(" ", rumpf).split())
+    if len(inhalt) > laenge:
+        schnitt = inhalt[:laenge]
+        ende = max(schnitt.rfind(". "), schnitt.rfind("! "), schnitt.rfind("? "))
+        inhalt = schnitt[:ende + 1] if ende > laenge // 3 else schnitt.rsplit(" ", 1)[0] + " …"
+    return betreff[:150], inhalt
+
+
 AKTION_TEXT = {"vorlegen": "mit Akte vorlegen", "ablegen": "nur elektronisch ablegen"}
 
 
@@ -496,13 +537,15 @@ def verarbeite_datei(pfad, e, bestand, heute, probe=False):
         schreiben_art, aktion, stichwort = bestimme_art(teil, e)
         if art == "unklar":
             aktion = "zuordnen"
+        kurz = kurzfassung(teil)
         stamm = f"Eingang {stempel} Nr {i:02d}"
         if schreiben_art:
             stamm += f" - {_dateiteil(schreiben_art)}"
         ergebnisse.append(dict(teil=teil, art=art, wert=wert if art != "unklar" else "",
                                grund=grund, seiten=seiten_txt, ordner=ordner, stamm=stamm,
                                start=", ".join(teil[0].gruende), schreiben_art=schreiben_art,
-                               aktion=aktion, stichwort=stichwort, absender=absender(teil[0], e)))
+                               aktion=aktion, stichwort=stichwort, absender=absender(teil[0], e),
+                               betreff=kurz[0], kurz=kurz[1]))
     if probe:
         doc.close()
         return ergebnisse, ohne_text, len(seiten)
@@ -528,15 +571,14 @@ def protokolliere(e, quelle, ergebnisse, hinweis=""):
     with open(datei, "a", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f, delimiter=";")
         if neu:
-            w.writerow(["Zeit", "Scan", "Seiten", "Zuordnung", "Nummer", "Datei", "Hinweis",
-                        "Art", "Was tun", "Absender", "Pfad"])
+            w.writerow(SPALTEN)
         jetzt = dt.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
         for r in ergebnisse:
             zu = {"urkunde": "Urkunde", "vorgang": "Vorgang", "unklar": "nicht zugeordnet"}[r["art"]]
             w.writerow([jetzt, os.path.basename(quelle), r["seiten"], zu, r["wert"],
                         os.path.basename(r.get("datei", "")), r["grund"] or hinweis,
                         r.get("schreiben_art", ""), r.get("aktion", ""), r.get("absender", ""),
-                        r.get("datei", "")])
+                        r.get("datei", ""), r.get("betreff", ""), r.get("kurz", "")])
     tagesliste(e)
 
 
@@ -563,7 +605,7 @@ def tagesliste(e, tag=None):
         for z in csv.reader(f, delimiter=";"):
             if not z or z[0] == "Zeit" or not z[0].startswith(tag.strftime("%d.%m.%Y")):
                 continue
-            z += [""] * (11 - len(z))
+            z += [""] * (13 - len(z))
             zeilen.append(z)
     gruppen = {k: [] for k, _, _ in LISTEN_ABSCHNITTE}
     for z in zeilen:
@@ -594,7 +636,7 @@ def tagesliste(e, tag=None):
             link = (f"<a href='file:///{_html(pfad.replace(os.sep, '/'))}'>{_html(z[5])}</a>"
                     if pfad else _html(z[5]))
             teile.append(f"<tr><td class='k'>☐</td><td>{_html(z[0][11:16])}</td><td>{nummer}</td>"
-                         f"<td>{_html(z[7]) or '–'}</td><td>{_html(z[9])}</td><td>{_html(z[2])}</td>"
+                         f"<td>{_html(z[7]) or '–'}{('<br><small>' + _html(z[11]) + '</small>') if z[11] else ''}</td><td>{_html(z[9])}</td><td>{_html(z[2])}</td>"
                          f"<td>{link}</td></tr>")
         teile.append("</table>")
     teile.append("</body></html>")
@@ -812,6 +854,80 @@ def pruefe_update(e, ausgabe=print):
     return True
 
 
+SPALTEN = ["Zeit", "Scan", "Seiten", "Zuordnung", "Nummer", "Datei", "Hinweis",
+           "Art", "Was tun", "Absender", "Pfad", "Betreff", "Kurzfassung"]
+
+
+def _datei_suchen(e, z):
+    """Wo liegt die Datei einer Protokollzeile? (ältere Zeilen haben noch keinen Pfad)"""
+    if z[10] and os.path.isfile(z[10]):
+        return z[10]
+    if z[6].startswith("Dublette"):
+        ordner = e.get("ziel_dubletten") or os.path.join(e["eingang"], "Dubletten")
+    elif z[3] == "Urkunde" and z[4]:
+        ordner = os.path.join(e["ziel_urkunden"], z[4])
+    elif z[3] == "Vorgang" and z[4]:
+        ordner = os.path.join(e["ziel_vorgaenge"], z[4])
+    else:
+        ordner = e["ziel_unklar"]
+    pfad = os.path.join(ordner, z[5])
+    return pfad if z[5] and os.path.isfile(pfad) else ""
+
+
+def nachtragen(e, monate=2):
+    """Ältere Protokollzeilen (vor 1.3/1.5) um Art, Absender, Betreff und Kurzfassung ergänzen.
+    Dateien werden dabei nur gelesen, nicht umbenannt oder verschoben."""
+    heute = dt.date.today()
+    erste = heute.replace(day=1)
+    tage = set()
+    for i in range(monate):
+        m = (erste - dt.timedelta(days=1) * (31 * i)).replace(day=1) if i else erste
+        datei = os.path.join(e["protokoll"], f"Protokoll {m:%Y-%m}.csv")
+        if not os.path.exists(datei):
+            continue
+        with open(datei, encoding="utf-8-sig", newline="") as f:
+            zeilen = list(csv.reader(f, delimiter=";"))
+        geaendert = bool(zeilen) and zeilen[0] != SPALTEN
+        for z in zeilen[1:]:
+            if not z or len(z) < 6:
+                continue
+            z += [""] * (len(SPALTEN) - len(z))
+            if z[12]:
+                continue
+            pfad = _datei_suchen(e, z)
+            if not pfad:
+                z[12] = "(Datei nicht gefunden)"
+            else:
+                try:
+                    with fitz.open(pfad) as d:
+                        seiten = lies_seiten(d)
+                    art, aktion, _ = bestimme_art(seiten, e)
+                    z[7] = z[7] or art
+                    if not z[8]:
+                        z[8] = "dublette" if z[6].startswith("Dublette") else \
+                            ("zuordnen" if z[3] == "nicht zugeordnet" else aktion)
+                    z[9] = z[9] or absender(seiten[0], e)
+                    z[10] = pfad
+                    z[11], z[12] = kurzfassung(seiten)
+                    z[12] = z[12] or "(kein Text erkannt)"
+                except Exception as ex:
+                    z[12] = f"(nicht lesbar: {ex})"[:80]
+            geaendert = True
+            try:
+                tage.add(dt.datetime.strptime(z[0][:10], "%d.%m.%Y").date())
+            except ValueError:
+                pass
+        if geaendert:
+            zeilen[0] = SPALTEN
+            tmp = datei + ".tmp"
+            with open(tmp, "w", encoding="utf-8-sig", newline="") as f:
+                csv.writer(f, delimiter=";").writerows(zeilen)
+            os.replace(tmp, datei)
+    for t in sorted(tage):
+        tagesliste(e, t)
+    return len(tage)
+
+
 def main(argv):
     pfad_einst = os.path.join(HIER, "einstellungen.json")
     e = lade_einstellungen()
@@ -819,10 +935,18 @@ def main(argv):
         for p in argv[2:]:
             probe(p, e)
         return
+    if len(argv) > 1 and argv[1] == "--nachtragen":
+        print(nachtragen(e), "Tag(e) ergänzt.")
+        return
     if len(argv) > 1 and argv[1] == "--dauerhaft":
         print(f"Posteingang sortieren {VERSION} – überwacht {e['eingang']} (Strg+C beendet)")
         stand = os.path.getmtime(pfad_einst)
         naechste_pruefung = time.time() + 60
+        try:
+            if nachtragen(e):
+                print("Ältere Einträge im Protokoll ergänzt.")
+        except Exception as ex:
+            print("Nachtragen fehlgeschlagen:", ex)
         while True:
             # Geänderte Regeln (einstellungen.json) gelten sofort, ohne Neustart
             try:
