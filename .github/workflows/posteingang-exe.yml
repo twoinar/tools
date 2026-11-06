@@ -1,0 +1,44 @@
+# Baut „Posteingang sortieren“ als Windows-Programm (.exe, ohne Python-Installation lauffähig)
+# und stellt es als Paket unter Releases bereit (Tag posteingang-<Version>).
+name: "Posteingang: Programm bauen"
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["posteingang/**", ".github/workflows/posteingang-exe.yml"]
+permissions:
+  contents: write
+concurrency: posteingang-exe
+jobs:
+  bauen:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet pymupdf==1.24.14 pyinstaller==6.11.1
+      - name: Test mit erfundener Post
+        run: python posteingang/test/testlauf.py
+      - name: Programm bauen
+        run: pyinstaller --onefile --name Posteingang-sortieren --distpath dist posteingang/posteingang.py
+      - name: Paket packen
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path posteingang/posteingang.py -Pattern '^VERSION = "(.+)"').Matches[0].Groups[1].Value
+          "VERSION=$v" | Out-File -Append $env:GITHUB_ENV
+          New-Item -ItemType Directory paket/Posteingang-Programm | Out-Null
+          Copy-Item dist/Posteingang-sortieren.exe, posteingang/einstellungen.json, posteingang/*.cmd, posteingang/README.md paket/Posteingang-Programm/
+          Compress-Archive -Path paket/Posteingang-Programm -DestinationPath "Posteingang-Programm-$v.zip"
+      - name: Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "posteingang-$env:VERSION"
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag "Posteingang-Programm-$env:VERSION.zip" --clobber
+          } else {
+            gh release create $tag "Posteingang-Programm-$env:VERSION.zip" --title "Posteingang sortieren $env:VERSION" --notes "Programm zum Sortieren des gescannten Posteingangs. Zip nach Y:\ entpacken."
+          }

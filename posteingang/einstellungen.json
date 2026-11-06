@@ -1,0 +1,37 @@
+{
+  "eingang": "Y:\\Posteingang",
+  "ziel_urkunden": "Y:\\Posteingang\\Urkunden",
+  "ziel_vorgaenge": "Y:\\Posteingang\\Vorgänge",
+  "ziel_unklar": "Y:\\Posteingang\\Nicht zugeordnet",
+  "archiv": "Y:\\Posteingang\\Original-Scans",
+  "protokoll": "Y:\\Posteingang\\Protokoll",
+
+  "ordnername_urkunde": "{nr}-{jahr}",
+  "ordnername_vorgang": "{nr}",
+  "vorrang": "urkunde",
+
+  "urkunden_archiv": "Y:\\Scanner\\URKUNDEN\\Urkunden {jahr}",
+  "vorgaenge_ordner": ["Y:\\Vorgänge"],
+
+  "intervall_sekunden": 20,
+  "warten_sekunden": 15,
+  "schwelle_neues_schreiben": 3,
+
+  "merkmale_an_uns_adressiert": [
+    "Woinar",
+    "Notariat\\s+Woinar",
+    "Notar\\s+Thomas"
+  ],
+
+  "muster_uvz": [
+    "\\b(?:UVZ|U\\.?\\s?R|Urk(?:\\.|unde(?:n(?:rolle)?)?)?)\\s*[.\\-]?\\s*[-.]?\\s*(?:Nr|Nummer)\\s*\\.?\\s*:?\\s*(?:W\\s?)?(?P<nr>\\d{1,5})(?:\\s*(?:/|-|für|fuer)\\s*(?P<jahr>(?:19|20)?\\d{2})\\b)?",
+    "\\bUVZ\\s*[.:\\-]?\\s*(?P<nr>\\d{1,5})\\s*(?:/|-|für)\\s*(?P<jahr>(?:19|20)?\\d{2})\\b",
+    "\\bUR\\s+(?P<nr>\\d{1,5})\\s*/\\s*(?P<jahr>(?:19|20)?\\d{2})\\b",
+    "\\bW\\s?(?P<nr>\\d{1,5})\\s*[/-]\\s*(?P<jahr>20\\d{2})\\b",
+    "\\bNr\\.?\\s*(?P<nr>\\d{1,5})\\s*/\\s*(?P<jahr>(?:19|20)?\\d{2})\\s+(?:der|des|meiner|seiner)\\s+(?:Urkundenrolle|UR|UVZ|Urkundenverzeichnis)"
+  ],
+
+  "muster_vorgang": [
+    "\\b(?:Ihr(?:e)?\\s+(?:Zeichen|Z\\.|Az\\.?|Aktenzeichen|Vorgang)|Vorgang(?:s)?(?:\\s*-?\\s*Nr\\.?|nummer)?)\\s*[:.]?\\s*(?:Nr\\.?\\s*)?(?P<nr>\\d{3,7})\\b(?!\\s*[/-]\\s*\\d)"
+  ]
+}
