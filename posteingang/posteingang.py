@@ -25,14 +25,18 @@ import os
 import re
 import shutil
 import sys
+import subprocess
+import tempfile
 import time
+import urllib.request
+import zipfile
 
 try:
     import pymupdf as fitz
 except ImportError:  # ältere PyMuPDF-Versionen
     import fitz
 
-VERSION = "1.3"
+VERSION = "1.4"
 
 # Windows-Konsole (cp850/cp1252) kann nicht jedes Zeichen darstellen: lieber ersetzen als abstürzen.
 for _strom in (sys.stdout, sys.stderr):
@@ -700,7 +704,116 @@ def probe(pfad, e):
     return ergebnisse
 
 
+# --------------------------------------------------------------------------- Selbst-Update
+
+RELEASES_URL = "https://api.github.com/repos/twoinar/tools/releases?per_page=30"
+
+
+def _version(t):
+    try:
+        return tuple(int(x) for x in t.split("."))
+    except ValueError:
+        return ()
+
+
+def neueste_version(releases):
+    """Aus der Release-Liste von GitHub die höchste posteingang-<Version> mit Zip-Paket: (version, url)."""
+    best = None
+    for r in releases:
+        tag = r.get("tag_name", "")
+        if not tag.startswith("posteingang-") or r.get("draft") or r.get("prerelease"):
+            continue
+        v = tag[len("posteingang-"):]
+        url = next((a.get("browser_download_url") for a in r.get("assets", [])
+                    if a.get("name", "").lower().endswith(".zip")), None)
+        if url and _version(v) and (best is None or _version(v) > _version(best[0])):
+            best = (v, url)
+    return best
+
+
+def programmordner(wurzel):
+    """Ordner im entpackten Paket, in dem Posteingang-sortieren.exe liegt."""
+    for w, _, dateien in os.walk(wurzel):
+        if "Posteingang-sortieren.exe" in dateien:
+            return w
+    return None
+
+
+def _hole(url, ziel=None):
+    req = urllib.request.Request(url, headers={"User-Agent": "Posteingang-sortieren/" + VERSION,
+                                               "Accept": "application/vnd.github+json"})
+    with urllib.request.urlopen(req, timeout=60) as antwort:
+        daten = antwort.read()
+    if ziel:
+        with open(ziel, "wb") as f:
+            f.write(daten)
+    return daten
+
+
+def einspiel_skript(pid, quelle, ziel, starten=True):
+    """Windows-Skript: warten bis Prozess `pid` beendet ist, Dateien kopieren, neue Version starten.
+    (ping statt timeout, weil timeout ohne Konsole sofort abbricht)"""
+    start = 'start "Posteingang sortieren" /min "%ZIEL%\\Posteingang-sortieren.exe" --dauerhaft' if starten else ""
+    return f"""@echo off
+set PID={pid}
+set QUELLE={quelle}
+set ZIEL={ziel}
+:warte
+tasklist /FI "PID eq %PID%" /NH 2>nul | find " %PID% " >nul && (ping -n 3 127.0.0.1 >nul & goto warte)
+if exist "%ZIEL%\\einstellungen.json" copy /y "%ZIEL%\\einstellungen.json" "%ZIEL%\\einstellungen.vorher.json" >nul
+set /a VERSUCH=0
+:kopiere
+copy /y "%QUELLE%\\*" "%ZIEL%" >nul && goto start
+set /a VERSUCH+=1
+if %VERSUCH% GEQ 30 goto start
+ping -n 11 127.0.0.1 >nul
+goto kopiere
+:start
+{start}
+"""
+
+
+def pruefe_update(e, ausgabe=print):
+    """Lädt eine neuere Version von GitHub (nur herunterladen, es wird nichts hochgeladen) und tauscht
+    das Programm in seinem Ordner aus. Gibt True zurück, wenn sich das laufende Programm beenden soll."""
+    if not getattr(sys, "frozen", False) or os.name != "nt":
+        return False
+    try:
+        neu = neueste_version(json.loads(_hole(RELEASES_URL)))
+    except Exception as ex:
+        ausgabe(f"Update-Prüfung nicht möglich: {ex}")
+        return False
+    if not neu or _version(neu[0]) <= _version(VERSION):
+        return False
+    version, url = neu
+    ausgabe(f"Neue Version {version} gefunden, wird eingespielt …")
+    arbeit = tempfile.mkdtemp(prefix="posteingang-update-")
+    try:
+        zip_pfad = os.path.join(arbeit, "paket.zip")
+        _hole(url, zip_pfad)
+        with zipfile.ZipFile(zip_pfad) as z:
+            namen = z.namelist()
+            if not any(n.endswith("Posteingang-sortieren.exe") for n in namen):
+                raise ValueError("Paket enthält kein Programm")
+            z.extractall(os.path.join(arbeit, "neu"))
+        quelle = programmordner(os.path.join(arbeit, "neu"))
+        if not quelle:
+            raise ValueError("Programm im Paket nicht gefunden")
+    except Exception as ex:
+        ausgabe(f"Update {version} fehlgeschlagen, alte Version läuft weiter: {ex}")
+        shutil.rmtree(arbeit, ignore_errors=True)
+        return False
+    # Das laufende Programm kann sich nicht selbst überschreiben: ein kleines Skript wartet,
+    # bis es beendet ist, kopiert die neuen Dateien und startet die neue Version.
+    skript = os.path.join(arbeit, "einspielen.cmd")
+    with open(skript, "w", encoding="cp1252", errors="replace") as f:
+        f.write(einspiel_skript(os.getpid(), quelle, HIER))
+    subprocess.Popen(["cmd", "/c", skript], creationflags=0x08000000)  # CREATE_NO_WINDOW
+    return True
+
+
 def main(argv):
+    pfad_einst = os.path.join(HIER, "einstellungen.json")
     e = lade_einstellungen()
     if len(argv) > 2 and argv[1] == "--probe":
         for p in argv[2:]:
@@ -708,11 +821,27 @@ def main(argv):
         return
     if len(argv) > 1 and argv[1] == "--dauerhaft":
         print(f"Posteingang sortieren {VERSION} – überwacht {e['eingang']} (Strg+C beendet)")
+        stand = os.path.getmtime(pfad_einst)
+        naechste_pruefung = time.time() + 60
         while True:
+            # Geänderte Regeln (einstellungen.json) gelten sofort, ohne Neustart
+            try:
+                if os.path.getmtime(pfad_einst) != stand:
+                    e = lade_einstellungen()
+                    stand = os.path.getmtime(pfad_einst)
+                    print("Einstellungen neu geladen.")
+            except Exception as ex:
+                print("Einstellungen fehlerhaft, alte bleiben aktiv:", ex)
             try:
                 durchlauf(e)
             except Exception as ex:
                 print("FEHLER:", ex)
+            minuten = e.get("update_pruefen_minuten", 60)
+            if minuten and time.time() >= naechste_pruefung:
+                naechste_pruefung = time.time() + minuten * 60
+                if pruefe_update(e):
+                    print("Neue Version wird gestartet.")
+                    return
             time.sleep(e.get("intervall_sekunden", 20))
     n = durchlauf(e)
     print(f"{n} Scan(s) verarbeitet.")

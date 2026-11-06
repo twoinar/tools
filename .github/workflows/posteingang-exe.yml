@@ -19,7 +19,9 @@ jobs:
           python-version: "3.12"
       - run: pip install --quiet pymupdf==1.24.14 pyinstaller==6.11.1
       - name: Test mit erfundener Post
-        run: python posteingang/test/testlauf.py
+        run: |
+          python posteingang/test/testlauf.py
+          python posteingang/test/update_test.py
       - name: Programm bauen
         run: pyinstaller --onefile --name Posteingang-sortieren --distpath dist posteingang/posteingang.py
       - name: Paket packen

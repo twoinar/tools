@@ -18,6 +18,7 @@
   "vorgaenge_ordner": ["Y:\\Vorgänge"],
 
   "intervall_sekunden": 20,
+  "update_pruefen_minuten": 60,
   "warten_sekunden": 15,
   "schwelle_neues_schreiben": 3,
 
