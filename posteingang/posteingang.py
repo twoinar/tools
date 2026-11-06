@@ -32,7 +32,7 @@ try:
 except ImportError:  # ältere PyMuPDF-Versionen
     import fitz
 
-VERSION = "1.2"
+VERSION = "1.3"
 
 # Windows-Konsole (cp850/cp1252) kann nicht jedes Zeichen darstellen: lieber ersetzen als abstürzen.
 for _strom in (sys.stdout, sys.stderr):
@@ -56,6 +56,8 @@ def lade_einstellungen(pfad=None):
     e["_muster_uvz"] = [re.compile(m, re.I) for m in e["muster_uvz"]]
     e["_muster_vorgang"] = [re.compile(m, re.I) for m in e["muster_vorgang"]]
     e["_empfaenger"] = [re.compile(m, re.I) for m in e["merkmale_an_uns_adressiert"]]
+    e["_arten"] = [(a["name"], a.get("aktion", "vorlegen"), [re.compile(m, re.I) for m in a["muster"]],
+                    a.get("bereich", "text")) for a in e.get("arten", [])]
     return e
 
 
@@ -372,6 +374,51 @@ def schreibe(doc, seiten, ziel):
     os.replace(tmp, ziel)
 
 
+# --------------------------------------------------------------------------- Art des Schreibens
+
+def bestimme_art(seiten, e):
+    """Was für ein Schreiben ist es, und muss es mit der Akte vorgelegt werden?
+    Gibt (art, aktion, stichwort) zurück. Die Arten in einstellungen.json werden der Reihe nach geprüft,
+    die erste passende gilt. Gesucht wird zuerst auf der ersten Seite, dann im ganzen Schreiben.
+    Passt keine Art, gilt "standard_aktion"."""
+    erste = seiten[0].text
+    ganz = "\n".join(s.text for s in seiten)
+    for runde in (0, 1):
+        for name, aktion, muster, bereich in e.get("_arten", []):
+            # "oben": nur Briefkopf/Betreff der ersten Seite (z. B. Absender ist eine Behörde)
+            text = seiten[0].oben if bereich == "oben" else (erste if runde == 0 else ganz)
+            if bereich == "oben" and runde == 1:
+                continue
+            for m in muster:
+                t = m.search(text)
+                if t:
+                    return name, aktion, t.group(0).strip()
+    return "", e.get("standard_aktion", "vorlegen"), ""
+
+
+def absender(seite, e):
+    """Erste sinnvolle Zeile oben auf der ersten Seite (meist der Briefkopf), ohne unsere eigene Anschrift."""
+    for zeile in seite.oben.splitlines():
+        z = zeile.strip(" -|,.")
+        if len(z) < 4 or not re.search(r"[A-Za-zÄÖÜäöü]{3}", z):
+            continue
+        if any(r.search(z) for r in e["_empfaenger"]):
+            continue
+        if re.match(r"^(Herrn?\s+Notar|Notar|An\b|Postfach|\d{5}\b)", z, re.I):
+            continue
+        if re.search(r"(stra(ß|ss)e|str\.|weg|platz|allee|ring)\s*\d", z, re.I):   # Anschriftzeile
+            continue
+        return z[:60]
+    return ""
+
+
+AKTION_TEXT = {"vorlegen": "mit Akte vorlegen", "ablegen": "nur elektronisch ablegen"}
+
+
+def _dateiteil(text):
+    return re.sub(r'[\\/:*?"<>|]+', "", text).strip()[:40]
+
+
 # --------------------------------------------------------------------------- Dubletten
 
 def _woerter(text):
@@ -442,10 +489,16 @@ def verarbeite_datei(pfad, e, bestand, heute, probe=False):
             ordner, grund = zielordner(e, art, None), wert
         else:
             ordner, grund = zielordner(e, art, wert), ""
+        schreiben_art, aktion, stichwort = bestimme_art(teil, e)
+        if art == "unklar":
+            aktion = "zuordnen"
         stamm = f"Eingang {stempel} Nr {i:02d}"
+        if schreiben_art:
+            stamm += f" - {_dateiteil(schreiben_art)}"
         ergebnisse.append(dict(teil=teil, art=art, wert=wert if art != "unklar" else "",
                                grund=grund, seiten=seiten_txt, ordner=ordner, stamm=stamm,
-                               start=", ".join(teil[0].gruende)))
+                               start=", ".join(teil[0].gruende), schreiben_art=schreiben_art,
+                               aktion=aktion, stichwort=stichwort, absender=absender(teil[0], e)))
     if probe:
         doc.close()
         return ergebnisse, ohne_text, len(seiten)
@@ -455,6 +508,7 @@ def verarbeite_datei(pfad, e, bestand, heute, probe=False):
             # Nie löschen: Dubletten kommen in einen eigenen Ordner, das Protokoll nennt das Original.
             r["grund"] = f"Dublette von {os.path.basename(r['ordner'])}\\{doppelt}"
             r["ordner"] = e.get("ziel_dubletten") or os.path.join(e["eingang"], "Dubletten")
+            r["aktion"] = "dublette"
         os.makedirs(r["ordner"], exist_ok=True)
         r["datei"] = freier_name(r["ordner"], r["stamm"])
         schreibe(doc, r["teil"], r["datei"])
@@ -470,12 +524,89 @@ def protokolliere(e, quelle, ergebnisse, hinweis=""):
     with open(datei, "a", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f, delimiter=";")
         if neu:
-            w.writerow(["Zeit", "Scan", "Seiten", "Zuordnung", "Nummer", "Datei", "Hinweis"])
+            w.writerow(["Zeit", "Scan", "Seiten", "Zuordnung", "Nummer", "Datei", "Hinweis",
+                        "Art", "Was tun", "Absender", "Pfad"])
         jetzt = dt.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
         for r in ergebnisse:
             zu = {"urkunde": "Urkunde", "vorgang": "Vorgang", "unklar": "nicht zugeordnet"}[r["art"]]
             w.writerow([jetzt, os.path.basename(quelle), r["seiten"], zu, r["wert"],
-                        os.path.basename(r.get("datei", "")), r["grund"] or hinweis])
+                        os.path.basename(r.get("datei", "")), r["grund"] or hinweis,
+                        r.get("schreiben_art", ""), r.get("aktion", ""), r.get("absender", ""),
+                        r.get("datei", "")])
+    tagesliste(e)
+
+
+LISTEN_ABSCHNITTE = [
+    ("vorlegen", "Mit der Akte vorlegen", "Vollzugsrelevant: bitte ausdrucken bzw. mit der Akte vorlegen."),
+    ("zuordnen", "Bitte zuordnen", "Keine sichere UVZ- oder Vorgangsnummer erkannt: liegt in „Nicht zugeordnet“."),
+    ("ablegen", "Nur elektronisch abgelegt", "Nichts zu tun, das Schreiben liegt im Ordner der Urkunde bzw. des Vorgangs."),
+    ("dublette", "Doppelt gescannt", "Lag schon vor, wurde nach „Dubletten“ gelegt. Nichts zu tun."),
+]
+
+
+def _html(t):
+    return (t or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+
+def tagesliste(e, tag=None):
+    """Schreibt die Tagesliste für die Mitarbeiter (HTML, öffnet im Browser) aus dem Protokoll neu."""
+    tag = tag or dt.date.today()
+    datei = os.path.join(e["protokoll"], f"Protokoll {tag:%Y-%m}.csv")
+    if not os.path.exists(datei):
+        return None
+    zeilen = []
+    with open(datei, encoding="utf-8-sig", newline="") as f:
+        for z in csv.reader(f, delimiter=";"):
+            if not z or z[0] == "Zeit" or not z[0].startswith(tag.strftime("%d.%m.%Y")):
+                continue
+            z += [""] * (11 - len(z))
+            zeilen.append(z)
+    gruppen = {k: [] for k, _, _ in LISTEN_ABSCHNITTE}
+    for z in zeilen:
+        aktion = z[8] or ("zuordnen" if z[3] == "nicht zugeordnet" else "vorlegen")
+        gruppen.setdefault(aktion, []).append(z)
+    teile = [f"<!doctype html><html lang='de'><head><meta charset='utf-8'><title>Posteingang {tag:%d.%m.%Y}</title>",
+             "<style>body{font-family:Segoe UI,Arial,sans-serif;margin:24px;color:#222}h1{font-size:22px}"
+             "h2{font-size:17px;margin-top:28px;border-bottom:2px solid #1a5fa0;padding-bottom:4px}"
+             "p.hinweis{color:#555;margin:4px 0 8px}table{border-collapse:collapse;width:100%}"
+             "td,th{border:1px solid #ccc;padding:5px 8px;text-align:left;font-size:14px;vertical-align:top}"
+             "th{background:#eef3f8}td.k{width:1%;text-align:center}.leer{color:#777;font-style:italic}"
+             "@media print{a{color:#000;text-decoration:none}}</style></head><body>",
+             f"<h1>Posteingang {tag:%d.%m.%Y}</h1>",
+             f"<p class='hinweis'>Stand {dt.datetime.now():%H:%M} Uhr · {len(zeilen)} Schreiben · "
+             "erstellt vom Sortier-Programm (ohne KI, feste Regeln)</p>"]
+    for k, titel, hinweis in LISTEN_ABSCHNITTE:
+        g = gruppen.get(k, [])
+        teile.append(f"<h2>{_html(titel)} ({len(g)})</h2><p class='hinweis'>{_html(hinweis)}</p>")
+        if not g:
+            teile.append("<p class='leer'>keine</p>")
+            continue
+        teile.append("<table><tr><th>✓</th><th>Zeit</th><th>Urkunde / Vorgang</th><th>Art</th>"
+                     "<th>Absender</th><th>Seiten</th><th>Datei</th></tr>")
+        for z in g:
+            nummer = (("UVZ " if z[3] == "Urkunde" else "Vorgang ") + z[4]) if z[4] else \
+                ("–" if k == "dublette" else _html(z[6]))
+            pfad = z[10]
+            link = (f"<a href='file:///{_html(pfad.replace(os.sep, '/'))}'>{_html(z[5])}</a>"
+                    if pfad else _html(z[5]))
+            teile.append(f"<tr><td class='k'>☐</td><td>{_html(z[0][11:16])}</td><td>{nummer}</td>"
+                         f"<td>{_html(z[7]) or '–'}</td><td>{_html(z[9])}</td><td>{_html(z[2])}</td>"
+                         f"<td>{link}</td></tr>")
+        teile.append("</table>")
+    teile.append("</body></html>")
+    ordner = e.get("tageslisten") or os.path.join(e["eingang"], "Tageslisten")
+    os.makedirs(ordner, exist_ok=True)
+    ziel = os.path.join(ordner, f"Posteingang {tag:%Y-%m-%d}.html")
+    tmp = ziel + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write("".join(teile))
+    os.replace(tmp, ziel)
+    if tag == dt.date.today():   # immer gleicher Name, damit eine Verknüpfung auf dem Desktop reicht
+        try:
+            shutil.copyfile(ziel, os.path.join(ordner, "Posteingang heute.html"))
+        except OSError:
+            pass
+    return ziel
 
 
 def ist_fertig(pfad, warte):
@@ -561,6 +692,7 @@ def probe(pfad, e):
     for i, r in enumerate(ergebnisse, 1):
         ziel = r["ordner"]
         print(f"  {i:2d}. Seiten {r['seiten']:>7}  -> {ziel}"
+              + (f"   <{r['schreiben_art'] or '?'}: {AKTION_TEXT.get(r['aktion'], r['aktion'])}>")
               + (f"   [{r['grund']}]" if r["grund"] else "")
               + (f"   (Beginn: {r['start']})" if r["start"] else ""))
     if ohne_text:

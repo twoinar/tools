@@ -8,6 +8,7 @@
   "ziel_dubletten": "Y:\\Posteingang\\Dubletten",
   "dubletten_schwelle": 0.95,
   "dubletten_tage": 30,
+  "tageslisten": "Y:\\Posteingang\\Tageslisten",
 
   "ordnername_urkunde": "{nr}-{jahr}",
   "ordnername_vorgang": "{nr}",
@@ -33,6 +34,152 @@
     "\\bW\\s?(?P<nr>\\d{1,5})\\s*[/-]\\s*(?P<jahr>20\\d{2})\\b",
     "(?<![\\d/])(?:W\\s?)?(?P<nr>\\d{1,5})\\s*/\\s*\\d{1,2}\\s*/\\s*\\d{1,2}\\s*[-/]\\s*(?P<jahr>(?:19|20)\\d{2})\\b",
     "\\bNr\\.?\\s*(?P<nr>\\d{1,5})\\s*/\\s*(?P<jahr>(?:19|20)?\\d{2})\\s+(?:der|des|meiner|seiner)\\s+(?:Urkundenrolle|UR|UVZ|Urkundenverzeichnis)"
+  ],
+
+  "standard_aktion": "ablegen",
+  "arten": [
+      {
+          "name": "Vorkaufsrecht",
+          "aktion": "vorlegen",
+          "muster": [
+              "Vorkaufsrecht",
+              "Negativattest",
+              "Negativzeugnis"
+          ]
+      },
+      {
+          "name": "Genehmigung",
+          "aktion": "vorlegen",
+          "muster": [
+              "Grundst(ü|ue)cksverkehrsgesetz",
+              "GrdstVG",
+              "Teilungsgenehmigung",
+              "Sanierungs(rechtliche|genehmigung)",
+              "(familien|betreuungs|nachlass)gerichtlich\\w* Genehmigung",
+              "Genehmigungserkl(ä|ae)rung",
+              "Nachgenehmigung",
+              "genehmige\\b",
+              "Genehmigung"
+          ]
+      },
+      {
+          "name": "Zustimmung Verwalter",
+          "aktion": "vorlegen",
+          "muster": [
+              "Verwalterzustimmung",
+              "Zustimmung (des|der) (WEG-)?Verwalt",
+              "Zustimmungserkl(ä|ae)rung"
+          ]
+      },
+      {
+          "name": "Vollmacht / Erklärung",
+          "aktion": "vorlegen",
+          "muster": [
+              "Vollmachtsbest(ä|ae)tigung",
+              "unterschrieben\\w*\\s+(Vollmacht|Erkl(ä|ae)rung)",
+              "Vollmacht",
+              "beglaubigt"
+          ]
+      },
+      {
+          "name": "Grundbuchamt",
+          "aktion": "vorlegen",
+          "muster": [
+              "Eintragungsnachricht",
+              "Eintragungsmitteilung",
+              "Vollzugsmitteilung",
+              "Zwischenverf(ü|ue)gung",
+              "Zur(ü|ue)ckweisung",
+              "Beanstandung",
+              "Grundbuchamt"
+          ]
+      },
+      {
+          "name": "Unbedenklichkeitsbescheinigung",
+          "aktion": "vorlegen",
+          "muster": [
+              "Unbedenklichkeitsbescheinigung",
+              "Grunderwerbsteuer"
+          ]
+      },
+      {
+          "name": "Bank / Löschung",
+          "aktion": "vorlegen",
+          "muster": [
+              "L(ö|oe)schungsbewilligung",
+              "L(ö|oe)schungsunterlagen",
+              "Treuhandauf(trag|lage)",
+              "Grundschuldbrief",
+              "Hypothekenbrief",
+              "Abl(ö|oe)se(betrag|summe|forderung)",
+              "Pfandfreigabe"
+          ]
+      },
+      {
+          "name": "Register / Nachlass",
+          "aktion": "vorlegen",
+          "muster": [
+              "Handelsregister",
+              "Registergericht",
+              "Vereinsregister",
+              "Nachlassgericht",
+              "Erbschein"
+          ]
+      },
+      {
+          "name": "Frist / Mahnung",
+          "aktion": "vorlegen",
+          "muster": [
+              "Frist\\w*\\s+(bis|zum)",
+              "Mahnung",
+              "Erinnerung"
+          ]
+      },
+      {
+          "name": "Zahlung / Bestätigung",
+          "aktion": "ablegen",
+          "muster": [
+              "Zahlungseingang",
+              "(Ü|Ue)berweisungsbest(ä|ae)tigung",
+              "Eingangsbest(ä|ae)tigung",
+              "Empfangsbest(ä|ae)tigung",
+              "Terminbest(ä|ae)tigung",
+              "zur Kenntnisnahme",
+              "zu Ihrer Kenntnis"
+          ]
+      },
+      {
+          "name": "Werbung",
+          "aktion": "ablegen",
+          "muster": [
+              "Newsletter",
+              "Sonderangebot",
+              "Sonderpreis",
+              "Angebot f(ü|ue)r Ihre Kanzlei",
+              "Abmelden"
+          ]
+      },
+      {
+          "name": "Behörde / Gericht / Bank",
+          "aktion": "vorlegen",
+          "bereich": "oben",
+          "muster": [
+              "Amtsgericht",
+              "Landgericht",
+              "Landkreis",
+              "Stadtverwaltung",
+              "Stadt\\s+\\w+",
+              "Gemeinde",
+              "Amt\\s+\\w+",
+              "Finanzamt",
+              "Sparkasse",
+              "\\bBank\\b",
+              "Volksbank",
+              "Raiffeisenbank",
+              "Vermessungs",
+              "Kataster"
+          ]
+      }
   ],
 
   "muster_vorgang": [
