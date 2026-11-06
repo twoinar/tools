@@ -31,6 +31,13 @@ Folgeseiten) gehören zum vorigen Schreiben. Leere Rückseiten fallen weg.
   Ordner `Y:\Vorgänge`). Unbekannte Nummern → „Nicht zugeordnet“ (mit Grund im Protokoll).
 - Mehrere verschiedene Nummern in einem Schreiben → „Nicht zugeordnet“. Die UVZ hat immer Vorrang (`"vorrang"`).
 
+## Dubletten
+Wird ein Schreiben ein zweites Mal gescannt, erkennt das Programm das am fast gleichen Text (mindestens 95 %
+gleiche Wörter, Zahlen wie Datum und Aktenzeichen praktisch identisch, gleiche Seitenzahl, Vergleich mit den
+Schreiben der letzten 30 Tage im selben Zielordner). Die Dublette wird **nicht gelöscht**, sondern nach
+`Y:\Posteingang\Dubletten\` gelegt; das Protokoll nennt die Datei, von der sie eine Dublette ist.
+Einstellbar über `dubletten_schwelle` (0 schaltet die Prüfung ab) und `dubletten_tage`.
+
 ## Bedienung
 - `Posteingang jetzt sortieren.cmd` – sortiert sofort, von jedem PC aus.
 - `Automatisch sortieren einrichten.cmd` – einmal auf dem Post-PC: läuft nach jeder Anmeldung minimiert
