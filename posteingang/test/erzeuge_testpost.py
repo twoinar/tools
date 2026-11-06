@@ -30,7 +30,7 @@ BRIEFE = [
 ]
 
 
-def brief_seite(doc, absender, oben, text, seite, von, erste):
+def brief_seite(doc, absender, oben, text, seite, von, erste, rauschen=False):
     p = doc.new_page(width=595, height=842)
     y = 60
     if erste:
@@ -46,6 +46,8 @@ def brief_seite(doc, absender, oben, text, seite, von, erste):
         y += 30
         p.insert_text((60, y), "Sehr geehrter Herr Notar Woinar,", fontsize=10)
         y += 24
+        if rauschen:   # zweiter Scan: Texterkennung liest ein Wort anders
+            text = text.replace("die", "dle", 1) if "die" in text else text + " ."
         p.insert_text((60, y), text, fontsize=10)
     else:
         p.insert_text((60, y + 40), "Fortsetzung: weitere Erläuterungen und Anlagen. " * 1, fontsize=10)
@@ -54,7 +56,7 @@ def brief_seite(doc, absender, oben, text, seite, von, erste):
         p.insert_text((270, 810), f"Seite {seite} von {von}", fontsize=9)
 
 
-def erzeuge(ziel):
+def erzeuge(ziel, rauschen=False, name="Post_2026-11-06_14-30-00_0001.pdf"):
     os.makedirs(os.path.join(ziel, "Y", "Posteingang"), exist_ok=True)
     arch26 = os.path.join(ziel, "Y", "Scanner", "URKUNDEN", "Urkunden 2026")
     arch25 = os.path.join(ziel, "Y", "Scanner", "URKUNDEN", "Urkunden 2025")
@@ -72,10 +74,10 @@ def erzeuge(ziel):
     erwartet = []
     for absender, oben, text, seiten, soll in BRIEFE:
         for s in range(1, seiten + 1):
-            brief_seite(doc, absender, oben, text, s, seiten, s == 1)
+            brief_seite(doc, absender, oben, text, s, seiten, s == 1, rauschen)
             doc.new_page(width=595, height=842)   # leere Rückseite (Duplex)
         erwartet.append(soll)
-    pfad = os.path.join(ziel, "Y", "Posteingang", "Post_2026-11-06_14-30-00_0001.pdf")
+    pfad = os.path.join(ziel, "Y", "Posteingang", name)
     doc.save(pfad)
     return pfad, erwartet
 
