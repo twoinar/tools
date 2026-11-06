@@ -250,9 +250,9 @@ dialog.mail textarea{min-height:70px}
   </section>
 
   <section class="alarm" id="nachgenehmigung">
-    <h2><span>2</span><span data-zeigen-wenn="!nachgen_erforderlich">Nachgenehmigung</span><span data-zeigen-wenn="nachgen_erforderlich">Nachgenehmigung – vorrangig zu erledigen!</span></h2>
+    <h2><span>2</span><span id="ngTitelRuhig">Nachgenehmigung</span><span id="ngTitelAlarm">Nachgenehmigung – vorrangig zu erledigen!</span></h2>
     <label class="cb"><input type="checkbox" data-f="nachgen_erforderlich">
-      <span><b>Ein Beteiligter muss noch nachgenehmigen.</b> <span data-zeigen-wenn="nachgen_erforderlich">Genehmigung als Erstes einholen.</span></span></label>
+      <span><b>Ein Beteiligter muss noch nachgenehmigen.</b> <span id="ngErstes">Genehmigung als Erstes einholen.</span></span></label>
     <div class="aufklapp" data-zeigen-wenn="nachgen_erforderlich" data-leeren>
     <div class="reihe"><label for="f_ngd">Nachgenehmigung durch:</label>
       <input type="text" id="f_ngd" data-f="nachgen_durch"></div>
@@ -821,7 +821,12 @@ function dynamik(ausloeser){
     }
     c.hidden = !sichtbar;
   });
-  document.getElementById("nachgenehmigung").classList.toggle("aktiv", istAn("nachgen_erforderlich"));
+  // Rot nur, solange die Genehmigung noch nicht vom Notar eingeholt bzw. angefordert ist
+  const ngRot = istAn("nachgen_erforderlich") && !istAn("nachgen_bereits_eingeholt");
+  document.getElementById("nachgenehmigung").classList.toggle("aktiv", ngRot);
+  document.getElementById("ngTitelAlarm").hidden = !ngRot;
+  document.getElementById("ngTitelRuhig").hidden = ngRot;
+  document.getElementById("ngErstes").hidden = !ngRot;
   document.getElementById("kgsNg").classList.toggle("aktiv", istAn("kgs_ng"));
 }
 document.addEventListener("change", e=>{ if (e.target.type==="checkbox"){ dynamik(e.target); if (e.target.dataset.f==="cb_loeschung") loeschZuruecksetzen(true); } });
@@ -986,20 +991,22 @@ async function pdfErzeugen(){
   // 2 Nachgenehmigung (entfällt z. B. beim Nachlassverzeichnis); Abschnitte fortlaufend nummeriert
   let nrZ = 1; const nr = () => String(++nrZ);
   if (ARTEN[art()].ohneNg){}
-  else if (v("nachgen_erforderlich")){ const nr2 = nr();
+  else if (v("nachgen_erforderlich")){ const nr2 = nr(); const rot = !v("nachgen_bereits_eingeholt");
     const innen=[];
     if (v("nachgen_durch")) innen.push(["Nachgenehmigung durch:", v("nachgen_durch")]);
     const hinweis = v("nachgen_hinweis");
     const zlH = hinweis ? umbrechen(hinweis,fN,9,BW-150) : [];
     const hoehe = 30 + innen.length*13 + 14 + zlH.length*12 + (hinweis?4:0) + 8;
     platz(hoehe+30); y-=10;
-    page.drawRectangle({x:ML,y:y-hoehe,width:BW,height:hoehe,color:ROTBG,borderColor:ROT,borderWidth:1.2});
-    page.drawRectangle({x:ML,y:y-hoehe,width:5,height:hoehe,color:ROT});
+    if (rot){
+      page.drawRectangle({x:ML,y:y-hoehe,width:BW,height:hoehe,color:ROTBG,borderColor:ROT,borderWidth:1.2});
+      page.drawRectangle({x:ML,y:y-hoehe,width:5,height:hoehe,color:ROT});
+    } else page.drawRectangle({x:ML,y:y-hoehe,width:BW,height:hoehe,borderColor:LINIE,borderWidth:1});
     let yy=y-16;
-    page.drawText(nr2,{x:ML+14,y:yy,size:10.5,font:fB,color:ROT});
-    page.drawText(pdfText("Nachgenehmigung – vorrangig zu erledigen!"),{x:ML+30,y:yy,size:10.5,font:fB,color:ROT}); yy-=16;
+    page.drawText(nr2,{x:ML+14,y:yy,size:10.5,font:fB,color:rot?ROT:TEXT});
+    page.drawText(pdfText(rot?"Nachgenehmigung – vorrangig zu erledigen!":"Nachgenehmigung"),{x:ML+30,y:yy,size:10.5,font:fB,color:rot?ROT:TEXT}); yy-=16;
     kaestchen(ML+14, yy-1.5, true);
-    page.drawText(pdfText("Ein Beteiligter muss noch nachgenehmigen. Genehmigung als Erstes einholen."),{x:ML+30,y:yy,size:9,font:fB,color:TEXT}); yy-=14;
+    page.drawText(pdfText(rot?"Ein Beteiligter muss noch nachgenehmigen. Genehmigung als Erstes einholen.":"Ein Beteiligter muss noch nachgenehmigen."),{x:ML+30,y:yy,size:9,font:fB,color:TEXT}); yy-=14;
     for (const [l,w] of innen){ page.drawText(pdfText(l),{x:ML+30,y:yy,size:9,font:fN,color:GRAU}); page.drawText(pdfText(w),{x:ML+150,y:yy,size:9,font:fN,color:TEXT}); yy-=13; }
     kaestchen(ML+30, yy-1.5, v("nachgen_bereits_eingeholt"));
     page.drawText(pdfText("bereits vom Notar eingeholt am:"),{x:ML+46,y:yy,size:9,font:fN,color:TEXT});
@@ -1386,6 +1393,11 @@ async function versandUebernehmen(still){
         const q = s => document.querySelector(`[data-f="${s}"]`);
         q("nachgen_erforderlich").checked = true;
         if (!q("nachgen_durch").value.includes(e.name)) q("nachgen_durch").value = [q("nachgen_durch").value, e.name].filter(Boolean).join(", ");
+        if (!post){
+          q("nachgen_bereits_eingeholt").checked = true;
+          const iso = (d.zeit||new Date().toISOString()).slice(0,10);
+          if (!q("nachgen_eingeholt_am").value || iso < q("nachgen_eingeholt_am").value) q("nachgen_eingeholt_am").value = iso;
+        }
         q("nachgen_hinweis").value = [q("nachgen_hinweis").value, `Genehmigungserklärung${e.genehmigungOhneBegl?" (ohne Beglaubigung)":""} am ${tag} ${post?`ausgedruckt, per Post an ${e.name}`:`per E-Mail an ${e.name} (${e.email})`} versandt.`].filter(Boolean).join("\n");
       }
     }
@@ -1531,6 +1543,6 @@ window.addEventListener("beforeprint", textfelderAnpassen);
 document.addEventListener("input", e=>{ if (e.target.matches('textarea[data-f="sonstiges_vollzug_text"]')){ e.target.style.height="auto"; e.target.style.height=(e.target.scrollHeight+2)+"px"; } });
 document.getElementById("btnDrucken").onclick = ()=>{ textfelderAnpassen(); window.print(); };
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.30 · Stand 05.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.31 · Stand 06.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
