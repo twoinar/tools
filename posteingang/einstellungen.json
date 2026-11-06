@@ -28,6 +28,7 @@
     "\\bUVZ\\s*[.:\\-]?\\s*(?P<nr>\\d{1,5})\\s*(?:/|-|für)\\s*(?P<jahr>(?:19|20)?\\d{2})\\b",
     "\\bUR\\s+(?P<nr>\\d{1,5})\\s*/\\s*(?P<jahr>(?:19|20)?\\d{2})\\b",
     "\\bW\\s?(?P<nr>\\d{1,5})\\s*[/-]\\s*(?P<jahr>20\\d{2})\\b",
+    "(?<![\\d/])(?:W\\s?)?(?P<nr>\\d{1,5})\\s*/\\s*\\d{1,2}\\s*/\\s*\\d{1,2}\\s*[-/]\\s*(?P<jahr>(?:19|20)\\d{2})\\b",
     "\\bNr\\.?\\s*(?P<nr>\\d{1,5})\\s*/\\s*(?P<jahr>(?:19|20)?\\d{2})\\s+(?:der|des|meiner|seiner)\\s+(?:Urkundenrolle|UR|UVZ|Urkundenverzeichnis)"
   ],
 

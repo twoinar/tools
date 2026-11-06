@@ -24,6 +24,9 @@ BRIEFE = [
     ("Amtsgericht Cottbus - Nachlassgericht", "Ihr Zeichen: UR-Nr. 9999/2026",   # existiert nicht
      "Eingangsbestätigung.", 1, "unklar"),
     ("Deutsche Bank AG", "Ihr Zeichen: UVZ-Nr. 512/25", "Grundschuldbrief anbei.", 2, "U:512-2025"),
+    # Kostenrechnungen haben Bruchnummern: W <UVZ>/<a>/<b> - <Jahr>
+    ("Frau Erika Beispiel", "Betreff: Ihre Kostenrechnung W 2006/0/1 - 2025", "Anbei die Überweisungsbestätigung.", 1, "U:2006-2025"),
+    ("Muster Immobilien GmbH", "Rechnung Nr. W 2048/1/1-2026", "Rückfrage zur Kostenrechnung.", 1, "U:2048-2026"),
 ]
 
 
@@ -60,7 +63,8 @@ def erzeuge(ziel):
         os.makedirs(d, exist_ok=True)
     for n in ["W2048-2026!Urkunde.pdf", "W1925-2026!Urkunde.pdf", "W 2057-2026.pdf", "W1999-2026oE.pdf"]:
         open(os.path.join(arch26, n), "w").close()
-    open(os.path.join(arch25, "W512-2025!Urkunde.pdf"), "w").close()
+    for n in ["W512-2025!Urkunde.pdf", "W2006-2025!Urkunde.pdf"]:
+        open(os.path.join(arch25, n), "w").close()
     for n in ["30471 Mustermann Kaufvertrag", "30472 Musterfrau Schenkung", "29815 Beispiel GmbH"]:
         os.makedirs(os.path.join(vorg, n), exist_ok=True)
 

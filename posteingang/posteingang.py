@@ -31,7 +31,7 @@ try:
 except ImportError:  # ältere PyMuPDF-Versionen
     import fitz
 
-VERSION = "1.0"
+VERSION = "1.1"
 
 # Windows-Konsole (cp850/cp1252) kann nicht jedes Zeichen darstellen: lieber ersetzen als abstürzen.
 for _strom in (sys.stdout, sys.stderr):
