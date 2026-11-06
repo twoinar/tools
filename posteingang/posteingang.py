@@ -33,6 +33,13 @@ except ImportError:  # ältere PyMuPDF-Versionen
 
 VERSION = "1.0"
 
+# Windows-Konsole (cp850/cp1252) kann nicht jedes Zeichen darstellen: lieber ersetzen als abstürzen.
+for _strom in (sys.stdout, sys.stderr):
+    try:
+        _strom.reconfigure(errors="replace")
+    except Exception:
+        pass
+
 if getattr(sys, "frozen", False):
     HIER = os.path.dirname(sys.executable)
 else:
@@ -222,7 +229,7 @@ def zerlege(seiten, e):
             elif eigene and bisher and not (eigene & bisher) and s.start_punkte >= 1:
                 neu = True
                 s.gruende.append("andere Nummer")
-            # Erwartete Seitenzahl des laufenden Schreibens noch nicht erreicht → Folgeseite
+            # Erwartete Seitenzahl des laufenden Schreibens noch nicht erreicht -> Folgeseite
             erste = aktuell[0].seitenzahl
             if neu and erste and erste[1] and len(aktuell) < erste[1] and not (
                     s.seitenzahl and s.seitenzahl[0] == 1):
@@ -291,7 +298,7 @@ class Bestand:
         for j in jahre:
             u = self.urkunden(j)
             if u is None:
-                if jahr:   # keine Prüfung möglich, Jahr bekannt → annehmen
+                if jahr:   # keine Prüfung möglich, Jahr bekannt -> annehmen
                     treffer.append((nr, j))
             elif nr in u:
                 treffer.append((nr, j))
@@ -490,7 +497,7 @@ def _durchlauf(e, eingang, ausgabe, sperre):
         shutil.move(pfad, freier_name(archiv, os.path.splitext(name)[0]))
         anzahl += 1
         zu = sum(1 for r in ergebnisse if r["art"] != "unklar")
-        ausgabe(f"{name}: {n} Seiten → {len(ergebnisse)} Schreiben, {zu} zugeordnet "
+        ausgabe(f"{name}: {n} Seiten -> {len(ergebnisse)} Schreiben, {zu} zugeordnet "
                 f"({time.time() - t0:.1f} s)")
     return anzahl
 
@@ -501,7 +508,7 @@ def probe(pfad, e):
     print(f"{os.path.basename(pfad)}: {n} Seiten, {len(ergebnisse)} Schreiben")
     for i, r in enumerate(ergebnisse, 1):
         ziel = r["ordner"]
-        print(f"  {i:2d}. Seiten {r['seiten']:>7}  → {ziel}"
+        print(f"  {i:2d}. Seiten {r['seiten']:>7}  -> {ziel}"
               + (f"   [{r['grund']}]" if r["grund"] else "")
               + (f"   (Beginn: {r['start']})" if r["start"] else ""))
     if ohne_text:
@@ -510,11 +517,6 @@ def probe(pfad, e):
 
 
 def main(argv):
-    for strom in (sys.stdout, sys.stderr):
-        try:
-            strom.reconfigure(errors="replace")
-        except Exception:
-            pass
     e = lade_einstellungen()
     if len(argv) > 2 and argv[1] == "--probe":
         for p in argv[2:]:
