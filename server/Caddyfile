@@ -2,7 +2,7 @@
 # (gleiche Pfade wie bei GitHub Pages). Dieser Caddy läuft im eigenen Container ohne veröffentlichten Port;
 # den Zugang von außen und das Zertifikat übernimmt der Caddy der Buchhaltung (twoinar/buchhaltung,
 # deploy/synology/weitere/tools.caddy), der hierher weiterleitet.
-# Werte aus /opt/tools/konfig/.env: TOOLS_BENUTZER, TOOLS_PASSWORT_HASH, ANTHROPIC_API_KEY (dazu MAIL_*/GRAPH_* für tools-mail).
+# Werte aus /opt/tools/konfig/.env: TOOLS_BENUTZER, TOOLS_PASSWORT_HASH, ANTHROPIC_API_KEY, IONOS_TOKEN (dazu MAIL_*/GRAPH_* für tools-mail).
 {
 	admin localhost:2019
 	auto_https off
@@ -50,6 +50,31 @@
 			header_up -Via
 			header_up -Anthropic-Dangerous-Direct-Browser-Access
 			header_up X-Api-Key {$ANTHROPIC_API_KEY}
+		}
+	}
+	# KI bei IONOS Cloud (AI Model Hub, Rechenzentrum in Deutschland, OpenAI-kompatibel): die Seiten rufen
+	# /api/ionos/v1/chat/completions bzw. /api/ionos/v1/models auf, der Token liegt nur hier auf dem Server.
+	# Nur diese beiden Pfade; Login-Daten und Cookies gehen nicht an IONOS.
+	handle /api/ionos/v1/* {
+		# (nach uri strip_prefix geprüft, daher ohne /api/ionos)
+		@nichtErlaubt not path /v1/chat/completions /v1/models
+		respond @nichtErlaubt 404
+		uri strip_prefix /api/ionos
+		request_body {
+			max_size 30MB
+		}
+		reverse_proxy https://openai.inference.de-txl.ionos.com {
+			header_up Host openai.inference.de-txl.ionos.com
+			header_up -Cookie
+			header_up -Origin
+			header_up -Referer
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Host
+			header_up -Via
+			header_up Authorization "Bearer {$IONOS_TOKEN}"
+			transport http {
+				response_header_timeout 300s
+			}
 		}
 	}
 	# Benachrichtigung „Vorgespräch abgelegt“ an das Sekretariat (Container tools-mail, Empfänger fest auf dem Server)

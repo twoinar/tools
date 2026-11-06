@@ -7,6 +7,7 @@
 # Aufruf von Hand: bash aktualisieren.sh [--jetzt]   (--jetzt: alles neu holen und Container neu starten)
 #                  bash aktualisieren.sh --einrichten (Benutzer, Passwort und API-Schlüssel eingeben)
 #                  bash aktualisieren.sh --mail       (Mail-Benachrichtigung über Microsoft 365 einrichten)
+#                  bash aktualisieren.sh --ionos      (Schlüssel für die KI bei IONOS Cloud, AI Model Hub, eingeben)
 
 set -u
 umask 022
@@ -29,8 +30,8 @@ einrichten() {
     hash=$(printf '%s\n%s\n' "$passwort" "$passwort" | "$DOCKER" run --rm -i caddy:2.10 caddy hash-password 2>/dev/null | tail -n 1)
     case "$hash" in '$2'*) ;; *) echo "Passwort-Hash konnte nicht erzeugt werden."; return 1 ;; esac
     # Einfache Anführungszeichen: der Hash enthält $-Zeichen
-    # Mail-Einstellungen (--mail) bleiben erhalten
-    local mail; mail=$(grep -E '^(MAIL|GRAPH)_' "$KONFIG/.env" 2>/dev/null)
+    # Mail-Einstellungen (--mail) und IONOS-Schlüssel (--ionos) bleiben erhalten
+    local mail; mail=$(grep -E '^(MAIL|GRAPH|IONOS)_' "$KONFIG/.env" 2>/dev/null)
     printf "TOOLS_BENUTZER=%s\nTOOLS_PASSWORT_HASH='%s'\nANTHROPIC_API_KEY=%s\n" "$benutzer" "$hash" "$schluessel" > "$KONFIG/.env"
     [ -n "$mail" ] && printf '%s\n' "$mail" >> "$KONFIG/.env"
     chmod 600 "$KONFIG/.env"
@@ -54,6 +55,29 @@ mail_einrichten() {
     echo "Mail-Einstellungen abgelegt in $KONFIG/.env (nur root lesbar)."
 }
 
+ionos_einrichten() {
+    local token
+    [ -s "$KONFIG/.env" ] || { echo "Zuerst bash aktualisieren.sh --einrichten"; return 1; }
+    echo "KI bei IONOS Cloud (AI Model Hub): Token aus dcd.ionos.com › Management › Token Manager."
+    read -rsp "IONOS-Token (Anzeige bleibt leer): " token; echo
+    token=$(printf '%s' "$token" | tr -d '[:space:]')
+    [ -n "$token" ] || { echo "Eingabe fehlt."; return 1; }
+    if code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 -H "Authorization: Bearer $token" \
+            https://openai.inference.de-txl.ionos.com/v1/models) && [ "$code" = 200 ]; then
+        echo "Token gültig, IONOS antwortet."
+    else
+        echo "Achtung: IONOS hat den Token nicht angenommen (Antwort ${code:-keine}). Er wird trotzdem gespeichert."
+    fi
+    grep -vE '^IONOS_' "$KONFIG/.env" > "$KONFIG/.env.neu"
+    printf "IONOS_TOKEN=%s\n" "$token" >> "$KONFIG/.env.neu"
+    chmod 600 "$KONFIG/.env.neu" && mv "$KONFIG/.env.neu" "$KONFIG/.env"
+    echo "IONOS-Token abgelegt in $KONFIG/.env (nur root lesbar)."
+}
+
+if [ "${1:-}" = "--ionos" ]; then
+    ionos_einrichten || exit 1
+    set -- --jetzt
+fi
 if [ "${1:-}" = "--mail" ]; then
     mail_einrichten || exit 1
     set -- --jetzt
