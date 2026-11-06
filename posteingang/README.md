@@ -54,6 +54,18 @@ Nach jedem Scan schreibt das Programm die **Tagesliste** `Y:\Posteingang\Tagesli
 abgelegt“, „Doppelt gescannt“, je Zeile Uhrzeit, UVZ/Vorgang, Art, Absender, Seiten und Link zur Datei.
 Öffnet im Browser, lässt sich ausdrucken und abhaken.
 
+### Tagesliste im Browser (für alle Mitarbeiter)
+**https://tools.notariat-woinar.de/tools/posteingang/tagesliste/** (Chrome oder Edge, Verknüpfung auf dem Desktop).
+Beim ersten Mal einmal den Ordner `Y:\Posteingang` freigeben („Bearbeitung zulassen“). Danach:
+- Tag wählen (‹ › , Kalender, „Heute“); links „Noch offen“ = Tage der letzten 3 Monate, an denen noch etwas
+  vorzulegen oder zuzuordnen ist.
+- Haken setzen = erledigt; gespeichert mit Name und Uhrzeit in `Y:\Posteingang\Protokoll\Erledigt <JJJJ-MM>.json`,
+  das sehen alle. Die Liste aktualisiert sich alle 30 Sekunden (neue Scans, Haken der Kollegen).
+- Klick auf die Datei öffnet das PDF.
+
+Die Seite liest das Protokoll direkt über die Ordnerfreigabe des Browsers. Vom Server kommt nur die Seite;
+Post, Namen und Haken bleiben auf Y:. Vorführung mit Beispieldaten im Browser: `…/tagesliste/?demo`.
+
 ## Dubletten
 Wird ein Schreiben ein zweites Mal gescannt, erkennt das Programm das am fast gleichen Text (mindestens 95 %
 gleiche Wörter, Zahlen wie Datum und Aktenzeichen praktisch identisch, gleiche Seitenzahl, Vergleich mit den
