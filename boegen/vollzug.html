@@ -908,12 +908,55 @@ async function bogenFelder(bytes){
     return roh && roh.decodeText ? (JSON.parse(roh.decodeText()).f || {}) : null;
   } catch { return null; }
 }
+/* Abstimmung zwischen geöffneten Bögen (gleiches Browserfenster/-profil) */
+const bogenKanal = ("BroadcastChannel" in window) ? new BroadcastChannel("woinar-vollzugsbogen") : null;
+const fensterId = Math.random().toString(36).slice(2);
+function passtZuAufruf(uvz, vg){
+  if (uvzWert() && uvzWert()===uvz) return 3;
+  if (gsUvzWert() && gsUvzWert()===uvz) return 2;
+  const kgs = document.querySelector('[data-f="kgs_uvz"]').value.trim();
+  if (art()==="kauf" && !kgs && vg && vorgangNorm(vorgangWert())===vorgangNorm(vg)) return 1;   // Kaufvertrag desselben Vorgangs, Grundschuld-Nr. noch offen
+  return 0;
+}
+if (bogenKanal) bogenKanal.onmessage = async ({data:m})=>{
+  if (!m || m.von===fensterId) return;
+  if (m.typ==="wer"){ const g = passtZuAufruf(m.uvz, m.vg); if (g) bogenKanal.postMessage({typ:"habe", an:m.von, von:fensterId, guete:g}); }
+  else if (m.typ==="eintragen" && m.an===fensterId){
+    try {
+      if (passtZuAufruf(m.uvz, m.vg)===1){
+        if (!confirm(`UVZ-Nr. ${m.uvz} wurde gerade versandt. Als mitbeurkundete Grundschuld in diesen Kaufvertrags-Bogen eintragen?`)) return;
+        document.querySelector('[data-f="kauf_grundschuld"]').checked = true; dynamik();
+        document.querySelector('[data-f="kgs_uvz"]').value = m.uvz; geaendert = true;
+      }
+      window.focus();
+      await versandUebernehmen(false);
+    } catch(e){ fehler(e); }
+  }
+};
+async function anOffenenBogen(uvz, vg){
+  if (!bogenKanal) return false;
+  const antworten = [];
+  const hoeren = ({data:m})=>{ if (m && m.typ==="habe" && m.an===fensterId) antworten.push(m); };
+  bogenKanal.addEventListener("message", hoeren);
+  bogenKanal.postMessage({typ:"wer", von:fensterId, uvz, vg});
+  await new Promise(r=>setTimeout(r, 700));
+  bogenKanal.removeEventListener("message", hoeren);
+  if (!antworten.length) return false;
+  const ziel = antworten.sort((a,b)=>b.guete-a.guete)[0];
+  bogenKanal.postMessage({typ:"eintragen", an:ziel.von, von:fensterId, uvz, vg});
+  meldung(`Der Versand zu UVZ-Nr. ${uvz} wird in den schon geöffneten Vollzugsbogen eingetragen (anderes Fenster/anderer Tab). Dieses Fenster kann geschlossen werden.`);
+  setTimeout(()=>{ try { window.close(); } catch {} }, 1500);
+  return true;
+}
 async function ausAufruf(){
   const q = new URLSearchParams(location.search), uvz = (q.get("uvz")||"").trim(), vg = (q.get("vorgang")||"").trim();
   if (!uvz && !vg) return;
+  history.replaceState(null, "", location.pathname);   // beim Neuladen nicht erneut eintragen
+  // Ist der passende Bogen schon in einem anderen Fenster offen (z. B. der Kaufvertrag, zu dem gerade der
+  // Verteilerzettel der Grundschuld versandt wurde), wird der Versand dort eingetragen statt in einem leeren Bogen.
+  if (uvz && await anOffenenBogen(uvz, vg)) return;
   if (uvz) document.querySelector('[data-f="uvz_nr"]').value = uvz;
   if (vg) document.querySelector('[data-f="vorgang_nr"]').value = vg;
-  history.replaceState(null, "", location.pathname);   // beim Neuladen nicht erneut eintragen
   if (!uvz || !dateisystemOk) return;
   if (ordner && await ordner.queryPermission({mode:"read"})==="granted"){
     // Liegt zum Vorgang schon ein Bogen, wird er geöffnet. Kommt der Aufruf vom Verteilerzettel der Grundschuld,
@@ -1625,6 +1668,6 @@ window.addEventListener("beforeprint", textfelderAnpassen);
 document.addEventListener("input", e=>{ if (e.target.matches('textarea[data-f="sonstiges_vollzug_text"]')){ e.target.style.height="auto"; e.target.style.height=(e.target.scrollHeight+2)+"px"; } });
 document.getElementById("btnDrucken").onclick = ()=>{ textfelderAnpassen(); window.print(); };
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.32 · Stand 06.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.33 · Stand 06.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
