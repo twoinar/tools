@@ -19,6 +19,7 @@ Aufruf:
 """
 import csv
 import datetime as dt
+import difflib
 import json
 import os
 import re
@@ -31,7 +32,7 @@ try:
 except ImportError:  # ältere PyMuPDF-Versionen
     import fitz
 
-VERSION = "1.1"
+VERSION = "1.2"
 
 # Windows-Konsole (cp850/cp1252) kann nicht jedes Zeichen darstellen: lieber ersetzen als abstürzen.
 for _strom in (sys.stdout, sys.stderr):
@@ -371,6 +372,52 @@ def schreibe(doc, seiten, ziel):
     os.replace(tmp, ziel)
 
 
+# --------------------------------------------------------------------------- Dubletten
+
+def _woerter(text):
+    return re.findall(r"[a-zäöüß0-9]{2,}", text.lower())
+
+
+def _text_der_datei(pfad):
+    try:
+        with fitz.open(pfad) as d:
+            return d.page_count, " ".join(p.get_text() for p in d)
+    except Exception:
+        return None, ""
+
+
+def finde_dublette(ordner, seiten, e):
+    """Liegt in `ordner` schon ein Schreiben mit (fast) gleichem Text? Dann dessen Dateiname.
+    Derselbe Brief zweimal gescannt ergibt nie genau dieselbe Datei, aber fast denselben erkannten Text."""
+    schwelle = e.get("dubletten_schwelle", 0.95)
+    if not schwelle or not os.path.isdir(ordner):
+        return None
+    neu = _woerter(" ".join(s.text for s in seiten))
+    if len(neu) < 15:          # zu wenig Text für einen sicheren Vergleich
+        return None
+    grenze = time.time() - e.get("dubletten_tage", 30) * 86400
+    for name in sorted(os.listdir(ordner)):
+        pfad = os.path.join(ordner, name)
+        if not name.lower().endswith(".pdf") or not os.path.isfile(pfad):
+            continue
+        if os.path.getmtime(pfad) < grenze:
+            continue
+        n, text = _text_der_datei(pfad)
+        if n != len(seiten):
+            continue
+        alt = _woerter(text)
+        if not alt or abs(len(alt) - len(neu)) > 0.1 * max(len(alt), len(neu)):
+            continue
+        # Zahlen (Datum, Aktenzeichen, Beträge) müssen praktisch gleich sein: zwei verschiedene Schreiben
+        # mit gleichem Vordruck (z. B. zwei Eintragungsnachrichten) unterscheiden sich gerade darin.
+        z_neu, z_alt = {w for w in neu if any(c.isdigit() for c in w)}, {w for w in alt if any(c.isdigit() for c in w)}
+        if (z_neu or z_alt) and len(z_neu & z_alt) / len(z_neu | z_alt) < 0.9:
+            continue
+        if difflib.SequenceMatcher(None, neu, alt, autojunk=False).ratio() >= schwelle:
+            return name
+    return None
+
+
 def zielordner(e, art, name):
     if art == "urkunde":
         return os.path.join(e["ziel_urkunden"], name)
@@ -403,6 +450,11 @@ def verarbeite_datei(pfad, e, bestand, heute, probe=False):
         doc.close()
         return ergebnisse, ohne_text, len(seiten)
     for r in ergebnisse:
+        doppelt = finde_dublette(r["ordner"], r["teil"], e)
+        if doppelt:
+            # Nie löschen: Dubletten kommen in einen eigenen Ordner, das Protokoll nennt das Original.
+            r["grund"] = f"Dublette von {os.path.basename(r['ordner'])}\\{doppelt}"
+            r["ordner"] = e.get("ziel_dubletten") or os.path.join(e["eingang"], "Dubletten")
         os.makedirs(r["ordner"], exist_ok=True)
         r["datei"] = freier_name(r["ordner"], r["stamm"])
         schreibe(doc, r["teil"], r["datei"])

@@ -5,6 +5,9 @@
   "ziel_unklar": "Y:\\Posteingang\\Nicht zugeordnet",
   "archiv": "Y:\\Posteingang\\Original-Scans",
   "protokoll": "Y:\\Posteingang\\Protokoll",
+  "ziel_dubletten": "Y:\\Posteingang\\Dubletten",
+  "dubletten_schwelle": 0.95,
+  "dubletten_tage": 30,
 
   "ordnername_urkunde": "{nr}-{jahr}",
   "ordnername_vorgang": "{nr}",
