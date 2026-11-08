@@ -1,0 +1,1750 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" xmlns:elna="http://www.bnotk.de/schemas/elektronische_nebenakte" targetNamespace="http://www.bnotk.de/schemas/elektronische_nebenakte">
+
+    <!-- Elementen für die Erstellung von Beispieldatensätzen -->
+
+    <xs:element name="Nebenakte_nur_mit_Pflichfeldern" type="elna:Nebenakte"/>
+    <xs:element name="Nebenakte_mit_allen_Datenfeldern" type="elna:Nebenakte"/>
+
+    <!-- Typdefinitionen -->
+
+    <xs:complexType name="Nebenakte">
+        <xs:annotation>
+            <xs:documentation>
+                Das Hauptelement einer Nebenakte einer Amtstätigkeit.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="Aktenzeichen">
+                <xs:annotation>
+                    <xs:documentation>
+                        Das Aktenzeichen der Nebenakte im eigenen Format des Notarbüros.
+                    </xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:maxLength value="32"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+            <xs:element name="Beschreibung" minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine freie Beschreibung der Nebenakte. 
+                    </xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:maxLength value="255"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+            <xs:element minOccurs="0" name="Amtstraeger_Origin" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Der Name der ursprünglichen Amtstätigkeit, welche die Nebenakte errichtet hat. 
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Verwandte_Aktenzeichen">
+                <xs:annotation>
+                    <xs:documentation>
+                        Verweis auf andenen thematisch verwandten Nebenakten.
+                    </xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:maxLength value="32"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Dokument"
+                type="elna:Dokument_Sonstiges">
+                <xs:annotation>
+                    <xs:documentation>
+                        Dokumente, die dieser Nebenakte zugehörig sind, aber nicht eine notarielle Urkunde sind.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" name="Vorgang" type="elna:Vorgang">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine Liste der dieser Nebenakte zugehörigen Vorgänge. 
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="Anlagedatum" type="xs:date">
+                <xs:annotation>
+                    <xs:documentation>
+                        Das Datum der Anlage der Nebenakte.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+        <xs:attribute name="Schema_Version" fixed="1.1.0" use="required" type="xs:string">
+            <xs:annotation>
+                <xs:documentation>
+                    Ein technisches Attribut, um die Version des XML-Schemas zu bezeichnen, der dieses Nebenakte XML-Dokument entspricht.
+                </xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="Exportiert_am" use="optional" type="xs:dateTime">
+            <xs:annotation>
+                <xs:documentation>
+                    Der Erstellungszeitpunkt des Nebenakte XML-Dokumentes.
+                </xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="Exportiert_von" use="optional" type="xs:string">
+            <xs:annotation>
+                <xs:documentation>
+                    Der Nutzer, der dieses XML-Dokument erstellt bzw. exportiert hat.
+                </xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="Exportiert_aus" use="optional" type="xs:string">
+            <xs:annotation>
+                <xs:documentation>
+                    Der Name der Notarsoftware, die dieses Nebenakte XML-Dokument erzeugt hat. 
+                </xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+    </xs:complexType>
+
+    <xs:complexType name="Vorgang">
+        <xs:annotation>
+            <xs:documentation>
+                Beschreibt einen der Nebenakte zugehörigen Vorgang. 
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="Vorgangszeichen">
+                <xs:annotation>
+                    <xs:documentation>
+                        Das Zeichen des Vorgangs.
+                    </xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:maxLength value="32"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+            <xs:element minOccurs="0" name="Beschreibung">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine freie Beschreibung des Vorgangs. 
+                    </xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:maxLength value="255"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+            <xs:choice minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>
+                        Ein Verweis auf eine Verwahrungsmasse im Massenbuch oder im VVZ.
+                    </xs:documentation>
+                </xs:annotation>
+                <xs:element maxOccurs="unbounded" minOccurs="1" name="Nr_Massenbuch">
+                    <xs:annotation>
+                        <xs:documentation>
+                            Ein Verweis auf eine verwahrungsmasse im Massenbuch.
+                        </xs:documentation>
+                    </xs:annotation>
+                    <xs:simpleType>
+                        <xs:restriction base="xs:string">
+                            <xs:maxLength value="16"/>
+                        </xs:restriction>
+                    </xs:simpleType>
+                </xs:element>
+                <xs:element maxOccurs="unbounded" minOccurs="1" name="Massennummer">
+                    <xs:annotation>
+                        <xs:documentation>
+                            Ein Verweis auf eine Verwahrungsmasse im VVZ.
+                        </xs:documentation>
+                    </xs:annotation>
+                    <xs:simpleType>
+                        <xs:restriction base="xs:string">
+                            <xs:maxLength value="16"/>
+                        </xs:restriction>
+                    </xs:simpleType>
+                </xs:element>
+            </xs:choice>
+            <xs:element minOccurs="0" name="Abschluss_Amtsgeschaeft" type="xs:date">
+                <xs:annotation>
+                    <xs:documentation>
+                        Das Datum des Abschlusses des Amtsgeschäftes.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="Aufbewahrungsfrist">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die Aufbewahrungsfrist in Jahren.
+                    </xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:integer">
+                        <xs:minInclusive value="7"/>
+                        <xs:maxInclusive value="30"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+            <xs:element minOccurs="0" name="Weitere_Aufbewahrung">
+                <xs:annotation>
+                    <xs:documentation>
+                        Abbildung eines Sachverhalts, der die weitere Aufbewahrung nach Ablauf der Aufbewahrungsfrist gebietet.
+                    </xs:documentation>
+                </xs:annotation>
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="Angeordnet_am" type="xs:date">
+                            <xs:annotation>
+                                <xs:documentation>
+                                    ...
+                                </xs:documentation>
+                            </xs:annotation>
+                        </xs:element>
+                        <xs:element name="Angeordnet_bis" type="xs:date">
+                            <xs:annotation>
+                                <xs:documentation>
+                                    ...
+                                </xs:documentation>
+                            </xs:annotation>
+                        </xs:element>
+                        <xs:element name="Angeordnet_weil" type="xs:string">
+                            <xs:annotation>
+                                <xs:documentation>
+                                    Grund der Aufbewahrung nach Ablauf der Aufbewahrungsfrist
+                                </xs:documentation>
+                            </xs:annotation>
+                        </xs:element>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" name="Sachbearbeiter" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Der Sachbearbeiter, der den Vorgang bearbeitet.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Urkunde" type="elna:Urkunde">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine Liste der zum Vorgang gehördenden notariellen Urkunden.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" maxOccurs="unbounded" name="Beteiligte" type="elna:Beteiligte">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine Liste der zum Vorgang gehörenden Beteiligten.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Dokument"
+                type="elna:Dokument_Sonstiges">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine Liste der zum Vorgang gehörenden Dokumente (soweit diese nicht Teil einer notariellen Urkunde sind).
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Geschaeftsgegenstand"
+                type="elna:Geschaeftsgegenstand_Vorgang">
+                <xs:annotation>
+                    <xs:documentation>
+                        Der Geschäftsgegenstand des Vorgangs aus der Werteliste.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" name="Zusatz_zum_Geschaeftsgegenstand" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Ein frei bezeichneter abweichender Geschäftsgegenstand des Vorgangs. 
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="Anlagedatum" type="xs:date">
+                <xs:annotation>
+                    <xs:documentation>
+                        Das Datum, an dem der Vorgang angelegt wurde.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Urkunde">
+        <xs:annotation>
+            <xs:documentation>
+                Beschreibt eine notarielle Urkunde, die zu einem Vorgang gehört.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:choice minOccurs="0">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die eindeutige Bezeichnung der Urkunde.
+                    </xs:documentation>
+                </xs:annotation>
+                <xs:element name="UR_Nr" type="xs:string">
+                    <xs:annotation>
+                        <xs:documentation>
+                            Die Urkundenrollennummer einer Urkunde vor Einführung von UVZ.
+                        </xs:documentation>
+                    </xs:annotation>
+                </xs:element>
+                <xs:element name="UVZ_Nr" type="elna:Uvz_Nummer">
+                    <xs:annotation>
+                        <xs:documentation>
+                            Die UVZ-Nummer einer Urkunde nach Einführung von UVZ.
+                        </xs:documentation>
+                    </xs:annotation>
+                </xs:element>
+            </xs:choice>
+            <xs:element minOccurs="0" name="Amtstraeger_Origin" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Der Name der ursprunglichen Amtstätigkeit, die diese Urkunde erstellt hat. Z.B. "Notar Max Mustermann in Musterstadt"
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" name="Beurkundungsdatum" type="xs:date">
+                <xs:annotation>
+                    <xs:documentation>
+                        Datum der Beurkundung.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" name="Urkundsperson" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Der beurkundende Notar oder Notariatsverwalter bzw. sein Vertreter.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" name="Ort_der_Beurkundung" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die Anschrift des Orts der Beurkundung. Wenn die Beurkundung in der Geschäftsstelle (d.h. im Notarbüro) stattfindet, kann hier einfach "Geschäftsstelle" angegeben werden.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="Geschaeftsgegenstand" type="elna:Geschaeftsgegenstand_Urkunde">
+                <xs:annotation>
+                    <xs:documentation>
+                        Der Geschäftsgegenstand der Urkunde aus der Werteliste.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" name="Zusatz_zum_Geschaeftsgegenstand" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Ein frei definierbarer abweichender Geschäftsgegenstand der Urkunde.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" name="Notariell_verwahrter_Erbvertrag" default="false"
+                type="xs:boolean">
+                <xs:annotation>
+                    <xs:documentation>
+                        Ein Flag, ob der Erbvertrag im Notarbüro verwahrt wird.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" name="Videokommunikation" default="false" type="xs:boolean">
+                <xs:annotation>
+                    <xs:documentation>
+                        Ein Flag, ob die Beurkundung online per Videokommunikation erfolgt ist.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" name="Streng_Vertraulich" default="false" type="xs:boolean">
+                <xs:annotation>
+                    <xs:documentation>
+                        Ein Flag, ob die Urkunde streng vertraulich ist.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" name="Dokument" type="elna:Dokument_Urkunde">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine Liste der zur Urkunde zugehörigen Dokumente.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" maxOccurs="unbounded" name="Registrierung">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine Registrierung oder Anzeige in Zusammenhang mit der Urkunde. 
+                    </xs:documentation>
+                </xs:annotation>
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="Registrierung_Typ" type="elna:Registrierung_Typ">
+                            <xs:annotation>
+                                <xs:documentation>
+                                    Der Typ der Registrierung aus der Werteliste.
+                                </xs:documentation>
+                            </xs:annotation>
+                        </xs:element>
+                        <xs:element minOccurs="0" name="Registrierungsnummer" type="xs:string">
+                            <xs:annotation>
+                                <xs:documentation>
+                                    Die eindeutige Nummer der Registrierung.
+                                </xs:documentation>
+                            </xs:annotation>
+                        </xs:element>
+                        <xs:element minOccurs="0" name="Datum" type="xs:date">
+                            <xs:annotation>
+                                <xs:documentation>
+                                    Das Datum der Registrierung. 
+                                </xs:documentation>
+                            </xs:annotation>
+                        </xs:element>
+                        <xs:element minOccurs="0" name="Finanzamt" type="xs:string">
+                            <xs:annotation>
+                                <xs:documentation>
+                                    Bezeichnung des Finanzamtes.
+                                </xs:documentation>
+                            </xs:annotation>
+                        </xs:element>
+                        <xs:element minOccurs="0" name="Finanzamtsdienststelle"
+                            type="elna:Finanzamtsdienststelle">
+                            <xs:annotation>
+                                <xs:documentation>
+                                    Die Steuerbehörde zu einem passenden Registrierungstyp.
+                                </xs:documentation>
+                            </xs:annotation>
+                        </xs:element>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element minOccurs="0" maxOccurs="unbounded" name="Verbindung"
+                type="elna:Urkunden_Verbindung">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine Liste von Verbindungen zwischen dieser und anderen Urkunden.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Dokument_Urkunde">
+        <xs:annotation>
+            <xs:documentation>
+                Beschreibt ein urkundsbezogenes Dokument.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element minOccurs="0" name="Hauptdokument" type="xs:boolean">
+                <xs:annotation>
+                    <xs:documentation>
+                        Flag, ob das Dokument das Hauptdokument der Urkunde ist.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" name="Dokument_Art" type="elna:Dokument_Art">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die Art des Dokumentes aus der Werteliste.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Kategorie" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die Kategorie des Dokumentes. 
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" name="Archiviert_In_USL" type="xs:boolean" fixed="true">
+                <xs:annotation>
+                    <xs:documentation>
+                        Das Dokument wird in USL gespeichert und nicht im Filesystem über die Nebenakte referenziert.  
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" maxOccurs="1" name="USL_Referenz" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die eindeutige AOID des Dokumentes in USL.  
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Dokument_Info" type="elna:Dokument_Info">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die Informationen zu den eigentlichen Dateien des Dokumentes und der dazu gehörigen Signaturen.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+
+
+
+            <xs:element maxOccurs="1" minOccurs="0" name="Betreff_Bezeichnung" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine freie Bezeichnung des Dokumentes. 
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Eingangsdatum" type="xs:date">
+                <xs:annotation>
+                    <xs:documentation>
+                        Das Eingangsdatum des Dokumentes.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Dokumentendatum" type="xs:date">
+                <xs:annotation>
+                    <xs:documentation>
+                        Das Erstellungsdatum des Dokumentes.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Version" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die Version des Dokumentes.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Letzte_Aenderung" type="xs:date">
+                <xs:annotation>
+                    <xs:documentation>
+                        Letztes Änderungsdatum des Dokumentes.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Zuletzt_bearbeitet_durch" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Name / Username des Nutzers, der das Dokument zuletzt bearbeitet hat.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Dokument_Sonstiges">
+        <xs:annotation>
+            <xs:documentation>
+                Beschreibt ein nicht urkundsbezogenes Dokument.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Kategorie" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die Kategorie des Dokumentes. 
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="1" name="Dokument_Info" type="elna:Dokument_Info">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die Informationen zu den eigentlichen Dateien des Dokumentes und der dazu gehörigen Signaturen.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Betreff_Bezeichnung" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine freie Bezeichnung des Dokumentes. 
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Eingangsdatum" type="xs:date">
+                <xs:annotation>
+                    <xs:documentation>
+                        Das Eingangsdatum des Dokumentes.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Dokumentendatum" type="xs:date">
+                <xs:annotation>
+                    <xs:documentation>
+                        Das Erstellungsdatum des Dokumentes.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Version" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die Version des Dokumentes.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Letzte_Aenderung" type="xs:date">
+                <xs:annotation>
+                    <xs:documentation>
+                        Letztes Änderungsdatum des Dokumentes.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Zuletzt_bearbeitet_durch" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Name / Username des Nutzers, der das Dokument zuletzt bearbeitet hat.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Dokument_Info">
+        <xs:annotation>
+            <xs:documentation>
+                Informationen zu der Datei eines Dokumentes und der mglw. dazu gehörigen Signaturen. 
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element maxOccurs="1" minOccurs="1" name="Dokument_Referenz" type="elna:Datei_Info">
+                <xs:annotation>
+                    <xs:documentation>
+                        Referenz auf die Datei des Dokumentes selbst.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Signatur" type="elna:Datei_Info">
+                <xs:annotation>
+                    <xs:documentation>
+                        Referenz auf die externe Signaturdatei eines Dokumentes.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Datei_Info">
+        <xs:annotation>
+            <xs:documentation>
+                Referenz auf ein Dokument bzw. der sich darauf bezogenen Signaturprüfprotokoll.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element maxOccurs="1" minOccurs="1" name="Datei_Referenz" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Referenz auf einer Datei im Dateisystem als relative Pfadangabe. 
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Pruefprotokoll_Referenz"
+                type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Referenz auf das zur Datei gehörige Prüfprotokoll. Bei embedded Signaturen ist die Datei das Dokument selbst. Bei detached Signaturen ist die Datei die externe Signaturdatei.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Freie_Bezeichnung">
+        <xs:annotation>
+            <xs:documentation>
+                Ein frei definierbarer Beteiligte.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="Beschreibung" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Freie Beschreibung der Beteiligten.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" name="Anzahl_Beteiligte" type="xs:integer">
+                <xs:annotation>
+                    <xs:documentation>
+                        Anzahl der Beteiligten.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" name="Rolle" type="elna:Rolle_Beteiligte">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die Rolle der Beteiligten aus der Werteliste.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Natuerliche_Person">
+        <xs:annotation>
+            <xs:documentation>
+                Informationen zu einer natürlichen Person als Beteiligtem.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element maxOccurs="1" minOccurs="0" name="Externe_Person_Id" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die eindeutige externe ID einer natürlichen Person in der Notarsoftware.
+                        Die ID sollte mit einem eindeutigen Kürzel der Notarsoftware prefixed werden. (z.B. BesteNSW-12345)
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Rolle" type="elna:Rolle_Beteiligte">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die Rolle des Beteiligten aus der Werteliste.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Familienname" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Familienname.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Geburtsname" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Geburtsname.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Vornamen" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Alle Vornamen als ein Feld. Z.B.: Hans Markus
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Rufname" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Rufname. Z.B.: Hans
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Ordens_oder_Künstlername"
+                type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Ordens_oder_Künstlername. z.B.: ... 
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Früherer_Familienname" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Früherer Familenname z.B. vor der Eheschließung.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Titel_vor_Name" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Titel. z.B.: Prof. Dr.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Namensvorsatz" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Namesvorsatz.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Namenszusatz" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Nemenszusatz.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Geburtsdatum" type="xs:date">
+                <xs:annotation>
+                    <xs:documentation>
+                        Geburtsdatum.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Geburtsort" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Geburtsort.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Geburtsstaat" type="elna:Staat">
+                <xs:annotation>
+                    <xs:documentation>
+                        Dreistellige Geburtsstaat gemäß ISO 3166 ALPHA-3.  
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Geburtsstandesamt" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Name des Geburtsstandesamtes.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Geburtsregisternummer" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Geburtsregisternummer.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Sterbedatum" type="xs:date">
+                <xs:annotation>
+                    <xs:documentation>
+                        Sterbedatum.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Wohnort" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Wohnort.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Steuermerkmal"
+                type="elna:Steuermerkmal">
+                <xs:annotation>
+                    <xs:documentation>
+                        Ein Steuermerkmal zur eindeitgen steuerlichen Identifikation.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Staatsangehörigkeit" type="elna:Staat">
+                <xs:annotation>
+                    <xs:documentation>
+                        Staatsangehörigkeit als dreistellige Angabe gemäß ISO 3166 ALPHA-3.  
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Ausweisdokument"
+                type="elna:Ausweisdokument">
+                <xs:annotation>
+                    <xs:documentation>
+                        Information zu einem Ausweisdokument.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Güterstand" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Güterstand.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Anrede_Adresse" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Andere Adresse.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Anrede_Brief" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Andere Brief.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Anschrift" type="elna:Anschrift">
+                <xs:annotation>
+                    <xs:documentation>
+                        Anschrift.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Telekommunikationsverbindung"
+                type="elna:Telekommunikationsverbindung">
+                <xs:annotation>
+                    <xs:documentation>
+                        Daten einer Telekommunikationsverbindung.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Bankverbindung"
+                type="elna:Bankverbindung">
+                <xs:annotation>
+                    <xs:documentation>
+                        Daten einer Bankverbindung.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Bemerkung" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine freie Bemerkung.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Organisation">
+        <xs:annotation>
+            <xs:documentation>
+                Daten zu einer juristischen Person als Beteiligte.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element maxOccurs="1" minOccurs="0" name="Externe_Person_Id" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die eindeutige externe ID einer juristischen  Person in der Notarsoftware.
+                        Die ID sollte mit einem eindeutigen Kürzel der Notarsoftware prefixed werden. (z.B. BesteNSW-23456)
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="1" name="Bezeichnung" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Der Name der Organisation.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Frühere_Bezeichnung"
+                type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Frühere Namen der Organisation.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Sitz" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Sitz.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Registergericht" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Name des Registergerichts.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Registerzeichen" type="elna:Registerzeichen">
+                <xs:annotation>
+                    <xs:documentation>
+                        Registerzeichen.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Historisches_Registerzeichen"
+                type="elna:Registerzeichen">
+                <xs:annotation>
+                    <xs:documentation>
+                        Historisches Registerzeichen.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Steuermerkmal"
+                type="elna:Steuermerkmal">
+                <xs:annotation>
+                    <xs:documentation>
+                        Ein Steuermerkmal zur eindeutigen steuerlichen Identifikation.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Sitzstaat" type="elna:Staat">
+                <xs:annotation>
+                    <xs:documentation>
+                        Staat des Sitzes als dreistellige Angabe gemäß ISO 3166 ALPHA-3.  
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Anrede_Adresse" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Anrede Adresse.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Anrede_Brief" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Anrede Brief.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Anschrift" type="elna:Anschrift">
+                <xs:annotation>
+                    <xs:documentation>
+                        Anschrift.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Telekommunikationsverbindung"
+                type="elna:Telekommunikationsverbindung">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine Telekommunikationsverbindung.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Bankverbindung" type="elna:Bankverbindung">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine Bankverbindung.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Bemerkung" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine freie Bemerkung.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Ansprechpartner"
+                type="elna:Natuerliche_Person">
+                <xs:annotation>
+                    <xs:documentation>
+                        Ein Ansprechpartner als natürliche Person.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Wirtschalftlich_Berechtigter"
+                type="elna:Natuerliche_Person">
+                <xs:annotation>
+                    <xs:documentation>
+                        Ein wirtschaftlich Berechtigter als natürliche Person.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0"
+                name="Dokumentation_Eigentums-_und_Kontrollstruktur" type="elna:Dokument_Sonstiges">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die Dokumentation der Eigentums- und Kontrollstruktur im Sinne des Geldwäschebekämpfungsrechts.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Anschrift">
+        <xs:annotation>
+            <xs:documentation>
+                Die Anschrift einer Beteiligte.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element maxOccurs="1" minOccurs="0" name="Straße" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Straße.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Hausnummer" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Hausnummer.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Postfach" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Postfach.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Postleitzahl" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        PLZ.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Ort" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Ort.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Ortsteil" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Ortsteil, z.B: Bezirk.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="unbounded" minOccurs="0" name="Früherer_Gemeindename"
+                type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Früherer Gemeindename.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Anschriftenzusatz" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Anschriftenzusatz.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Staat" type="elna:Staat">
+                <xs:annotation>
+                    <xs:documentation>
+                        Staat als dreistellige Angabe gemäß ISO 3166 ALPHA-3.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Telekommunikationsverbindung">
+        <xs:annotation>
+            <xs:documentation>
+                Die Daten zu einer Telekommunikationsverbindung.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element maxOccurs="1" minOccurs="1" name="Verbindungsart" type="elna:Verbindungsart">
+                <xs:annotation>
+                    <xs:documentation>
+                        Art der Verbindung aus der Werteliste.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="1" name="Kennung" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eindeutige Nummer bzw. Kennung des Kommunikationskanals, z.B. "+49 815 0815 0815" oder "test@foo.bar".
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Zusatz" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Zusatz.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Verschluesselungspasswort"
+                type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Passwort, das für den verschlüsselten Austausch über diese Verbindung genutzt wird.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Verschluesselungszertifikat_Datei"
+                type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Public Key des Kommunikationspartners zur Verschlüsselung einer Nachricht an diesen Kommunikationspartner des Notars.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Ist_Dienstlich" type="xs:boolean">
+                <xs:annotation>
+                    <xs:documentation>
+                        Flag, ob die Verbindung dienstlich ist.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Bankverbindung">
+        <xs:annotation>
+            <xs:documentation>
+                Daten zu einer Bankverbindung.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element maxOccurs="1" minOccurs="1" name="IBAN" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        IBAN.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="BIC">
+                <xs:annotation>
+                    <xs:documentation>
+                        BIC.
+                    </xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:maxLength value="11"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Zusatz" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Zusatz.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Kreditinstitut" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Name des Kreditinstituts.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Kontoinhaber" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Name des Kontoinhabers.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Ausweisdokument">
+        <xs:annotation>
+            <xs:documentation>
+                Daten zu einem Ausweisdokument.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element maxOccurs="1" minOccurs="0" name="Dokument" type="elna:Dokument_Sonstiges">
+                <xs:annotation>
+                    <xs:documentation>
+                        Ein Dokument, typischerweise der Scan des Ausweises.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Ausweisart" type="elna:Ausweisart">
+                <xs:annotation>
+                    <xs:documentation>
+                        Typ des Ausweises aus der Werteliste.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Gültigkeit_bis" type="xs:date">
+                <xs:annotation>
+                    <xs:documentation>
+                        Datum des letzten Tages der Gültigkeit des Ausweises.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Ausweis-Nummer" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eindeutige Nummer des Ausweises.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Ausstellende_Behörde" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Name der ausstellenden Behörde.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Ausstellender_Staat">
+                <xs:annotation>
+                    <xs:documentation>
+                        Ausstellender Staat als dreistellige Angabe gemäß ISO 3166 ALPHA-3.
+                    </xs:documentation>
+                </xs:annotation>
+                <xs:simpleType>
+                    <xs:restriction base="xs:string">
+                        <xs:minLength value="3"/>
+                        <xs:maxLength value="3"/>
+                    </xs:restriction>
+                </xs:simpleType>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Steuermerkmal">
+        <xs:annotation>
+            <xs:documentation>
+                Daten zur eindeutigen steuerlichen Identifikation.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element maxOccurs="1" minOccurs="1" name="Art" type="elna:Steuermerkmal_Art">
+                <xs:annotation>
+                    <xs:documentation>
+                        Art des Steuermerkmals aus der Werteliste.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="1" name="Identifikationsnummer" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Steuermerkmal, z.B. eindeutige Identifikationsnummer oder Steuernummer.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Registerzeichen">
+        <xs:annotation>
+            <xs:documentation>
+                Daten über eine Registereintragung im Handelsregister oder einem ähnlichen Register.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element maxOccurs="1" minOccurs="1" name="Registertyp" type="elna:Registertyp">
+                <xs:annotation>
+                    <xs:documentation>
+                        Typ des Registers aus der Werteliste.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="1" name="Registernummer" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eindeutige Registernummer.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element maxOccurs="1" minOccurs="0" name="Registergericht" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Name des Registergerichts.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+
+    <xs:complexType name="Beteiligte">
+        <xs:annotation>
+            <xs:documentation>
+                Ein Beteiligter aus den drei möglichen Typen.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:choice>
+            <xs:element name="Natuerliche_Person" type="elna:Natuerliche_Person">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine natürliche Person als Beteiligter.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="Organisation" type="elna:Organisation">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine juristische Person als Beteiligter.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="Freie_Bezeichnung" type="elna:Freie_Bezeichnung">
+                <xs:annotation>
+                    <xs:documentation>
+                        Eine freie Bezeichnung (z.B. einer Gruppe von Menschen) als Beteiligter.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:choice>
+    </xs:complexType>
+
+    <xs:complexType name="Urkunden_Verbindung">
+        <xs:annotation>
+            <xs:documentation>
+                Daten zur Verbindung zu einer anderen Urkunde.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="UVZ_Nr" type="elna:Uvz_Nummer">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die UVZ-Nr als eindeutige ID der Urkunde im UVZ innerhalb einer Amtstätigkeit.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element minOccurs="0" name="Amtstraeger_Origin" type="xs:string">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die Amtstätigkeit, welche die Urkunde erstellt hat.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="Uvz_Nummer">
+        <xs:annotation>
+            <xs:documentation>
+                Eine eindeutige ID einer Urkunde im UVZ.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:sequence>
+            <xs:element name="Jahr" type="xs:integer">
+                <xs:annotation>
+                    <xs:documentation>
+                        Das Jahrgang der Urkunde.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+            <xs:element name="Nummer" type="xs:integer">
+                <xs:annotation>
+                    <xs:documentation>
+                        Die Nummer der Urkunde.
+                    </xs:documentation>
+                </xs:annotation>
+            </xs:element>
+        </xs:sequence>
+    </xs:complexType>
+
+    <!-- Wertelisten -->
+
+    <xs:simpleType name="Rolle_Beteiligte">
+        <xs:annotation>
+            <xs:documentation>
+               Die unterschiedlichen Rollen der Beteiligten.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="Vertreter/in"/>
+            <xs:enumeration value="Vertretene/r"/>
+            <xs:enumeration value="Vertreter/in und Vertretene/r"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="Ausweisart">
+        <xs:annotation>
+            <xs:documentation>
+                Die unterschiedlichen Ausweisarten.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="Personalausweis"/>
+            <xs:enumeration value="Pass"/>
+            <xs:enumeration value="ID"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="Dokument_Art">
+        <xs:annotation>
+            <xs:documentation>
+                Die unterschiedlichen Dokumentarten.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="Elektronische Fassung der Urschrift"/>
+            <xs:enumeration value="Elektronisches Original"/>
+            <xs:enumeration value="Elektronische Abschrift (beglaubigt)"/>
+            <xs:enumeration value="Elektronische Fassung der begl. Abschrift"/>
+            <xs:enumeration value="Elektronische Abschrift (einfach)"/>
+            <xs:enumeration value="Elektronische Fassung eines Papierdokuments"/>
+            <xs:enumeration value="Sonstiges elektronisches Dokument"/>
+            <xs:enumeration value="Reinschrift (beglaubigt)"/>
+            <xs:enumeration value="Elektronischer Vermerk nach § 44a / § 44b BeurkG"/>
+            <xs:enumeration value="Papier-Vermerk nach § 44a / § 44b BeurkG"/>
+            <xs:enumeration value="Elektronische Abschrift (einfach)"/>
+            <xs:enumeration value="Elektronische Abschrift (beglaubigt)"/>
+            <xs:enumeration value="Sonstige elektronische Eigenurkunde"/>
+            <xs:enumeration value="Sonstiges"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="Verbindungsart">
+        <xs:annotation>
+            <xs:documentation>
+                Die unterschiedlichen Telekommunikationsverbindungsarten.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="E-Mail"/>
+            <xs:enumeration value="Telefon Festnetz"/>
+            <xs:enumeration value="Telefon Mobil"/>
+            <xs:enumeration value="Fax"/>
+            <xs:enumeration value="Instant Messenger"/>
+            <xs:enumeration value="De-Mail"/>
+            <xs:enumeration value="Sichere elektronische Postfachadresse"/>
+            <xs:enumeration value="Web"/>
+            <xs:enumeration value="Sonstiges"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="Registertyp">
+        <xs:annotation>
+            <xs:documentation>
+                Die unterschiedlichen Registertypen.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="Handelsregister Abteilung A"/>
+            <xs:enumeration value="Handelsregister Abteilung B"/>
+            <xs:enumeration value="Genossenschaftsregister"/>
+            <xs:enumeration value="Partnerschaftsregister"/>
+            <xs:enumeration value="Vereinsregister"/>
+            <xs:enumeration value="Ausländische Register"/>
+            <xs:enumeration value="Sonstiges Register"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="Registrierung_Typ">
+        <xs:annotation>
+            <xs:documentation>
+                Die unterschiedlichen Registrierungstypen.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="Finanzamtanzeige"/>
+            <xs:enumeration value="ZTR"/>
+            <xs:enumeration value="ZVR"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="Geschaeftsgegenstand_Urkunde">
+        <xs:annotation>
+            <xs:documentation>
+                Die unterschiedlichen Geschäftsgegenstände einer Urkunde.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="Adoptionsantrag"/>
+            <xs:enumeration value="Anfechtung der Annahme einer Erbschaft"/>
+            <xs:enumeration value="Anfechtung der Erbausschlagung"/>
+            <xs:enumeration value="Antrag auf Erteilung eines Erbscheins (mit EV)"/>
+            <xs:enumeration value="Antrag auf Erteilung eines Europäisches Nachlasszeugnis (mit EV)"/>
+            <xs:enumeration
+                value="Antrag auf Erteilung eines Testamentsvollstreckerzeugnisses (mit EV)"/>
+            <xs:enumeration value="Auflassung"/>
+            <xs:enumeration value="Ausgliederung"/>
+            <xs:enumeration value="Bauträgervertrag"/>
+            <xs:enumeration value="Beteiligungsvertrag"/>
+            <xs:enumeration value="Betreuungsverfügung/Patientenverfügung"/>
+            <xs:enumeration value="Dienstbarkeitsbestellung"/>
+            <xs:enumeration value="Ehevertrag"/>
+            <xs:enumeration value="Ehe- und Erbvertrag"/>
+            <xs:enumeration value="Eidesstattliche Versicherung"/>
+            <xs:enumeration value="Einbringungsvertrag"/>
+            <xs:enumeration value="Erbauseinandersetzungsvertrag"/>
+            <xs:enumeration value="Erbausschlagung"/>
+            <xs:enumeration value="Erbbaurechtsvertrag"/>
+            <xs:enumeration value="Erbteilsübertragung"/>
+            <xs:enumeration value="Erbvertrag"/>
+            <xs:enumeration value="Erb-/Pflichtteils-/Zuwendungsverzichtsvertrag"/>
+            <xs:enumeration value="Genehmigung/Vollmachtsbestätigung"/>
+            <xs:enumeration value="Geschäftsanteilsübertragungsvertrag"/>
+            <xs:enumeration value="Geschäftsanteilsverpfändung"/>
+            <xs:enumeration value="Gesellschafterbeschluss"/>
+            <xs:enumeration value="Gesellschaftervereinbarung"/>
+            <xs:enumeration value="Grundbuchberichtigungsantrag"/>
+            <xs:enumeration value="Grundschuld-/Hypothekenbestellung (mit ZV-Unterwerfung)"/>
+            <xs:enumeration value="Grundschuld-/Hypothekenbestellung (ohne ZV-Unterwerfung)"/>
+            <xs:enumeration value="Gründung einer Gesellschaft"/>
+            <xs:enumeration value="Hauptversammlungsbeschluss"/>
+            <xs:enumeration value="Hofübergabe"/>
+            <xs:enumeration value="Identitätserklärung"/>
+            <xs:enumeration value="Kaufvertrag"/>
+            <xs:enumeration value="Erbbaurechtskaufvertrag"/>
+            <xs:enumeration value="Erbteilskaufvertrag"/>
+            <xs:enumeration value="Geschäftsanteilskaufvertrag"/>
+            <xs:enumeration value="Grundstückskaufvertrag"/>
+            <xs:enumeration value="Grundstückskaufvertrag (Angebot)"/>
+            <xs:enumeration value="Grundstückskaufvertrag (Annahme)"/>
+            <xs:enumeration value="Unternehmenskaufvertrag"/>
+            <xs:enumeration value="Wohnungs-/Teileigentumskaufvertrag"/>
+            <xs:enumeration value="Löschungsbewilligung"/>
+            <xs:enumeration value="Messungsanerkennung und Auflassung"/>
+            <xs:enumeration value="Miteigentümervereinbarung"/>
+            <xs:enumeration value="Nachlassverzeichnis"/>
+            <xs:enumeration value="Nachtrag/Änderungsurkunde"/>
+            <xs:enumeration value="Nießbrauchsbestellung"/>
+            <xs:enumeration value="Prioritätsverhandlung"/>
+            <xs:enumeration value="Registeranmeldung"/>
+            <xs:enumeration value="Genossenschaftsregisteranmeldung"/>
+            <xs:enumeration value="Handelsregisteranmeldung"/>
+            <xs:enumeration value="Partnerschaftsregisteranmeldung "/>
+            <xs:enumeration value="Vereinsregisteranmeldung"/>
+            <xs:enumeration
+                value="Rücktritt vom Erbvertrag/Widerruf eines gemeinschaftlichen Testaments"/>
+            <xs:enumeration value="Satzungsbescheinigung"/>
+            <xs:enumeration value="Scheidungsfolgenvereinbarung"/>
+            <xs:enumeration value="Schenkungsvertrag"/>
+            <xs:enumeration value="Schuldanerkenntnis/Schuldversprechen"/>
+            <xs:enumeration value="Sorgeerklärung"/>
+            <xs:enumeration value="Spaltungsvertrag/Spaltungsplan"/>
+            <xs:enumeration value="Tauschvertrag"/>
+            <xs:enumeration value="Geschäftsanteilstauschvertrag"/>
+            <xs:enumeration value="Grundstückstauschvertrag"/>
+            <xs:enumeration value="Wohnungs-/Teileigentumstauschvertrag"/>
+            <xs:enumeration value="Testament"/>
+            <xs:enumeration value="Testament (gemeinschaftlich)"/>
+            <xs:enumeration value="Teilungserklärung/Teilungsvertrag nach WEG"/>
+            <xs:enumeration value="Treuhandvertrag"/>
+            <xs:enumeration value="Überlassungsvertrag"/>
+            <xs:enumeration value="Überlassungsvertrag (Grundstück)"/>
+            <xs:enumeration value="Überlassungsvertrag (Wohnungs-/Teileigentum)"/>
+            <xs:enumeration value="Übernahmeerklärung (zur Kapitalerhöhung)"/>
+            <xs:enumeration value="Umwandlungsbeschluss"/>
+            <xs:enumeration value="Vaterschaftsanerkennung"/>
+            <xs:enumeration value="Vermächtniserfüllungsvertrag"/>
+            <xs:enumeration value="Vermögensauseinandersetzung"/>
+            <xs:enumeration value="Verschmelzungsvertrag"/>
+            <xs:enumeration value="Vollmacht"/>
+            <xs:enumeration value="Registervollmacht"/>
+            <xs:enumeration value="Vorsorgevollmacht"/>
+            <xs:enumeration value="Vorkaufsrechtsbestellung"/>
+            <xs:enumeration value="Zustimmung"/>
+            <xs:enumeration value="Löschungszustimmung"/>
+            <xs:enumeration value="Verwalterzustimmung"/>
+            <xs:enumeration value="Sonstiges"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="Geschaeftsgegenstand_Vorgang">
+        <xs:annotation>
+            <xs:documentation>
+                Die unterschiedlichen Geschäftsgegenstände eines Vorgangs.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="Adoptionsantrag"/>
+            <xs:enumeration value="Anfechtung der Annahme einer Erbschaft"/>
+            <xs:enumeration value="Anfechtung der Erbausschlagung"/>
+            <xs:enumeration value="Antrag auf Erteilung eines Erbscheins (mit EV)"/>
+            <xs:enumeration value="Antrag auf Erteilung eines Europäisches Nachlasszeugnis (mit EV)"/>
+            <xs:enumeration
+                value="Antrag auf Erteilung eines Testamentsvollstreckerzeugnisses (mit EV)"/>
+            <xs:enumeration value="Auflassung"/>
+            <xs:enumeration value="Ausgliederung"/>
+            <xs:enumeration value="Bauträgervertrag"/>
+            <xs:enumeration value="Beteiligungsvertrag"/>
+            <xs:enumeration value="Betreuungsverfügung/Patientenverfügung"/>
+            <xs:enumeration value="Dienstbarkeitsbestellung"/>
+            <xs:enumeration value="Ehevertrag"/>
+            <xs:enumeration value="Ehe- und Erbvertrag"/>
+            <xs:enumeration value="Eidesstattliche Versicherung"/>
+            <xs:enumeration value="Einbringungsvertrag"/>
+            <xs:enumeration value="Erbauseinandersetzungsvertrag"/>
+            <xs:enumeration value="Erbausschlagung"/>
+            <xs:enumeration value="Erbbaurechtsvertrag"/>
+            <xs:enumeration value="Erbteilsübertragung"/>
+            <xs:enumeration value="Erbvertrag"/>
+            <xs:enumeration value="Erb-/Pflichtteils-/Zuwendungsverzichtsvertrag"/>
+            <xs:enumeration value="Genehmigung/Vollmachtsbestätigung"/>
+            <xs:enumeration value="Geschäftsanteilsübertragungsvertrag"/>
+            <xs:enumeration value="Geschäftsanteilsverpfändung"/>
+            <xs:enumeration value="Gesellschafterbeschluss"/>
+            <xs:enumeration value="Gesellschaftervereinbarung"/>
+            <xs:enumeration value="Grundbuchberichtigungsantrag"/>
+            <xs:enumeration value="Grundschuld-/Hypothekenbestellung (mit ZV-Unterwerfung)"/>
+            <xs:enumeration value="Grundschuld-/Hypothekenbestellung (ohne ZV-Unterwerfung)"/>
+            <xs:enumeration value="Gründung einer Gesellschaft"/>
+            <xs:enumeration value="Hauptversammlungsbeschluss"/>
+            <xs:enumeration value="Hofübergabe"/>
+            <xs:enumeration value="Identitätserklärung"/>
+            <xs:enumeration value="Kaufvertrag"/>
+            <xs:enumeration value="Erbbaurechtskaufvertrag"/>
+            <xs:enumeration value="Erbteilskaufvertrag"/>
+            <xs:enumeration value="Geschäftsanteilskaufvertrag"/>
+            <xs:enumeration value="Grundstückskaufvertrag"/>
+            <xs:enumeration value="Grundstückskaufvertrag (Angebot)"/>
+            <xs:enumeration value="Grundstückskaufvertrag (Annahme)"/>
+            <xs:enumeration value="Unternehmenskaufvertrag"/>
+            <xs:enumeration value="Wohnungs-/Teileigentumskaufvertrag"/>
+            <xs:enumeration value="Löschungsbewilligung"/>
+            <xs:enumeration value="Messungsanerkennung und Auflassung"/>
+            <xs:enumeration value="Miteigentümervereinbarung"/>
+            <xs:enumeration value="Nachlassverzeichnis"/>
+            <xs:enumeration value="Nachtrag/Änderungsurkunde"/>
+            <xs:enumeration value="Nießbrauchsbestellung"/>
+            <xs:enumeration value="Prioritätsverhandlung"/>
+            <xs:enumeration value="Registeranmeldung"/>
+            <xs:enumeration value="Genossenschaftsregisteranmeldung"/>
+            <xs:enumeration value="Handelsregisteranmeldung"/>
+            <xs:enumeration value="Partnerschaftsregisteranmeldung "/>
+            <xs:enumeration value="Vereinsregisteranmeldung"/>
+            <xs:enumeration
+                value="Rücktritt vom Erbvertrag/Widerruf eines gemeinschaftlichen Testaments"/>
+            <xs:enumeration value="Satzungsbescheinigung"/>
+            <xs:enumeration value="Scheckprotest"/>
+            <xs:enumeration value="Scheidungsfolgenvereinbarung"/>
+            <xs:enumeration value="Schenkungsvertrag"/>
+            <xs:enumeration value="Schuldanerkenntnis/Schuldversprechen"/>
+            <xs:enumeration value="Sorgeerklärung"/>
+            <xs:enumeration value="Spaltungsvertrag/Spaltungsplan"/>
+            <xs:enumeration value="Tauschvertrag"/>
+            <xs:enumeration value="Geschäftsanteilstauschvertrag"/>
+            <xs:enumeration value="Grundstückstauschvertrag"/>
+            <xs:enumeration value="Wohnungs-/Teileigentumstauschvertrag"/>
+            <xs:enumeration value="Testament"/>
+            <xs:enumeration value="Testament (gemeinschaftlich)"/>
+            <xs:enumeration value="Teilungserklärung/Teilungsvertrag nach WEG"/>
+            <xs:enumeration value="Treuhandvertrag"/>
+            <xs:enumeration value="Überlassungsvertrag"/>
+            <xs:enumeration value="Überlassungsvertrag (Grundstück)"/>
+            <xs:enumeration value="Überlassungsvertrag (Wohnungs-/Teileigentum)"/>
+            <xs:enumeration value="Übernahmeerklärung (zur Kapitalerhöhung)"/>
+            <xs:enumeration value="Umwandlungsbeschluss"/>
+            <xs:enumeration value="Vaterschaftsanerkennung"/>
+            <xs:enumeration value="Vermächtniserfüllungsvertrag"/>
+            <xs:enumeration value="Vermögensauseinandersetzung"/>
+            <xs:enumeration value="Verschmelzungsvertrag"/>
+            <xs:enumeration value="Verwahrungsgeschäft"/>
+            <xs:enumeration value="Vollmacht"/>
+            <xs:enumeration value="Registervollmacht"/>
+            <xs:enumeration value="Vorsorgevollmacht"/>
+            <xs:enumeration value="Vorkaufsrechtsbestellung"/>
+            <xs:enumeration value="Wechselprotest"/>
+            <xs:enumeration value="Zustimmung"/>
+            <xs:enumeration value="Löschungszustimmung"/>
+            <xs:enumeration value="Verwalterzustimmung"/>
+            <xs:enumeration value="Sonstiges"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="Finanzamtsdienststelle">
+        <xs:annotation>
+            <xs:documentation>
+                Die unterschiedlichen Typen der Stellen beim Finanzamt, an die eine Anzeige erfolgen muss.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="Grunderwerbsteuerstelle"/>
+            <xs:enumeration value="Körperschaftssteuerstelle"/>
+            <xs:enumeration value="Erbschaft- und Schenkungsteuerstelle"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="Steuermerkmal_Art">
+        <xs:annotation>
+            <xs:documentation>
+                Die unterschiedlichen Steuermerkmal-Arten.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="Identifikationsnummer"/>
+            <xs:enumeration value="Wirtschafts-Identifikationsnummer"/>
+            <xs:enumeration value="Steuernummer"/>
+            <xs:enumeration value="Umsatzsteuer-Identifikationsnummer"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+    <xs:simpleType name="Staat">
+        <xs:annotation>
+            <xs:documentation>
+                Die unterschiedlichen Länder gemäß ISO 3166 ALPHA-3.
+            </xs:documentation>
+        </xs:annotation>
+        <xs:restriction base="xs:string">
+            <xs:minLength value="3"/>
+            <xs:maxLength value="3"/>
+        </xs:restriction>
+    </xs:simpleType>
+
+</xs:schema>

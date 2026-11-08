@@ -10,6 +10,17 @@
   "dubletten_tage": 30,
   "tageslisten": "Y:\\Posteingang\\Tageslisten",
 
+  "nebenakte": {
+    "export_ordner": "Y:\\Nebenakten-Export",
+    "aufbewahrungsfrist": 7,
+    "imprinter_seiten_je_blatt": 0,
+    "vollzug_arten": ["Grundbuchamt", "Genehmigung", "Vorkaufsrecht", "Zustimmung Verwalter",
+                      "Unbedenklichkeitsbescheinigung", "Bank / Löschung", "Register / Nachlass",
+                      "Verwahrung / Anderkonto"],
+    "papier_original_muster": ["Grundschuldbrief", "Hypothekenbrief", "L(ö|oe)schungsbewilligung",
+                               "Genehmigungserkl(ä|ae)rung", "Verwalterzustimmung", "Vollmacht"]
+  },
+
   "ordnername_urkunde": "{nr}-{jahr}",
   "ordnername_vorgang": "{nr}",
   "vorrang": "urkunde",

@@ -85,6 +85,22 @@ Schreiben der letzten 30 Tage im selben Zielordner). Die Dublette wird **nicht g
 `Y:\Posteingang\Dubletten\` gelegt; das Protokoll nennt die Datei, von der sie eine Dublette ist.
 Einstellbar über `dubletten_schwelle` (0 schaltet die Prüfung ab) und `dubletten_tage`.
 
+## Nebenakte (§ 43 NotAktVV)
+Beim Ablegen führt der Sortierer in jedem Akten-Ordner eine Datei `_nebenakte.json` (SHA-256, Eingang, Absender,
+Betreff, Art, Papieroriginal ja/nein, Imprinter-Nummern, Vollzug). Von Hand können dort unter `"akte"` eingetragen
+werden: `abschluss_amtsgeschaeft`, `weitere_aufbewahrung` (`am`, `bis`, `weil`, § 52), `massennummer`,
+`geschaeftsgegenstand`, `uvz` (zugehörige Urkunden, z. B. `["2048/2026"]`), `urkunden`
+(`{"2048/2026": {"geschaeftsgegenstand": "Grundstückskaufvertrag"}}`), `aufbewahrungsfrist` (7–30).
+
+`Nebenakte exportieren.cmd` fragt nach Vorgangs- oder UVZ-Nummer (oder `alle`) und legt nach `Y:\Nebenakten-Export`
+je Akte: `nebenakte.xml` (geprüft gegen `Elektronische_Nebenakte_1.1.0.xsd` der Bundesnotarkammer), `dokumente\`,
+`intern.json`, bei Papieroriginalen `Deckblatt Papierakte.pdf`, und `Export-Bericht.html`. Entspricht der Datensatz
+nicht dem Schema, gibt es keinen Export, sondern einen Fehlerbericht in verständlichen Sätzen.
+Akte = Vorgang; eine Urkunde gehört zum Vorgang, wenn ein Schreiben beide Nummern trägt (gelernt in
+`Y:\Posteingang\Verbindungen Urkunde-Vorgang.json`), ein Versand-Vermerk in `Y:\Vorgänge` beide nennt oder sie unter
+`"uvz"` eingetragen ist. Imprinter-Nummern: `"imprinter_seiten_je_blatt": 2` setzen, sobald der Scanner leere Seiten
+nicht mehr selbst überspringt. Befehlszeile: `Posteingang-sortieren.exe --nebenakte 30471 [--ziel ORDNER] [--still]`.
+
 ## Bedienung
 - `Posteingang jetzt sortieren.cmd` – sortiert sofort, von jedem PC aus.
 - `Automatisch sortieren einrichten.cmd` – einmal auf dem Post-PC: läuft nach jeder Anmeldung minimiert
@@ -101,6 +117,7 @@ Skript kopiert die neuen Dateien nach `Y:\Posteingang-Programm` (alte Einstellun
 ohne Neustart. Abschalten: `"update_pruefen_minuten": 0`.
 
 ## Entwicklung
+`python test/nebenakte_test.py` prüft den Export (XSD-Prüfung, Deckblatt, Warnungen, Fehler).
 `python test/testlauf.py` erzeugt einen erfundenen Poststapel und prüft Zerlegung und Zuordnung.
 `python test/grosstest.py --briefe 500` erzeugt viele erfundene Briefe aus allen Bereichen des Notariats
 (Grundbuch, Genehmigungen, Banken, Register, Nachlass, Familie, Verwahrung, Kosten, Werbung …) mit typischen

@@ -36,7 +36,8 @@ try:
 except ImportError:  # ältere PyMuPDF-Versionen
     import fitz
 
-VERSION = "1.7"
+VERSION = "1.8"
+STAND = "10.11.2026"
 
 # Windows-Konsole (cp850/cp1252) kann nicht jedes Zeichen darstellen: lieber ersetzen als abstürzen.
 for _strom in (sys.stdout, sys.stderr):
@@ -644,6 +645,14 @@ def verarbeite_datei(pfad, e, bestand, heute, probe=False):
         os.makedirs(r["ordner"], exist_ok=True)
         r["datei"] = freier_name(r["ordner"], r["stamm"])
         schreibe(doc, r["teil"], r["datei"])
+        if r["art"] in ("urkunde", "vorgang") and r["aktion"] != "dublette":
+            # Laufende Aktendaten für die Nebenakte (§ 43 NotAktVV); darf das Sortieren nie aufhalten
+            try:
+                import nebenakte
+                nebenakte.eintragen(e, r, pfad)
+                nebenakte.verbindung_aus_schreiben(e, r, bestand)
+            except Exception as ex:
+                print("Hinweis: Aktendaten für die Nebenakte nicht geschrieben:", ex)
     doc.close()
     return ergebnisse, ohne_text, len(seiten)
 
@@ -1048,12 +1057,52 @@ class _Log:
             pass
 
 
+def nebenakte_export(e, args):
+    """Export Nebenakte (§ 43 NotAktVV): posteingang.py --nebenakte [30471 | 2048/2026 | alle] [--ziel ORDNER] [--still]"""
+    import nebenakte
+    still = "--still" in args
+    ziel = args[args.index("--ziel") + 1] if "--ziel" in args else None
+    nummern = [a for i, a in enumerate(args) if not a.startswith("--") and (i == 0 or args[i - 1] != "--ziel")]
+    print(f"Export Nebenakte – Postsortierer {VERSION} · Stand {STAND}")
+    if not nummern and not still:
+        nummern = [input("Vorgangsnummer (z. B. 30471), UVZ-Nr. (z. B. 2048/2026) oder „alle“: ").strip()]
+    if nummern == ["alle"]:
+        nummern = nebenakte.alle_akten(e)
+        print(f"{len(nummern)} Akte(n) werden exportiert.")
+    ergebnisse = []
+    for n in nummern:
+        try:
+            r = nebenakte.exportiere(e, n, VERSION, STAND, ziel)
+        except ValueError as ex:
+            print("FEHLER:", ex)
+            ergebnisse.append(None)
+            continue
+        ergebnisse.append(r)
+        a = r["akte"]
+        if r["ok"]:
+            print(f"OK  {a.aktenzeichen}: {len(a.dokumente)} Schreiben -> {r['ordner']}" + ("  (mit Deckblatt Papierakte)" if r["hybrid"] else ""))
+        else:
+            print(f"NICHT exportiert {a.aktenzeichen}:")
+            for f in r["fehler"]:
+                print("   ", f)
+        for w in a.warnungen:
+            print("   Achtung:", w)
+    if len(ergebnisse) == 1 and ergebnisse[0] and not still and hasattr(os, "startfile"):
+        os.startfile(ergebnisse[0]["bericht"])
+    if not still:
+        input("Fertig. Enter drücken zum Schließen …")
+    return ergebnisse
+
+
 def main(argv):
     pfad_einst = os.path.join(HIER, "einstellungen.json")
     e = lade_einstellungen()
     if len(argv) > 2 and argv[1] == "--probe":
         for p in argv[2:]:
             probe(p, e)
+        return
+    if len(argv) > 1 and argv[1] == "--nebenakte":
+        nebenakte_export(e, argv[2:])
         return
     if len(argv) > 1 and argv[1] == "--nachtragen":
         print(nachtragen(e), "Tag(e) ergänzt.")
