@@ -95,5 +95,16 @@ ohne Neustart. Abschalten: `"update_pruefen_minuten": 0`.
 
 ## Entwicklung
 `python test/testlauf.py` erzeugt einen erfundenen Poststapel und prüft Zerlegung und Zuordnung.
+`python test/grosstest.py --briefe 500` erzeugt viele erfundene Briefe aus allen Bereichen des Notariats
+(Grundbuch, Genehmigungen, Banken, Register, Nachlass, Familie, Verwahrung, Kosten, Werbung …) mit typischen
+Schwierigkeiten (Lesefehler in Nummern, fremde Aktenzeichen, Vorurkunden im Text, Anlagen, Lagepläne,
+mehrseitige Briefe ohne Seitenzahl) und zählt falsche Ablagen, „Nicht zugeordnet“, Zerlegungsfehler und
+übersehene Vorlagen.
+
+Seit 1.6: Nummern mit Lesefehlern (O statt 0, l statt 1, S statt 5, B statt 8) werden erkannt, aber nur
+vollständig (aus „l936“ wird nie „936“). Bei mehreren Nummern gilt die im Briefkopf (vor der Anrede); gibt es
+die Nummer im Briefkopf nicht, wird keine andere Nummer aus dem Text genommen. Eine UVZ ohne Jahr wird nur
+zugeordnet, wenn es sie in den letzten drei Jahren genau einmal gibt. Zeichnungen ohne Text (Lagepläne)
+gelten nicht mehr als leere Seite. „Ablegen“ nur, wenn im ganzen Schreiben nichts auf eine Vorlage hindeutet.
 Die Windows-Version (.exe) baut GitHub Actions (`.github/workflows/posteingang-exe.yml`) und legt sie als
 Release `posteingang-<Version>` ab.

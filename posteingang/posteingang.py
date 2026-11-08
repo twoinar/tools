@@ -36,7 +36,7 @@ try:
 except ImportError:  # ältere PyMuPDF-Versionen
     import fitz
 
-VERSION = "1.5"
+VERSION = "1.6"
 
 # Windows-Konsole (cp850/cp1252) kann nicht jedes Zeichen darstellen: lieber ersetzen als abstürzen.
 for _strom in (sys.stdout, sys.stderr):
@@ -106,6 +106,8 @@ class Seite:
         self.leer = leer
         self.uvz = []             # [(nr, jahr)]
         self.vorgang = []         # [nr]
+        self.uvz_oben = []        # davon im Briefkopf (Ihr Zeichen, Betreff)
+        self.vorgang_oben = []
         self.seitenzahl = None    # (n, von) falls aufgedruckt
         self.start_punkte = 0
         self.gruende = []
@@ -115,10 +117,12 @@ def ist_leer(page, text):
     if len(text.strip()) >= 25:
         return False
     # Wenig Text: prüfen, ob überhaupt etwas auf der Seite ist (Foto, Stempel, Handschrift).
-    pix = page.get_pixmap(matrix=fitz.Matrix(0.25, 0.25), colorspace=fitz.csGRAY)
+    # Lieber eine Seite zu viel behalten als eine Zeichnung (Lageplan, Grundriss) wegwerfen:
+    # feine Linien zählen mit, Staubkörner und Durchscheinen nicht.
+    pix = page.get_pixmap(matrix=fitz.Matrix(0.5, 0.5), colorspace=fitz.csGRAY)
     daten = pix.samples
-    dunkel = sum(1 for b in daten if b < 160)
-    return dunkel / max(1, len(daten)) < 0.004
+    dunkel = sum(1 for b in daten if b < 200)
+    return dunkel / max(1, len(daten)) < 0.002
 
 
 def lies_seiten(doc):
@@ -143,36 +147,68 @@ def lies_seiten(doc):
 RE_SEITE_VON = re.compile(r"\bSeite\s*([0-9Il|]{1,2})\s*(?:von|/|aus)\s*([0-9Il|]{1,2})\b", re.I)
 RE_SEITE = re.compile(r"\bSeite\s*([0-9]{1,2})\b", re.I)
 RE_STRICH = re.compile(r"^\s*-\s*([0-9]{1,2})\s*-\s*$", re.M)
-RE_ANREDE = re.compile(r"\b(Sehr geehrte[rs]?|Guten Tag|Hallo)\b", re.I)
+RE_ANREDE = re.compile(r"\b(Sehr geehrte[rs]?|Guten Tag|Hallo|Liebe[rs]?\s+(Herr|Frau))\b", re.I)
 RE_DATUM = re.compile(r"\b\d{1,2}\.\s?(\d{1,2}\.|Januar|Februar|März|April|Mai|Juni|Juli|August|"
                       r"September|Oktober|November|Dezember)\s?(19|20)?\d{2}\b", re.I)
 RE_ZEICHEN = re.compile(r"\b(Ihr(e)?\s+(Zeichen|Nachricht|Schreiben|Az|Aktenzeichen)|Unser(e)?\s+Zeichen|"
                         r"Aktenzeichen|Gesch(ä|ae)ftszeichen|Az\.|Betreff|Betr\.)", re.I)
 
 
-def analysiere(seite, e, heute):
-    t = seite.text
-    # Nummern
-    gesehen = set()
+OCR_ZEICHEN = "OolI|SB"   # Zeichen, die die Texterkennung mit Ziffern verwechselt
+
+
+def _ganze_nummer(t, treffer, gruppe, min_ziffern):
+    """Die Nummer muss vollständig erfasst sein: kein Teil einer längeren Ziffernfolge (sonst würde aus
+    „l936“ die 936) und genug echte Ziffern (sonst wäre „lo“ eine 10)."""
+    a, b = treffer.span(gruppe)
+    roh = treffer.group(gruppe)
+    vorher = t[a - 1] if a > 0 else " "
+    nachher = t[b] if b < len(t) else " "
+    for c in (vorher, nachher):
+        if c.isdigit() or c in OCR_ZEICHEN or c in OCR_ZEICHEN.lower():
+            # Ausnahme: ein Buchstabe direkt dahinter, der kein Verwechsler ist (z. B. „30490Wo“) bleibt erlaubt
+            return False
+    return sum(ch.isdigit() for ch in roh) >= min(min_ziffern, len(roh))
+
+
+def _nummern_in(t, e, heute):
+    uvz, vorgang = [], []
     for m in e["_muster_uvz"]:
         for treffer in m.finditer(t):
+            if not _ganze_nummer(t, treffer, "nr", 2):
+                continue
             nr = ziffern(treffer.group("nr"))
-            jahr = jahr4(treffer.groupdict().get("jahr"), heute)
+            roh_jahr = treffer.groupdict().get("jahr")
+            jahr = jahr4(roh_jahr, heute) if roh_jahr else None
+            if roh_jahr and (jahr is None or not _ganze_nummer(t, treffer, "jahr", 2)):
+                continue   # Jahr erkannt, aber unlesbar oder unmöglich -> lieber gar nicht zuordnen
             if not nr or len(nr) > 5 or int(nr) == 0:
                 continue
             schluessel = (str(int(nr)), jahr)
-            if schluessel not in gesehen:
-                gesehen.add(schluessel)
-                seite.uvz.append(schluessel)
+            if schluessel not in uvz:
+                uvz.append(schluessel)
     for m in e["_muster_vorgang"]:
         for treffer in m.finditer(t):
+            if not _ganze_nummer(t, treffer, "nr", 3):
+                continue
             nr = ziffern(treffer.group("nr"))
-            if nr and len(nr) <= 8 and int(nr) and nr not in seite.vorgang:
+            if nr and len(nr) <= 8 and int(nr) and nr not in vorgang:
                 # Nicht die UVZ-Nummer noch einmal als Vorgang zählen
-                if any(nr.lstrip("0") == u[0] for u in seite.uvz) and re.search(
+                if any(nr.lstrip("0") == u[0] for u in uvz) and re.search(
                         r"UVZ|UR|Urk", treffer.group(0), re.I):
                     continue
-                seite.vorgang.append(nr)
+                vorgang.append(nr)
+    return uvz, vorgang
+
+
+def analysiere(seite, e, heute):
+    t = seite.text
+    # Nummern (im ganzen Text und gesondert im Briefkopf, der bei mehreren Nummern den Ausschlag gibt)
+    seite.uvz, seite.vorgang = _nummern_in(t, e, heute)
+    # Briefkopf = alles vor der Anrede (Anschrift, Ihr Zeichen, Datum, Betreff); ohne Anrede die obere Seite
+    anrede = RE_ANREDE.search(seite.oben)
+    kopf = seite.oben[:anrede.start()] if anrede else seite.oben
+    seite.uvz_oben, seite.vorgang_oben = _nummern_in(kopf, e, heute)
 
     # Seitenzahl
     m = RE_SEITE_VON.search(t)
@@ -300,7 +336,8 @@ class Bestand:
 
     def uvz_ok(self, nr, jahr):
         """Gibt (nr, jahr) zurück, wenn die Urkunde existiert (bzw. keine Prüfung möglich)."""
-        jahre = [jahr] if jahr else [self.heute.year, self.heute.year - 1]
+        # Ohne Jahr: nur zuordnen, wenn es die Nummer in den letzten drei Jahren genau einmal gibt
+        jahre = [jahr] if jahr else [self.heute.year, self.heute.year - 1, self.heute.year - 2]
         treffer = []
         for j in jahre:
             u = self.urkunden(j)
@@ -338,6 +375,30 @@ def ordne_zu(seiten, bestand, e):
     erste_v = [v.lstrip("0") for v in seiten[0].vorgang if bestand.vorgang_ok(v.lstrip("0"))]
     if len(set(erste_v)) == 1:
         vorgang = [erste_v[0]]
+
+    # Steht im Briefkopf eine Nummer, die es nicht gibt (Tippfehler, Lesefehler), darf keine andere Nummer
+    # aus dem Text (z. B. eine Vorurkunde) an ihre Stelle treten.
+    kopf_uvz = seiten[0].uvz_oben
+    if kopf_uvz and not any(bestand.uvz_ok(n, j) for n, j in kopf_uvz):
+        # Steht daneben eine eindeutige Vorgangsnummer im Briefkopf, gehört das Schreiben zum Vorgang
+        kopf_v = list(dict.fromkeys(v.lstrip("0") for v in seiten[0].vorgang_oben if bestand.vorgang_ok(v.lstrip("0"))))
+        if len(kopf_v) == 1:
+            return ("vorgang", e["ordnername_vorgang"].format(nr=kopf_v[0]))
+        return ("unklar", "Nummer im Briefkopf nicht im Bestand: " +
+                ", ".join(f"UVZ {n}/{j or '?'}" for n, j in kopf_uvz))
+    kopf_v = seiten[0].vorgang_oben
+    if kopf_v and not kopf_uvz and not any(bestand.vorgang_ok(v.lstrip("0")) for v in kopf_v):
+        return ("unklar", "Nummer im Briefkopf nicht im Bestand: " + ", ".join(f"Vorgang {v}" for v in kopf_v))
+    # Mehrere Nummern (z. B. „Vorurkunde UVZ-Nr. … “ im Text): gilt die eine Nummer im Briefkopf
+    # (Ihr Zeichen, Betreff) der ersten Seite.
+    if len(uvz) > 1:
+        kopf = [u for u in (bestand.uvz_ok(n, j) for n, j in seiten[0].uvz_oben) if u]
+        if len(set(kopf)) == 1:
+            uvz = [kopf[0]]
+    if len(vorgang) > 1:
+        kopf = [v.lstrip("0") for v in seiten[0].vorgang_oben if bestand.vorgang_ok(v.lstrip("0"))]
+        if len(set(kopf)) == 1:
+            vorgang = [kopf[0]]
 
     reihenfolge = ["urkunde", "vorgang"] if e.get("vorrang", "urkunde") == "urkunde" else ["vorgang", "urkunde"]
     for art in reihenfolge:
@@ -387,6 +448,7 @@ def bestimme_art(seiten, e):
     Passt keine Art, gilt "standard_aktion"."""
     erste = seiten[0].text
     ganz = "\n".join(s.text for s in seiten)
+    gefunden = None
     for runde in (0, 1):
         for name, aktion, muster, bereich in e.get("_arten", []):
             # "oben": nur Briefkopf/Betreff der ersten Seite (z. B. Absender ist eine Behörde)
@@ -396,8 +458,25 @@ def bestimme_art(seiten, e):
             for m in muster:
                 t = m.search(text)
                 if t:
+                    gefunden = (name, aktion, t.group(0).strip())
+                    break
+            if gefunden:
+                break
+        if gefunden:
+            break
+    if not gefunden:
+        return "", e.get("standard_aktion", "vorlegen"), ""
+    if gefunden[1] == "ablegen":
+        # Kein Brief darf übersehen werden: Nur ablegen, wenn im ganzen Schreiben nichts auf eine Art hindeutet,
+        # die vorgelegt werden muss (z. B. „Zahlungseingang“ auf einem Kontoauszug des Anderkontos).
+        for name, aktion, muster, bereich in e.get("_arten", []):
+            if aktion == "ablegen" or bereich == "oben":
+                continue
+            for m in muster:
+                t = m.search(ganz)
+                if t:
                     return name, aktion, t.group(0).strip()
-    return "", e.get("standard_aktion", "vorlegen"), ""
+    return gefunden
 
 
 def absender(seite, e):
