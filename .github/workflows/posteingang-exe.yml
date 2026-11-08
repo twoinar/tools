@@ -22,6 +22,7 @@ jobs:
         run: |
           python posteingang/test/testlauf.py
           python posteingang/test/update_test.py
+          python posteingang/test/grosstest.py --briefe 300
       - name: Programm bauen
         run: pyinstaller --onefile --name Posteingang-sortieren --distpath dist posteingang/posteingang.py
       - name: Paket packen

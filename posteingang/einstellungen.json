@@ -29,12 +29,12 @@
   ],
 
   "muster_uvz": [
-    "\\b(?:UVZ|U\\.?\\s?R|Urk(?:\\.|unde(?:n(?:rolle)?)?)?)\\s*[.\\-]?\\s*[-.]?\\s*(?:Nr|Nummer)\\s*\\.?\\s*:?\\s*(?:W\\s?)?(?P<nr>\\d{1,5})(?:\\s*(?:/|-|für|fuer)\\s*(?P<jahr>(?:19|20)?\\d{2})\\b)?",
-    "\\bUVZ\\s*[.:\\-]?\\s*(?P<nr>\\d{1,5})\\s*(?:/|-|für)\\s*(?P<jahr>(?:19|20)?\\d{2})\\b",
-    "\\bUR\\s+(?P<nr>\\d{1,5})\\s*/\\s*(?P<jahr>(?:19|20)?\\d{2})\\b",
-    "\\bW\\s?(?P<nr>\\d{1,5})\\s*[/-]\\s*(?P<jahr>20\\d{2})\\b",
-    "(?<![\\d/])(?:W\\s?)?(?P<nr>\\d{1,5})\\s*/\\s*\\d{1,2}\\s*/\\s*\\d{1,2}\\s*[-/]\\s*(?P<jahr>(?:19|20)\\d{2})\\b",
-    "\\bNr\\.?\\s*(?P<nr>\\d{1,5})\\s*/\\s*(?P<jahr>(?:19|20)?\\d{2})\\s+(?:der|des|meiner|seiner)\\s+(?:Urkundenrolle|UR|UVZ|Urkundenverzeichnis)"
+    "\\b(?:UVZ|U\\.?\\s?R|Urk(?:\\.|unde(?:n(?:rolle)?)?)?)\\s*[.\\-]?\\s*[-.]?\\s*(?:Nr|Nummer)\\s*\\.?\\s*:?\\s*(?:W\\s?)?(?P<nr>[0-9OolI|SB]{1,5})(?:\\s*(?:/|-|für|fuer)\\s*(?P<jahr>[0-9OolI]{2,4}))?",
+    "\\bUVZ\\s*[.:\\-]?\\s*(?P<nr>[0-9OolI|SB]{1,5})\\s*(?:/|-|für)\\s*(?P<jahr>[0-9OolI]{2,4})",
+    "\\bUR\\s+(?P<nr>[0-9OolI|SB]{1,5})\\s*/\\s*(?P<jahr>[0-9OolI]{2,4})",
+    "\\bW\\s?(?P<nr>[0-9OolI|SB]{1,5})\\s*[/-]\\s*(?P<jahr>[0-9OolI]{4})",
+    "(?<![\\d/])(?:W\\s?)?(?P<nr>[0-9OolI|SB]{1,5})\\s*/\\s*\\d{1,2}\\s*/\\s*\\d{1,2}\\s*[-/]\\s*(?P<jahr>[0-9OolI]{4})",
+    "\\bNr\\.?\\s*(?P<nr>[0-9OolI|SB]{1,5})\\s*/\\s*(?P<jahr>[0-9OolI]{2,4})\\s+(?:der|des|meiner|seiner)\\s+(?:Urkundenrolle|UR|UVZ|Urkundenverzeichnis)"
   ],
 
   "standard_aktion": "vorlegen",
@@ -137,6 +137,15 @@
           ]
       },
       {
+          "name": "Verwahrung / Anderkonto",
+          "aktion": "vorlegen",
+          "muster": [
+              "Anderkonto",
+              "Verwahrungs(gesch(ä|ae)ft|anweisung|vereinbarung)",
+              "Hinterlegung"
+          ]
+      },
+      {
           "name": "Zahlung / Bestätigung",
           "aktion": "ablegen",
           "muster": [
@@ -184,6 +193,6 @@
   ],
 
   "muster_vorgang": [
-    "\\b(?:Ihr(?:e)?\\s+(?:Zeichen|Z\\.|Az\\.?|Aktenzeichen|Vorgang)|Vorgang(?:s)?(?:\\s*-?\\s*Nr\\.?|nummer)?)\\s*[:.]?\\s*(?:Nr\\.?\\s*)?(?P<nr>\\d{5})\\b(?!\\s*[/-]\\s*\\d)"
+    "\\b(?:Ihr(?:e)?\\s+(?:Zeichen|Z\\.|Az\\.?|Aktenzeichen|Vorgang)|Vorgang(?:s)?(?:\\s*-?\\s*Nr\\.?|nummer)?)\\s*[:.]?\\s*(?:Nr\\.?\\s*)?(?P<nr>[0-9OolI|SB]{5})(?!\\s*[/-]\\s*\\d)"
   ]
 }
