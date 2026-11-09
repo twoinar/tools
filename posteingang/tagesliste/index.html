@@ -54,6 +54,8 @@ table{border-collapse:collapse;width:100%}
 th,td{border-bottom:1px solid #e3e7eb;padding:6px 8px;text-align:left;vertical-align:top;font-size:14px}
 th{background:var(--blau-hell);font-weight:600}
 td.k{width:1%;text-align:center}
+button.zuordnen{padding:2px 10px;font-size:13px;margin-top:4px;border-color:var(--orange);color:var(--orange)}
+td.nr .hinw{white-space:normal;max-width:230px;font-size:13px;color:var(--grau)}
 td.nr,td.zeit{white-space:nowrap}
 td.inhalt{min-width:200px}
 td.art{min-width:120px;max-width:190px;hyphens:auto;overflow-wrap:anywhere}
@@ -118,7 +120,7 @@ tr.erledigt td.datei a{color:var(--grau)}
 (() => {
   const ABSCHNITTE = [
     { k: 'vorlegen', titel: 'Mit der Akte vorlegen', hinweis: 'Vollzugsrelevant: bitte ausdrucken bzw. mit der Akte vorlegen und dann abhaken.', haken: true },
-    { k: 'zuordnen', titel: 'Bitte zuordnen', hinweis: 'Keine sichere UVZ- oder Vorgangsnummer erkannt, liegt in „Nicht zugeordnet“. Bitte ansehen, in die richtige Akte geben und abhaken.', haken: true },
+    { k: 'zuordnen', titel: 'Bitte zuordnen', hinweis: 'Keine sichere UVZ- oder Vorgangsnummer erkannt, liegt in „Nicht zugeordnet“. Bitte ansehen und mit „Zuordnen …“ in die richtige Akte legen.', haken: true },
     { k: 'ablegen', titel: 'Nur elektronisch abgelegt', hinweis: 'Nichts zu tun, das Schreiben liegt im Ordner der Urkunde bzw. des Vorgangs. Wer es doch vorlegt, kann es abhaken.', haken: true, zu: true },
     { k: 'dublette', titel: 'Doppelt gescannt', hinweis: 'Lag schon vor und wurde nach „Dubletten“ gelegt. Nichts zu tun.', haken: false, zu: true },
   ];
@@ -258,6 +260,8 @@ tr.erledigt td.datei a{color:var(--grau)}
       `<p class="hinweis">Kurzfassung = Betreff und Anfang des Schreibens, automatisch herausgeschnitten (ohne KI). Maßgeblich ist das Schreiben selbst: <a data-oeffnen>öffnen</a></p></div></td></tr>`;
   }
   function nummerText(e) {
+    const z = erledigt[e.id] && erledigt[e.id].zugeordnet;
+    if (z) return z;
     if (e.nummer) return (e.zuordnung === 'Urkunde' ? 'UVZ ' : 'Vorgang ') + e.nummer;
     return e.aktion === 'dublette' ? '–' : (e.hinweis || '–');
   }
@@ -280,9 +284,9 @@ tr.erledigt td.datei a{color:var(--grau)}
             const fertig = ist(e);
             return `<tr class="${fertig ? 'erledigt' : ''}" data-id="${esc(e.id)}">` +
               (a.haken ? `<td class="k"><input type="checkbox" ${fertig ? 'checked' : ''} aria-label="erledigt"></td>` : '') +
-              `<td class="zeit">${esc(e.zeit)}</td><td class="nr">${esc(nummerText(e))}</td><td class="art">${esc(e.art) || '–'}</td><td>${esc(e.absender)}</td>${inhaltZelle(e)}<td>${esc(e.seiten)}</td>` +
+              `<td class="zeit">${esc(e.zeit)}</td><td class="nr">${a.k === 'zuordnen' && !(erledigt[e.id] && erledigt[e.id].zugeordnet) ? `<div class="hinw">${esc(nummerText(e))}</div><button type="button" class="zuordnen" data-zuordnen>Zuordnen …</button>` : esc(nummerText(e))}</td><td class="art">${esc(e.art) || '–'}</td><td>${esc(e.absender)}</td>${inhaltZelle(e)}<td>${esc(e.seiten)}</td>` +
               `<td class="datei">${e.pfad || e.datei ? `<a data-oeffnen title="${esc(e.datei)}">📄 ${esc(kurz(e.datei).replace(/^(Nr \d+).*$/, '$1'))}</a>` : ''}</td>` +
-              (a.haken ? `<td>${fertig && w ? `<span class="wer">${esc(w.wer)}, ${esc(w.anzeige)}</span>` : ''}</td>` : '') + '</tr>' +
+              (a.haken ? `<td>${fertig && w ? `<span class="wer">${w.zugeordnet ? 'zugeordnet: ' : ''}${esc(w.wer)}, ${esc(w.anzeige)}</span>` : ''}</td>` : '') + '</tr>' +
               (offeneZeilen.has(e.id) ? detailZeile(e, a.haken ? 9 : 7) : '');
           }).join('') + '</table>';
       }
@@ -353,14 +357,16 @@ tr.erledigt td.datei a{color:var(--grau)}
       try {
         let h = ordner;
         for (const t of teile.slice(ab + 1, -1)) h = await h.getDirectoryHandle(t);
-        return await h.getFileHandle(teile[teile.length - 1]);
+        const fh = await h.getFileHandle(teile[teile.length - 1]);
+        fh._ordner = h;
+        return fh;
       } catch { /* weiter unten suchen */ }
     }
     // Datei verschoben oder anderer Pfad: in den Ablageordnern nach dem Dateinamen suchen
     const gesucht = (e.datei || teile[teile.length - 1] || '').toLowerCase();
     async function suche(h, tiefe) {
       for await (const [n, k] of h.entries()) {
-        if (k.kind === 'file' && n.toLowerCase() === gesucht) return k;
+        if (k.kind === 'file' && n.toLowerCase() === gesucht) { k._ordner = h; return k; }
         if (k.kind === 'directory' && tiefe < 2) { const f = await suche(k, tiefe + 1); if (f) return f; }
       }
       return null;
@@ -371,6 +377,46 @@ tr.erledigt td.datei a{color:var(--grau)}
       if (f) return f;
     }
     return null;
+  }
+  // Schreiben aus „Nicht zugeordnet“ in den Ordner der Urkunde bzw. des Vorgangs verschieben und abhaken
+  async function zuordnen(e, knopf) {
+    const eingabe = (prompt('In welche Akte gehört das Schreiben?\nUVZ-Nr. (z. B. 539/2026 oder W 539/26) oder Vorgangsnummer (5-stellig):') || '').trim();
+    if (!eingabe) return;
+    let ziel, anzeige;
+    const u = eingabe.match(/^(?:UVZ|UR|W)?\s*(?:Nr\.?)?\s*(\d{1,5})\s*[\/-]\s*(\d{4}|\d{2})$/i);
+    const v = eingabe.match(/^(?:Vorgang\s*)?(\d{5})$/i);
+    if (u) {
+      const jahr = u[2].length === 2 ? '20' + u[2] : u[2];
+      ziel = ['Urkunden', `${+u[1]}-${jahr}`]; anzeige = `UVZ ${+u[1]}-${jahr}`;
+    } else if (v) {
+      ziel = ['Vorgänge', String(+v[1])]; anzeige = `Vorgang ${+v[1]}`;
+    } else { alert('Bitte eine UVZ-Nr. wie 539/2026 oder eine 5-stellige Vorgangsnummer eingeben.'); return; }
+    const wer = name() || nameFragen();
+    if (!wer) return;
+    knopf.disabled = true;
+    try {
+      const fh = await dateiFinden(e);
+      if (!fh) throw new Error(`Die Datei „${e.datei}“ wurde nicht gefunden.`);
+      let h = ordner;
+      for (const t of ziel) h = await h.getDirectoryHandle(t, { create: true });
+      const datei = await fh.getFile();
+      let neu = fh.name;
+      for (let i = 2; ; i++) { try { await h.getFileHandle(neu); neu = fh.name.replace(/\.pdf$/i, '') + ` (${i}).pdf`; } catch { break; } }
+      const w = await (await h.getFileHandle(neu, { create: true })).createWritable();
+      await w.write(datei); await w.close();
+      if ((await (await h.getFileHandle(neu)).getFile()).size !== datei.size) throw new Error('Kopie unvollständig, Original bleibt liegen.');
+      if (fh._ordner) await fh._ordner.removeEntry(fh.name);
+      const jetzt = new Date();
+      const proto = await unterordner(ordner, 'Protokoll');
+      erledigt = await erledigtSetzen(proto, monat(tag), e.id, { erledigt: true, wer, zeit: jetzt.toISOString(), zugeordnet: anzeige,
+        anzeige: jetzt.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + ' ' + jetzt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) });
+      e.pfad = ''; e.datei = neu;
+      zeichnen();
+      await offeneTageZeigen(proto);
+    } catch (err) {
+      knopf.disabled = false;
+      $('meldung').textContent = 'Zuordnen hat nicht geklappt: ' + err.message;
+    }
   }
   async function oeffnen(e) {
     const fenster = window.open('', '_blank');   // gleich im Klick öffnen, sonst blockiert der Browser
@@ -407,6 +453,12 @@ tr.erledigt td.datei a{color:var(--grau)}
       const id = auf.closest('tr').dataset.id;
       if (offeneZeilen.has(id)) offeneZeilen.delete(id); else offeneZeilen.add(id);
       zeichnen();
+      return;
+    }
+    const zu = ev.target.closest('button[data-zuordnen]');
+    if (zu) {
+      const e = eintraegeTag.find(x => x.id === zu.closest('tr').dataset.id);
+      if (e) zuordnen(e, zu);
       return;
     }
     const a = ev.target.closest('a[data-oeffnen]');
