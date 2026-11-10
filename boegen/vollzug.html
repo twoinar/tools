@@ -212,7 +212,6 @@ dialog.mail textarea{min-height:70px}
   <button type="button" id="btnOrdner">Ablageordner wählen</button>
   <button type="button" id="btnOeffnen">Bogen öffnen</button>
   <button type="button" id="btnNeu">Neuer Bogen</button>
-  <button type="button" id="btnVersand" hidden title="Trägt ein, was mit dem Word-Makro „Verteilerzettel versenden“ an die Beteiligten verschickt wurde (passiert beim Öffnen eines Bogens auch von selbst)">Verteilerzettel eintragen</button>
   <button type="button" id="btnDrucken">Drucken</button>
   <button type="button" id="btnMail">Per E-Mail versenden</button>
   <button type="button" id="btnNotar" title="Name, Anschrift und Mitarbeiter des Notariats">Notardaten</button>
@@ -560,7 +559,7 @@ loeschZuruecksetzen(false);
 
 /* ---------- Sammelbogen: weitere Urkunden im selben Termin (bis 6) ----------
    Jede Urkunde hat Art, UVZ-Nr., Vorgangs-Nr., die zur Art passenden Vollzugsschritte, eine eigene
-   Nachgenehmigung und eine Versandzeile, die „Verteilerzettel eintragen“ füllt.                       */
+   Nachgenehmigung und eine Versandzeile, die der Versand aus dem Verteilerzettel von selbst füllt.                       */
 const WU_ARTEN = [["testament","Testament / Erbvertrag"],["vorsorge","Vorsorgevollmacht"],["patient","Patientenverfügung"],
   ["uebertragung","Übertragungsvertrag"],["kauf","Kaufvertrag"],["grundschuld","Grundschuld"],["ehevertrag","Ehevertrag"],["sonst","Sonstige Urkunde"]];
 // [Feld, Text, Arten, Feld im Einzelbogen]
@@ -598,7 +597,7 @@ for (let i=1;i<=6;i++){
       <div class="eingeholt" data-wung-details><input type="text" data-f="wu_${i}_ng_durch" placeholder="Nachgenehmigung durch" aria-label="Urkunde ${i}: Nachgenehmigung durch">
         <label class="cb"><input type="checkbox" data-f="wu_${i}_ng_ein"><span>bereits vom Notar eingeholt am:</span></label>
         <input type="date" data-f="wu_${i}_ng_am" data-date aria-label="Urkunde ${i}: eingeholt am"></div></div>
-    <div class="wu-zeile"><label>Kopien / Versand:</label><textarea rows="1" data-f="wu_${i}_versand" aria-label="Urkunde ${i}: Kopien und Versand" placeholder="wird mit „Verteilerzettel eintragen“ gefüllt"></textarea></div>
+    <div class="wu-zeile"><label>Kopien / Versand:</label><textarea rows="1" data-f="wu_${i}_versand" aria-label="Urkunde ${i}: Kopien und Versand" placeholder="wird aus dem Verteilerzettel von selbst gefüllt"></textarea></div>
     <div class="wu-zeile"><label>Sonstiges:</label><textarea rows="1" data-f="wu_${i}_sonst" aria-label="Urkunde ${i}: Sonstiges"></textarea></div>
   </div>`);
 }
@@ -1069,6 +1068,7 @@ if (bogenKanal) bogenKanal.onmessage = async ({data:m})=>{
       }
       for (const [u,v] of (m.weitere||[])) wuEintragen(u, v);
       window.focus();
+      if (versandLaeuft) await versandLaeuft;
       await versandUebernehmen(false);
     } catch(e){ fehler(e); }
   }
@@ -1105,10 +1105,11 @@ async function ausAufruf(){
     // ist das der Kaufvertrags-Bogen: der Versand landet dann im Abschnitt Finanzierungsgrundschuld.
     if (vg) try { await bogenZumAufruf(vg, uvz); } catch(e){ fehler(e); }
     for (const [u,v] of aufrufWeitere) wuEintragen(u, v);
+    if (versandLaeuft) await versandLaeuft;
     return versandUebernehmen(false).catch(fehler);
   }
   for (const [u,v] of aufrufWeitere) wuEintragen(u, v);
-  meldung(`UVZ-Nr. ${uvz} übernommen. Bitte auf „Verteilerzettel eintragen“ klicken, dann wird der Versand eingetragen.`);
+  meldung(`UVZ-Nr. ${uvz} übernommen. Der Versand wird eingetragen, sobald der Ablageordner freigegeben ist (einmal in den Bogen klicken bzw. „Ablageordner wählen“).`);
 }
 
 /* ---------- PDF erzeugen ---------- */
@@ -1504,6 +1505,7 @@ async function wuEinzelnAblegen(){
     k.querySelectorAll("[data-f]").forEach(el=>{ o[el.dataset.f.replace(`wu_${i}_`,"")] = el.type==="checkbox" ? el.checked : el.value; }); return o; });
   const q = f => document.querySelector(`[data-f="${f}"]`);
   const abgelegt = [], uebersprungen = [];
+  autoAus = true;
   try {
     for (const d of daten){
       // auf den Hauptbogen zurücksetzen, dann zur weiteren Urkunde umbauen
@@ -1529,7 +1531,7 @@ async function wuEinzelnAblegen(){
       abgelegt.push(name);
     }
   } finally {
-    await bogenLaden(hauptBytes, hauptName); geaendert = warGeaendert;
+    await bogenLaden(hauptBytes, hauptName); geaendert = warGeaendert; autoAus = false;
   }
   meldung(`Einzelbögen abgelegt (${abgelegt.length}): ${abgelegt.map(n=>`„${n}“`).join(", ")}` + (uebersprungen.length ? `. Nicht überschrieben: ${uebersprungen.join(", ")}` : "") + ". Der Sammelbogen ist wieder geöffnet.");
 }
@@ -1549,7 +1551,7 @@ async function bogenLaden(bytes, name){
     if (!ARTEN[artWahl().value]) artWahl().value = "kauf";
     artAnwenden(false); artVorher = artWahl().value; eigenAnzeigen();
     beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); wuZuruecksetzen(true); dynamik(); textfelderAnpassen(); geaendert=false;
-    meldung(`„${name}“ geöffnet. Änderungen mit „Vollzugsbogen ablegen“ speichern.`);
+    meldung(`„${name}“ geöffnet. Änderungen mit „Vollzugsbogen ablegen“ speichern.`); setTimeout(()=>versandPruefen().catch(()=>{}), 0);
     return;
   }
   const form = doc.getForm();
@@ -1565,7 +1567,7 @@ async function bogenLaden(bytes, name){
     const b=c.dataset.zeigenWenn; if (!b.startsWith("!") && hatInhalt(c)){ const k=document.querySelector(`[data-f="${b}"]`); if(k) k.checked=true; }
   });
   artAnwenden(false); artVorher = artWahl().value; eigenAnzeigen();
-  beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); wuZuruecksetzen(true); dynamik(); textfelderAnpassen(); geaendert=false; meldung(`„${name}“ geöffnet. Änderungen mit „Vollzugsbogen ablegen“ speichern.`);
+  beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); wuZuruecksetzen(true); dynamik(); textfelderAnpassen(); geaendert=false; meldung(`„${name}“ geöffnet. Änderungen mit „Vollzugsbogen ablegen“ speichern.`); setTimeout(()=>versandPruefen().catch(()=>{}), 0);
 }
 async function oeffnen(){
   if (geaendert && !confirm("Ungespeicherte Eingaben gehen verloren. Trotzdem einen anderen Bogen öffnen?")) return;
@@ -1592,34 +1594,40 @@ function fehler(e){
   if (e && e.name==="AbortError") return;           // Dialog abgebrochen
   meldung((e && e.message) ? e.message : String(e), "err");
 }
-document.getElementById("btnOrdner").onclick = ()=>{ if(!dateisystemOk){ meldung("Die Ordnerauswahl gibt es nur in Chrome und Edge.","err"); return;} ordnerWaehlen().then(()=>meldung(`Ablageordner „${ordner.name}“ gespeichert.`)).catch(fehler); };
+document.getElementById("btnOrdner").onclick = ()=>{ if(!dateisystemOk){ meldung("Die Ordnerauswahl gibt es nur in Chrome und Edge.","err"); return;} ordnerWaehlen().then(()=>{ meldung(`Ablageordner „${ordner.name}“ gespeichert.`); versandPruefen().catch(()=>{}); }).catch(fehler); };
 document.getElementById("btnAblegen").onclick = ()=>ablegen().catch(fehler);
 document.getElementById("btnOeffnen").onclick = ()=>oeffnen().catch(fehler);
 document.getElementById("btnNeu").onclick = neu;
-document.getElementById("btnVersand").onclick = ()=>versandUebernehmen(false).catch(fehler);
 // Neuer Bogen: liegt zur eingetragenen UVZ-Nr. schon ein Versand vor, wird er übernommen (samt Namen), solange
 // noch keine Namen eingetragen sind; sonst nur Hinweis
 document.querySelector('[data-f="uvz_nr"]').addEventListener("change", ()=>versandPruefen().catch(()=>{}));
 document.querySelector('[data-f="kgs_uvz"]').addEventListener("change", ()=>versandPruefen().catch(()=>{}));
 wuListe.addEventListener("change", e=>{ if (/^wu_\d_uvz$/.test(e.target.dataset.f||"")) versandPruefen().catch(()=>{}); });
+/* Versand aus dem Verteilerzettel wird automatisch eingetragen (Wunsch Thomas 10.11.2026, kein Knopf mehr):
+   beim Öffnen eines Bogens, bei Eingabe einer UVZ-Nr., wenn das Fenster wieder in den Vordergrund kommt und
+   alle 15 Sekunden. Jede Versand-Datei wird genau einmal übernommen (Feld versand_uebernommen).            */
+let autoAus = false, versandLaeuft = null;
 async function versandPruefen(){
-  if (!dateisystemOk || !ordner || !uvzWert()) return;
+  if (autoAus || !dateisystemOk || !ordner || !uvzWert()) return;
   if (await ordner.queryPermission({mode:"read"}) !== "granted") return;
-  const praefix = versandPraefix(uvzWert()), pGs = gsUvzWert() ? versandPraefix(gsUvzWert()) : null;
-  const pWu = wuUvzListe().map(([,u])=>versandPraefix(u));
-  const erledigt = new Set(document.querySelector('[data-f="versand_uebernommen"]').value.split("|").filter(Boolean));
-  for await (const [name, h] of ordner.entries())
-    if (h.kind==="file" && (name.startsWith(praefix) || (pGs && name.startsWith(pGs)) || pWu.some(pr=>name.startsWith(pr))) && !erledigt.has(name)){
-      // noch keine Namen: alles aus dem Verteilerzettel übernehmen; sonst nur Hinweis, damit nichts überschrieben wird
-      if (keineNamen()) return versandUebernehmen(true);
-      meldung(`Zu UVZ-Nr. ${uvzWert()} liegt ein Versand aus dem Verteilerzettel vor. Mit „Versand übernehmen“ eintragen.`);
-      return;
-    }
+  if (versandLaeuft) return versandLaeuft;
+  versandLaeuft = versandUebernehmen(true).catch(()=>{}).finally(()=>{ versandLaeuft = null; });
+  return versandLaeuft;
 }
+window.addEventListener("focus", ()=>versandPruefen().catch(()=>{}));
+setInterval(()=>{ if (!document.hidden) versandPruefen().catch(()=>{}); }, 15000);
+// Chrome gibt den gespeicherten Ordner nach einem Neustart erst nach einem Klick frei: beim ersten Klick nachfragen
+document.addEventListener("pointerdown", async ()=>{
+  if (!dateisystemOk || !ordner) return;
+  try {
+    if (await ordner.queryPermission({mode:"readwrite"})==="granted") return;
+    if (await ordner.requestPermission({mode:"readwrite"})==="granted") versandPruefen().catch(()=>{});
+  } catch {}
+}, {capture:true});
 
 /* ---------- Versand aus dem Word-Makro „Verteilerzettel versenden“ übernehmen ----------
    Das Makro legt nach jedem Versand „<Nr>-<Jahr> Versand <Zeit>.json“ in den Ablageordner. Beim Öffnen eines
-   Bogens (und mit „Versand übernehmen“) wird jede dieser Dateien genau einmal eingetragen: Kopien erteilt +1,
+   Bogens (und danach laufend automatisch) wird jede dieser Dateien genau einmal eingetragen: Kopien erteilt +1,
    Häkchen E-Mail bzw. Post, Nachgenehmigung, Zeile unter Bemerkungen. Übernommene Dateien merkt sich das
    versteckte Feld versand_uebernommen.                                                                     */
 function nameNorm(s){
@@ -1909,6 +1917,6 @@ window.addEventListener("beforeprint", textfelderAnpassen);
 document.addEventListener("input", e=>{ if (e.target.matches('textarea[data-f="sonstiges_vollzug_text"]')){ e.target.style.height="auto"; e.target.style.height=(e.target.scrollHeight+2)+"px"; } });
 document.getElementById("btnDrucken").onclick = ()=>{ textfelderAnpassen(); window.print(); };
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.34 · Stand 10.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.35 · Stand 10.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
