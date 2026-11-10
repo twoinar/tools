@@ -101,6 +101,27 @@ Akte = Vorgang; eine Urkunde gehört zum Vorgang, wenn ein Schreiben beide Numme
 `"uvz"` eingetragen ist. Imprinter-Nummern: `"imprinter_seiten_je_blatt": 2` setzen, sobald der Scanner leere Seiten
 nicht mehr selbst überspringt. Befehlszeile: `Posteingang-sortieren.exe --nebenakte 30471 [--ziel ORDNER] [--still]`.
 
+## E-Mails aus dem Büro-Postfach (ab 1.9)
+Ist der Abruf auf dem Post-PC eingerichtet, holt das Programm alle 2 Minuten neue Mails aus dem Posteingang von
+post@notar-woinar.de (Microsoft Graph, eigene App-Registrierung von Netsys24, nur für dieses Postfach). Aus jeder
+Mail wird **eine** PDF: Kopf (Von, An, Datum, Betreff, Anhänge), Text, dahinter die PDF- und Bild-Anhänge. Sie
+wird wie ein Scan einsortiert (Nummer im Betreff oder Text, Absender und Betreff aus der Mail) und steht in der
+Tagesliste mit ✉️. Anhänge, die keine PDF werden können (Word, Excel, ZIP …), liegen mit gleichem Namensanfang
+neben der PDF und wandern beim „Zuordnen“ mit. Die Original-Mail (.eml) wird in `Y:\Posteingang\Original-Mails\<Monat>`
+gesichert.
+
+Danach wird die Mail im Postfach als gelesen markiert und in den Ordner „Verarbeitet“ verschoben. Es wird nie
+etwas gelöscht oder gesendet. Einstellbar im Block `"mail"` der `einstellungen.json`: `"nach_abholen"` =
+`"verschieben"` / `"markieren"` (nur Kategorie „Posteingang“, bleibt im Posteingang) / `"nichts"`, `"als_gelesen"`,
+`"abruf_minuten"`, `"erstabruf_tage"` (beim allerersten Abruf: Mails der letzten N Tage), `"aus": true` schaltet
+den Abruf ab. Welche Mails schon abgeholt sind, steht in `Protokoll\Mail-Abruf.json` (nie doppelt).
+
+Einrichten: `E-Mail-Abruf einrichten.cmd` auf dem Post-PC doppelklicken, **unter dem Windows-Benutzer, unter dem
+das Sortieren läuft**. Abgefragt werden Postfach, Tenant-ID, Client-ID und Secret (unsichtbare Eingabe) bzw. eine
+PFX-Zertifikatsdatei. Die Angaben werden geprüft und verschlüsselt (Windows-DPAPI, nur dieser Benutzer auf diesem
+PC) unter `%APPDATA%\Posteingang\mail-zugang.dat` gespeichert, also nicht im Programmordner und nicht auf Y:.
+Updates lassen sie unberührt. Ausschalten: `E-Mail-Abruf ausschalten.cmd`.
+
 ## Bedienung
 - `Posteingang jetzt sortieren.cmd` – sortiert sofort, von jedem PC aus.
 - `Automatisch sortieren einrichten.cmd` – einmal auf dem Post-PC: läuft nach jeder Anmeldung minimiert
@@ -117,6 +138,7 @@ Skript kopiert die neuen Dateien nach `Y:\Posteingang-Programm` (alte Einstellun
 ohne Neustart. Abschalten: `"update_pruefen_minuten": 0`.
 
 ## Entwicklung
+`python test/mail_test.py` prüft den E-Mail-Abruf gegen ein nachgebautes Microsoft Graph (erfundene Mails).
 `python test/nebenakte_test.py` prüft den Export (XSD-Prüfung, Deckblatt, Warnungen, Fehler).
 `python test/testlauf.py` erzeugt einen erfundenen Poststapel und prüft Zerlegung und Zuordnung.
 `python test/grosstest.py --briefe 500` erzeugt viele erfundene Briefe aus allen Bereichen des Notariats

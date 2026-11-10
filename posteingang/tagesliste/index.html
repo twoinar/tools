@@ -243,7 +243,7 @@ tr.erledigt td.datei a{color:var(--grau)}
   const ist = e => !!(erledigt[e.id] && erledigt[e.id].erledigt);
 
   // „Eingang 2026-11-06 18-02 Nr 03 - Vorkaufsrecht.pdf“ → „Nr 03 - Vorkaufsrecht.pdf“ (ganzer Name als Tooltip)
-  const kurz = d => String(d || '').replace(/^Eingang \d{4}-\d{2}-\d{2} \d{2}-\d{2} /, '');
+  const kurz = d => String(d || '').replace(/^(?:Eingang|Mail) \d{4}-\d{2}-\d{2} \d{2}-\d{2} /, '');
   // Kurzfassung: Betreff + erste Sätze, vom Sortier-Programm aus dem Schreiben geschnitten (ohne KI)
   const offeneZeilen = new Set();
   const kuerzen = (t, n) => t.length > n ? t.slice(0, n).replace(/\s+\S*$/, '') + ' …' : t;
@@ -285,7 +285,7 @@ tr.erledigt td.datei a{color:var(--grau)}
             return `<tr class="${fertig ? 'erledigt' : ''}" data-id="${esc(e.id)}">` +
               (a.haken ? `<td class="k"><input type="checkbox" ${fertig ? 'checked' : ''} aria-label="erledigt"></td>` : '') +
               `<td class="zeit">${esc(e.zeit)}</td><td class="nr">${a.k === 'zuordnen' && !(erledigt[e.id] && erledigt[e.id].zugeordnet) ? `<div class="hinw">${esc(nummerText(e))}</div><button type="button" class="zuordnen" data-zuordnen>Zuordnen …</button>` : esc(nummerText(e))}</td><td class="art">${esc(e.art) || '–'}</td><td>${esc(e.absender)}</td>${inhaltZelle(e)}<td>${esc(e.seiten)}</td>` +
-              `<td class="datei">${e.pfad || e.datei ? `<a data-oeffnen title="${esc(e.datei)}">📄 ${esc(kurz(e.datei).replace(/^(Nr \d+).*$/, '$1'))}</a>` : ''}</td>` +
+              `<td class="datei">${e.pfad || e.datei ? `<a data-oeffnen title="${esc(e.datei)}">${/^Mail /.test(e.datei) ? '✉️' : '📄'} ${esc(kurz(e.datei).replace(/^(Nr \d+).*$/, '$1'))}</a>` : ''}</td>` +
               (a.haken ? `<td>${fertig && w ? `<span class="wer">${w.zugeordnet ? 'zugeordnet: ' : ''}${esc(w.wer)}, ${esc(w.anzeige)}</span>` : ''}</td>` : '') + '</tr>' +
               (offeneZeilen.has(e.id) ? detailZeile(e, a.haken ? 9 : 7) : '');
           }).join('') + '</table>';
@@ -406,6 +406,17 @@ tr.erledigt td.datei a{color:var(--grau)}
       await w.write(datei); await w.close();
       if ((await (await h.getFileHandle(neu)).getFile()).size !== datei.size) throw new Error('Kopie unvollständig, Original bleibt liegen.');
       if (fh._ordner) await fh._ordner.removeEntry(fh.name);
+      // Anhänge einer E-Mail, die keine PDF wurden (Word, Excel …), liegen daneben und gehen mit
+      if (fh._ordner) {
+        const stamm = fh.name.replace(/\.pdf$/i, '') + ' - ';
+        for await (const [n, x] of fh._ordner.entries()) {
+          if (x.kind !== 'file' || !/^Mail /.test(n) || /\.pdf$/i.test(n) || !n.startsWith(stamm)) continue;
+          const f = await x.getFile();
+          const wa = await (await h.getFileHandle(n, { create: true })).createWritable();
+          await wa.write(f); await wa.close();
+          if ((await (await h.getFileHandle(n)).getFile()).size === f.size) await fh._ordner.removeEntry(n);
+        }
+      }
       const jetzt = new Date();
       const proto = await unterordner(ordner, 'Protokoll');
       erledigt = await erledigtSetzen(proto, monat(tag), e.id, { erledigt: true, wer, zeit: jetzt.toISOString(), zugeordnet: anzeige,
