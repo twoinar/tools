@@ -40,7 +40,7 @@ try:
 except ImportError:  # ältere PyMuPDF-Versionen
     import fitz
 
-VERSION = "1.9"
+VERSION = "1.10"
 STAND = "10.11.2026"
 
 # Windows-Konsole (cp850/cp1252) kann nicht jedes Zeichen darstellen: lieber ersetzen als abstürzen.
@@ -666,6 +666,7 @@ def verarbeite_datei(pfad, e, bestand, heute, probe=False):
                     ziel = f"{b} ({k}){x}"
                     k += 1
                 shutil.move(anh, ziel)
+                r.setdefault("mail_anhang_dateien", []).append(ziel)
         if r["art"] in ("urkunde", "vorgang") and r["aktion"] != "dublette":
             # Laufende Aktendaten für die Nebenakte (§ 43 NotAktVV); darf das Sortieren nie aufhalten
             try:

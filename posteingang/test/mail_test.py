@@ -221,6 +221,15 @@ def main():
         pruefe("PDF MIT ANHÄNGEN", seiten == 3 and "Eintragungsnachricht" in text and "Grundbuchamt Beispielstadt" in text
                and "Stellungnahme.docx" in text and "Grüßen" in text, f"{seiten} Seiten")
     pruefe("VORGANG AUS TEXT", os.path.isdir(v) and any(d.startswith("Mail ") for d in os.listdir(v)))
+    # Nebenakte: Eingangsweg E-Mail, Word-Anhang als eigenes Dokument, Export valide
+    import nebenakte as N
+    na = N.lade_akte(u).get("dokumente", []) if os.path.isdir(u) else []
+    pruefe("NEBENAKTE E-MAIL", len(na) == 2 and all(x.get("eingangsweg") == "E-Mail" for x in na)
+           and any(x.get("anhang_zu") and x["datei"].endswith(".docx") for x in na), [(x["datei"], x.get("eingangsweg")) for x in na])
+    ex = N.exportiere(e, "539/2026", P.VERSION, P.STAND)
+    xml = open(os.path.join(ex["ordner"], "nebenakte.xml"), encoding="utf-8").read() if ex["ok"] else ""
+    pruefe("NEBENAKTE EXPORT", ex["ok"] and "<elna:Kategorie>E-Mail</elna:Kategorie>" in xml
+           and "E-Mail-Anhang" in xml and "Stellungnahme.docx" in xml, ex["fehler"])
     pruefe("UNKLAR", os.path.isdir(nz) and sum(d.startswith("Mail ") for d in os.listdir(nz)) == 1)
     rest = [d for d in os.listdir(eingang) if os.path.isfile(os.path.join(eingang, d))]
     pruefe("EINGANG LEER", not rest, rest)
