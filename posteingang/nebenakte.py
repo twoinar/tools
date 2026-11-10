@@ -189,6 +189,7 @@ def eintragen(e, r, quelle, heute=None):
     kopf = teil[0].oben[:anrede.start()] if anrede else teil[0].oben
     bd = briefdatum(kopf, eingang.date())
     daten = lade_akte(ordner)
+    weg = "E-Mail" if os.path.basename(datei).startswith("Mail ") else "Post"
     daten["dokumente"].append({
         "datei": os.path.basename(datei),
         "sha256": sha256(datei),
@@ -207,7 +208,14 @@ def eintragen(e, r, quelle, heute=None):
         "seiten": r.get("seiten", ""),
         "zuordnung": r["art"] + ":" + r["wert"],
         "status": "offen",
+        "eingangsweg": weg,
     })
+    # Anhänge einer Mail, die keine PDF werden konnten (Word, Excel …): eigene Einträge, gleiche Angaben
+    for anh in r.get("mail_anhang_dateien", []):
+        if os.path.exists(anh):
+            x = dict(daten["dokumente"][-1], datei=os.path.basename(anh), sha256=sha256(anh), papier_original=False,
+                     papier_grund="", imprinter_von="", imprinter_bis="", seiten="", anhang_zu=os.path.basename(datei))
+            daten["dokumente"].append(x)
     speichere_akte(ordner, daten)
 
 
@@ -356,7 +364,7 @@ def stelle_zusammen(e, art, nr):
     return a
 
 
-RE_DATEINAME = re.compile(r"Eingang (\d{4}-\d{2}-\d{2}) (\d{2})-(\d{2}) Nr \d+(?: - (.+?))?(?: \(\d+\))?\.pdf$", re.I)
+RE_DATEINAME = re.compile(r"(?:Eingang|Mail) (\d{4}-\d{2}-\d{2}) (\d{2})-(\d{2}) Nr \d+(?: - (.+?))?(?: \(\d+\))?\.pdf$", re.I)
 
 
 def _eintrag_ohne_daten(pfad):
@@ -391,11 +399,15 @@ def betreff_bezeichnung(x):
     if x.get("imprinter_von"):
         nr = x["imprinter_von"] if x["imprinter_von"] == x.get("imprinter_bis") else f"{x['imprinter_von']}–{x['imprinter_bis']}"
         t += f" (Imprinter-Nr. {nr})"
+    if x.get("anhang_zu"):
+        t += f" – Anhang {x['datei']}"
     return t
 
 
 def kategorien(e, x):
     k = ["Posteingang"]
+    if x.get("eingangsweg") == "E-Mail" or x["datei"].startswith("Mail "):
+        k.append("E-Mail-Anhang" if x.get("anhang_zu") else "E-Mail")
     if x.get("vollzug") or x.get("art") in einstellung(e, "vollzug_arten"):
         k.append("Vollzug")
     if x.get("papier_original"):
