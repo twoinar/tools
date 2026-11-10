@@ -34,7 +34,11 @@
     "\\bUR\\s+(?P<nr>[0-9OolI|SB]{1,5})\\s*/\\s*(?P<jahr>[0-9OolI]{2,4})",
     "\\bW\\s?(?P<nr>[0-9OolI|SB]{1,5})\\s*[/-]\\s*(?P<jahr>[0-9OolI]{4})",
     "(?<![\\d/])(?:W\\s?)?(?P<nr>[0-9OolI|SB]{1,5})\\s*/\\s*\\d{1,2}\\s*/\\s*\\d{1,2}\\s*[-/]\\s*(?P<jahr>[0-9OolI]{4})",
-    "\\bNr\\.?\\s*(?P<nr>[0-9OolI|SB]{1,5})\\s*/\\s*(?P<jahr>[0-9OolI]{2,4})\\s+(?:der|des|meiner|seiner)\\s+(?:Urkundenrolle|UR|UVZ|Urkundenverzeichnis)"
+    "\\bNr\\.?\\s*(?P<nr>[0-9OolI|SB]{1,5})\\s*/\\s*(?P<jahr>[0-9OolI]{2,4})\\s+(?:der|des|meiner|seiner)\\s+(?:Urkundenrolle|UR|UVZ|Urkundenverzeichnis)",
+    "\\bW\\s?(?P<nr>[0-9OolI|SB]{1,5})\\s*[/-]\\s*(?P<jahr>[0-9OolI]{2})(?![/.\\d])"
+  ],
+  "muster_uvz_oben": [
+    "(?<![A-Za-zÄÖÜäöü]\\s)(?<![\\w/.,:\\-])(?P<nr>[0-9OolI|SB]{1,5})\\s*/\\s*(?P<jahr>[2Z][0O][0-9OolI]{2})(?![/.\\d])"
   ],
 
   "standard_aktion": "vorlegen",

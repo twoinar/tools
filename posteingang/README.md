@@ -65,6 +65,13 @@ Beim ersten Mal einmal den Ordner `Y:\Posteingang` freigeben („Bearbeitung zul
 - Spalte „Inhalt“: Klick klappt die **Kurzfassung** auf (Betreff und die ersten Sätze nach der Anrede, vom
   Sortier-Programm ohne KI aus dem Text geschnitten; steht im Protokoll in den Spalten Betreff/Kurzfassung).
 
+- „Bitte zuordnen“: Knopf **„Zuordnen …“**, UVZ-Nr. (539/2026, W 539/26) oder Vorgangsnummer eintippen; die Seite
+  verschiebt das PDF nach Urkunden\<Nr>-<Jahr> bzw. Vorgänge\<Nr> und hakt ab.
+
+1.6: Blanke Nummern („539/2026“) zählen, wenn sie oben im Brief stehen (`muster_uvz_oben`) und die Urkunde im
+Schattenarchiv existiert; „W 539/26“ mit zweistelligem Jahr. Programm-Ausgabe und Update-Schritte stehen in
+`Y:\Posteingang\Protokoll\Programm.log` (ohne Briefinhalte).
+
 Ab 1.5 ergänzt das Programm beim Start ältere Protokollzeilen (vor 1.3 ohne Art/Absender) um Art, Absender, Betreff
 und Kurzfassung (`--nachtragen` macht das von Hand). Die Dateien werden dabei nur gelesen.
 

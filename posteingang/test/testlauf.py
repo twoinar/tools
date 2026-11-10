@@ -79,6 +79,18 @@ def main():
         for a, b in zip(zeilen[1:], neu[1:]):
             if a[7:] != b[7:]: print("  vorher", a[7:], "\n  nachher", b[7:])
     ok = ok and kurz_ok and nach_ok
+    # Blanke Nummern oben im Brief („Ihr Zeichen: 539/2026“, „W 2048/26“), aber kein Gerichtsaktenzeichen
+    def nummern(oben, rest=""):
+        s = P.Seite(0, oben + "\n" + rest, oben, "", False)
+        P.analysiere(s, e, P.dt.date(2026, 11, 9))
+        return s.uvz
+    blank_ok = nummern("Ihr Zeichen: 539/2026") == [("539", 2026)] and \
+        nummern("Unser Az.: W 2048/26") == [("2048", 2026)] and \
+        nummern("Amtsgericht\nAz. 12 O 345/2025") == [] and \
+        nummern("Datum 06.11.2026", "Rechnung 539/2026 im Text unten") == []
+    print("BLANKE NUMMERN", "OK" if blank_ok else "ABWEICHUNG",
+          nummern("Ihr Zeichen: 539/2026"), nummern("Unser Az.: W 2048/26"), nummern("Amtsgericht\nAz. 12 O 345/2025"))
+    ok = ok and blank_ok
     if "--liste" in sys.argv:
         shutil.copy(liste, sys.argv[-1])
     if "--ordner" in sys.argv:   # ganzen Testordner behalten, z. B. für die Web-Tagesliste

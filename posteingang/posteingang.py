@@ -36,7 +36,7 @@ try:
 except ImportError:  # ältere PyMuPDF-Versionen
     import fitz
 
-VERSION = "1.6"
+VERSION = "1.7"
 
 # Windows-Konsole (cp850/cp1252) kann nicht jedes Zeichen darstellen: lieber ersetzen als abstürzen.
 for _strom in (sys.stdout, sys.stderr):
@@ -58,6 +58,9 @@ def lade_einstellungen(pfad=None):
     with open(pfad, encoding="utf-8") as f:
         e = json.load(f)
     e["_muster_uvz"] = [re.compile(m, re.I) for m in e["muster_uvz"]]
+    # Nur oben auf der Seite (Briefkopf, Zeichen, Betreff): blanke Nummern wie „539/2026“; zählen nur,
+    # wenn es die Urkunde im Schattenarchiv gibt (Prüfung in ordne_zu)
+    e["_muster_uvz_oben"] = [re.compile(m, re.I) for m in e.get("muster_uvz_oben", [])]
     e["_muster_vorgang"] = [re.compile(m, re.I) for m in e["muster_vorgang"]]
     e["_empfaenger"] = [re.compile(m, re.I) for m in e["merkmale_an_uns_adressiert"]]
     e["_arten"] = [(a["name"], a.get("aktion", "vorlegen"), [re.compile(m, re.I) for m in a["muster"]],
@@ -171,9 +174,11 @@ def _ganze_nummer(t, treffer, gruppe, min_ziffern):
     return sum(ch.isdigit() for ch in roh) >= min(min_ziffern, len(roh))
 
 
-def _nummern_in(t, e, heute):
+def _nummern_in(t, e, heute, kopf=False):
     uvz, vorgang = [], []
-    for m in e["_muster_uvz"]:
+    # Im Briefkopf zusätzlich blanke Nummern wie „539/2026“ (muster_uvz_oben); die zählen nur, wenn es die
+    # Urkunde im Schattenarchiv gibt (ordne_zu prüft jede Nummer gegen den Bestand)
+    for m in e["_muster_uvz"] + (e.get("_muster_uvz_oben", []) if kopf else []):
         for treffer in m.finditer(t):
             if not _ganze_nummer(t, treffer, "nr", 2):
                 continue
@@ -208,7 +213,8 @@ def analysiere(seite, e, heute):
     # Briefkopf = alles vor der Anrede (Anschrift, Ihr Zeichen, Datum, Betreff); ohne Anrede die obere Seite
     anrede = RE_ANREDE.search(seite.oben)
     kopf = seite.oben[:anrede.start()] if anrede else seite.oben
-    seite.uvz_oben, seite.vorgang_oben = _nummern_in(kopf, e, heute)
+    seite.uvz_oben, seite.vorgang_oben = _nummern_in(kopf, e, heute, kopf=True)
+    seite.uvz += [u for u in seite.uvz_oben if u not in seite.uvz]
 
     # Seitenzahl
     m = RE_SEITE_VON.search(t)
@@ -871,7 +877,7 @@ def _hole(url, ziel=None):
     return daten
 
 
-def einspiel_skript(pid, quelle, ziel, starten=True):
+def einspiel_skript(pid, quelle, ziel, starten=True, log="nul"):
     """Windows-Skript: warten bis Prozess `pid` beendet ist, Dateien kopieren, neue Version starten.
     (ping statt timeout, weil timeout ohne Konsole sofort abbricht)"""
     start = 'start "Posteingang sortieren" /min "%ZIEL%\\Posteingang-sortieren.exe" --dauerhaft' if starten else ""
@@ -879,6 +885,8 @@ def einspiel_skript(pid, quelle, ziel, starten=True):
 set PID={pid}
 set QUELLE={quelle}
 set ZIEL={ziel}
+set LOG={log}
+echo %date% %time% [%COMPUTERNAME%] Update: warte auf Ende von PID %PID% >> "%LOG%"
 :warte
 tasklist /FI "PID eq %PID%" /NH 2>nul | find " %PID% " >nul && (ping -n 3 127.0.0.1 >nul & goto warte)
 if exist "%ZIEL%\\einstellungen.json" copy /y "%ZIEL%\\einstellungen.json" "%ZIEL%\\einstellungen.vorher.json" >nul
@@ -890,7 +898,9 @@ if %VERSUCH% GEQ 30 goto start
 ping -n 11 127.0.0.1 >nul
 goto kopiere
 :start
+echo %date% %time% [%COMPUTERNAME%] Update: kopiert (Versuche %VERSUCH%), starte neue Version >> "%LOG%"
 {start}
+echo %date% %time% [%COMPUTERNAME%] Update: Start-Befehl Ergebnis %ERRORLEVEL% >> "%LOG%"
 """
 
 
@@ -928,7 +938,7 @@ def pruefe_update(e, ausgabe=print):
     # bis es beendet ist, kopiert die neuen Dateien und startet die neue Version.
     skript = os.path.join(arbeit, "einspielen.cmd")
     with open(skript, "w", encoding="cp1252", errors="replace") as f:
-        f.write(einspiel_skript(os.getpid(), quelle, HIER))
+        f.write(einspiel_skript(os.getpid(), quelle, HIER, log=os.path.join(e["protokoll"], "Programm.log")))
     subprocess.Popen(["cmd", "/c", skript], creationflags=0x08000000)  # CREATE_NO_WINDOW
     return True
 
@@ -1007,6 +1017,37 @@ def nachtragen(e, monate=2):
     return len(tage)
 
 
+class _Log:
+    """Ausgabe zusätzlich in Y:\\Posteingang\\Protokoll\\Programm.log (für die Fehlersuche, ohne Briefinhalte)."""
+    def __init__(self, ordner, konsole):
+        self.datei = os.path.join(ordner, "Programm.log")
+        self.konsole = konsole
+        try:
+            os.makedirs(ordner, exist_ok=True)
+            if os.path.exists(self.datei) and os.path.getsize(self.datei) > 1_000_000:
+                os.replace(self.datei, self.datei + ".alt")
+        except OSError:
+            pass
+
+    def write(self, text):
+        try:
+            self.konsole.write(text)
+        except Exception:
+            pass
+        if text.strip():
+            try:
+                with open(self.datei, "a", encoding="utf-8") as f:
+                    f.write(f"{dt.datetime.now():%d.%m.%Y %H:%M:%S} [{os.environ.get('COMPUTERNAME', '?')}] {text.rstrip()}\n")
+            except OSError:
+                pass
+
+    def flush(self):
+        try:
+            self.konsole.flush()
+        except Exception:
+            pass
+
+
 def main(argv):
     pfad_einst = os.path.join(HIER, "einstellungen.json")
     e = lade_einstellungen()
@@ -1018,6 +1059,8 @@ def main(argv):
         print(nachtragen(e), "Tag(e) ergänzt.")
         return
     if len(argv) > 1 and argv[1] == "--dauerhaft":
+        sys.stdout = _Log(e["protokoll"], sys.stdout)
+        sys.stderr = sys.stdout
         print(f"Posteingang sortieren {VERSION} – überwacht {e['eingang']} (Strg+C beendet)")
         stand = os.path.getmtime(pfad_einst)
         naechste_pruefung = time.time() + 60
