@@ -190,6 +190,19 @@ dialog.mail .alle button{background:transparent;color:var(--blue);padding:0;text
 dialog.mail .knoepfe{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
 dialog.mail .info{font-size:12px;color:var(--muted);margin:0}
 dialog.mail textarea{min-height:70px}
+/* Sammelbogen: weitere Urkunden im selben Termin */
+.wu-karte{border:1px solid var(--line);border-left:6px solid var(--blue);border-radius:4px;padding:8px 12px;margin:10px 0 0 0}
+.wu-kopf{display:grid;grid-template-columns:auto 1fr auto 130px auto 110px auto;gap:8px;align-items:center}
+.wu-kopf select{max-width:240px}
+.wu-kopf .wu-nr{font-weight:bold;color:var(--blue)}
+.wu-punkte{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;margin-top:6px}
+.wu-ng{margin-top:6px;border:1px solid var(--line);border-left:6px solid var(--line);border-radius:4px;padding:4px 10px}
+.wu-ng.aktiv{border:1.5px solid var(--red);border-left:6px solid var(--red);background:var(--red-bg)}
+.wu-ng .eingeholt{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.wu-ng input[type=date]{width:160px}
+.wu-ng input[type=text]{min-width:220px}
+.wu-zeile{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:start;margin-top:6px}
+.wu-hinw{font-size:13px;color:var(--muted);margin:4px 0 0}
+@media (max-width:640px){.wu-kopf{grid-template-columns:1fr 1fr}.wu-punkte{grid-template-columns:1fr}.wu-zeile{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -398,6 +411,17 @@ dialog.mail textarea{min-height:70px}
     </div>
   </section>
 
+  <section id="wuBereich">
+    <h2><span>6</span><span>Weitere Urkunden im selben Termin</span></h2>
+    <label class="cb"><input type="checkbox" data-f="wu_an"><span><b>Sammelbogen:</b> im selben Termin wurden weitere Urkunden beurkundet</span></label>
+    <div class="aufklapp" data-zeigen-wenn="wu_an" data-leeren>
+      <p class="wu-hinw">Die Beteiligten aus Abschnitt 3 gelten für alle Urkunden. Je Urkunde erscheinen nur die Vollzugsschritte, die zu ihrer Art passen.</p>
+      <div id="wuListe"></div>
+      <div class="hinzu nodruck"><button type="button" id="wuPlus">+ weitere Urkunde</button>
+        <button type="button" id="wuEinzeln" title="Legt für jede weitere Urkunde zusätzlich einen eigenen Vollzugsbogen ab (Beteiligte, Versand und Vollzugsschritte übernommen)">Zusätzlich als Einzelbögen ablegen</button></div>
+    </div>
+  </section>
+
   <section>
     <h2><span id="nrBem">6</span><span>Weitere Anweisungen / Bemerkungen</span></h2>
     <textarea rows="8" data-f="bemerkungen" aria-label="Weitere Anweisungen und Bemerkungen"></textarea>
@@ -533,6 +557,113 @@ lb.addEventListener("click", e=>{
   letzte.hidden = true; geaendert = true; loeschAnzeigen();
 });
 loeschZuruecksetzen(false);
+
+/* ---------- Sammelbogen: weitere Urkunden im selben Termin (bis 6) ----------
+   Jede Urkunde hat Art, UVZ-Nr., Vorgangs-Nr., die zur Art passenden Vollzugsschritte, eine eigene
+   Nachgenehmigung und eine Versandzeile, die „Verteilerzettel eintragen“ füllt.                       */
+const WU_ARTEN = [["testament","Testament / Erbvertrag"],["vorsorge","Vorsorgevollmacht"],["patient","Patientenverfügung"],
+  ["uebertragung","Übertragungsvertrag"],["kauf","Kaufvertrag"],["grundschuld","Grundschuld"],["ehevertrag","Ehevertrag"],["sonst","Sonstige Urkunde"]];
+// [Feld, Text, Arten, Feld im Einzelbogen]
+const WU_PUNKTE = [
+  ["ztr","Registrierung Zentrales Testamentsregister","testament ehevertrag","ztr"],
+  ["verwahrung","Ablieferung in die besondere amtliche Verwahrung (Amtsgericht)","testament","verwahrung_ag"],
+  ["abschrift_testator","Beglaubigte Abschrift an Testator","testament","abschrift_erblasser"],
+  ["zvr","Registrierung Zentrales Vorsorgeregister","vorsorge patient","zvr"],
+  ["zvr_inhalt","ZVR mit Übermittlung des Vollmachtsinhalts","vorsorge","zvr_inhalt"],
+  ["ausf_vg","Ausfertigung an Vollmachtgeber","vorsorge","ausf_vollmachtgeber"],
+  ["ausf_bev","Ausfertigungen an Bevollmächtigte","vorsorge","ausf_bevollmaechtigte"],
+  ["ausf_zurueck","Ausfertigungen erst auf Anweisung des Vollmachtgebers erteilen","vorsorge","ausf_zurueckhalten"],
+  ["ausf_bet","Ausfertigung / Abschrift an die Beteiligten","patient sonst",""],
+  ["grest","Anzeige Finanzamt Grunderwerbsteuer","uebertragung kauf","anzeige_grest"],
+  ["schenkst","Anzeige Finanzamt Schenkungsteuer","uebertragung","anzeige_schenkungsteuer"],
+  ["gutachter","Anzeige Gutachterausschuss","uebertragung kauf","anzeige_gutachterausschuss"],
+  ["vorkauf","Vorkaufsrechtsverzichtserklärung Gemeinde","kauf","vorkaufsrecht_gemeinde"],
+  ["gs_glaeubiger","Ausfertigung / Abschrift an Gläubiger","grundschuld","gs_ausfertigung"],
+  ["gs_bestaetigung","Notarbestätigung an Gläubiger","grundschuld","gs_notarbestaetigung"],
+  ["gueterrecht","Eintragung Güterrechtsregister","ehevertrag","gueterrechtsregister"],
+  ["genehm","Genehmigungen / Zustimmungen (siehe Sonstiges)","uebertragung kauf grundschuld ehevertrag","gen_sammel"],
+];
+const wuListe = document.getElementById("wuListe");
+for (let i=1;i<=6;i++){
+  const opt = WU_ARTEN.map(([k,t])=>`<option value="${k}">${t}</option>`).join("");
+  const punkte = WU_PUNKTE.map(([f,t,a])=>`<label class="cb" data-wu-arten="${a}"><input type="checkbox" data-f="wu_${i}_${f}"><span>${t}</span></label>`).join("");
+  wuListe.insertAdjacentHTML("beforeend",`<div class="wu-karte" data-wu="${i}">
+    <div class="wu-kopf"><span class="wu-nr">${i}.</span>
+      <select data-f="wu_${i}_art" aria-label="Urkunde ${i}: Urkundsart"><option value="">Urkundsart wählen …</option>${opt}</select>
+      <label for="wu${i}uvz">UVZ-Nr.:</label><input type="text" id="wu${i}uvz" data-f="wu_${i}_uvz" autocomplete="off">
+      <label for="wu${i}vg">Vorgangs-Nr.:</label><input type="text" id="wu${i}vg" data-f="wu_${i}_vg" autocomplete="off">
+      <button type="button" class="weg nodruck" data-wuweg="${i}" title="Urkunde entfernen" aria-label="Urkunde ${i} entfernen">×</button></div>
+    <div class="wu-punkte">${punkte}</div>
+    <div class="wu-ng"><label class="cb"><input type="checkbox" data-f="wu_${i}_ng"><span><b>Ein Beteiligter muss noch nachgenehmigen.</b></span></label>
+      <div class="eingeholt" data-wung-details><input type="text" data-f="wu_${i}_ng_durch" placeholder="Nachgenehmigung durch" aria-label="Urkunde ${i}: Nachgenehmigung durch">
+        <label class="cb"><input type="checkbox" data-f="wu_${i}_ng_ein"><span>bereits vom Notar eingeholt am:</span></label>
+        <input type="date" data-f="wu_${i}_ng_am" data-date aria-label="Urkunde ${i}: eingeholt am"></div></div>
+    <div class="wu-zeile"><label>Kopien / Versand:</label><textarea rows="1" data-f="wu_${i}_versand" aria-label="Urkunde ${i}: Kopien und Versand" placeholder="wird mit „Verteilerzettel eintragen“ gefüllt"></textarea></div>
+    <div class="wu-zeile"><label>Sonstiges:</label><textarea rows="1" data-f="wu_${i}_sonst" aria-label="Urkunde ${i}: Sonstiges"></textarea></div>
+  </div>`);
+}
+const wuKarten = () => Array.from(wuListe.querySelectorAll(".wu-karte"));
+const wuF = (i,f) => document.querySelector(`[data-f="wu_${i}_${f}"]`);
+const wuHatInhalt = k => [...k.querySelectorAll("[data-f]")].some(el => el.type==="checkbox" ? el.checked : el.value.trim()!=="");
+const wuArtName = k => (WU_ARTEN.find(x=>x[0]===k)||[,""])[1];
+function wuAnzeigen(){
+  const sicht = wuKarten().filter(k=>!k.hidden);
+  sicht.forEach((k,j)=>{
+    const i = k.dataset.wu, a = wuF(i,"art").value;
+    k.querySelector(".wu-nr").textContent = (j+1)+".";
+    k.querySelectorAll("[data-wu-arten]").forEach(l=>{ const an = !!a && l.dataset.wuArten.split(" ").includes(a);
+      if (!an) l.querySelector("input").checked = false; l.hidden = !an; });
+    k.querySelector(".wu-punkte").hidden = !a;
+    const ng = wuF(i,"ng").checked;
+    k.querySelector("[data-wung-details]").hidden = !ng;
+    k.querySelector(".wu-ng").classList.toggle("aktiv", ng && !wuF(i,"ng_ein").checked);
+  });
+  document.getElementById("wuPlus").hidden = sicht.length >= wuKarten().length;
+}
+function wuZuruecksetzen(ausInhalt){
+  let n = 1;
+  if (ausInhalt) wuKarten().forEach((k,j)=>{ if (wuHatInhalt(k)) n = Math.max(n,j+1); });
+  wuKarten().forEach((k,j)=>{ k.hidden = j>=n; });
+  wuAnzeigen();
+}
+// nächste freie (oder neue) Karte
+function wuFreieKarte(){
+  const leer = wuKarten().find(k=>!k.hidden && !wuF(k.dataset.wu,"uvz").value.trim());
+  if (leer) return leer.dataset.wu;
+  const neu = wuKarten().find(k=>k.hidden); if (!neu) return null;
+  neu.hidden = false; wuAnzeigen(); return neu.dataset.wu;
+}
+// weitere Urkunde eintragen (aus dem Aufruf oder beim Versand); gibt die Kartennummer zurück
+function wuEintragen(uvz, vg){
+  const da = wuKarten().find(k=>!k.hidden && wuF(k.dataset.wu,"uvz").value.trim()===uvz);
+  if (da){ if (vg && !wuF(da.dataset.wu,"vg").value) wuF(da.dataset.wu,"vg").value = vg; return da.dataset.wu; }
+  const wan = document.querySelector('[data-f="wu_an"]');
+  if (!wan.checked){ wan.checked = true; dynamik(); }
+  const i = wuFreieKarte(); if (!i) return null;
+  wuF(i,"uvz").value = uvz; if (vg) wuF(i,"vg").value = vg;
+  wuAnzeigen(); geaendert = true; return i;
+}
+const wuUvzListe = () => istAn("wu_an") ? wuKarten().filter(k=>!k.hidden).map(k=>[k.dataset.wu, wuF(k.dataset.wu,"uvz").value.trim()]).filter(x=>x[1]) : [];
+document.getElementById("wuPlus").onclick = ()=>{
+  const k = wuKarten().find(k=>k.hidden); if (!k) return;
+  k.hidden = false; wuAnzeigen(); k.querySelector("select").focus();
+};
+wuListe.addEventListener("change", ()=>wuAnzeigen());
+wuListe.addEventListener("click", e=>{
+  const i = Number(e.target.dataset.wuweg); if (!i) return;
+  const sicht = wuKarten().filter(x=>!x.hidden), k = wuKarten()[i-1];
+  if (wuHatInhalt(k) && !confirm("Diese Urkunde mit allen Eingaben aus dem Bogen entfernen?")) return;
+  if (sicht.length===1){ k.querySelectorAll("[data-f]").forEach(el=>{ if (el.type==="checkbox") el.checked=false; else el.value=""; }); wuAnzeigen(); geaendert = true; return; }
+  const pos = sicht.indexOf(k);
+  for (let j=pos; j<sicht.length-1; j++){
+    const von = sicht[j+1].querySelectorAll("[data-f]"), nach = sicht[j].querySelectorAll("[data-f]");
+    von.forEach((el,x)=>{ if (el.type==="checkbox") nach[x].checked=el.checked; else nach[x].value=el.value; });
+  }
+  const letzte = sicht[sicht.length-1];
+  letzte.querySelectorAll("[data-f]").forEach(el=>{ if (el.type==="checkbox") el.checked=false; else el.value=""; });
+  letzte.hidden = true; geaendert = true; wuAnzeigen();
+});
+wuZuruecksetzen(false);
 
 /* ---------- Beteiligte dynamisch ---------- */
 const GRUPPEN = { v:{keys:["v1","v2","v3"],name:"Veräußerer",min:1}, e:{keys:["e1","e2","e3"],name:"Erwerber",min:1},
@@ -752,7 +883,7 @@ document.addEventListener("change", e=>{
   if (artWahl().value==="__neu"){ artWahl().value = artVorher; artNeuZeigen(); return; }
   if (!artAnwenden(true)){ artWahl().value = artVorher; gruppenSetzen(); return; }
   artVorher = artWahl().value; eigenAnzeigen();
-  beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); dynamik(); textfelderAnpassen();
+  beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); wuZuruecksetzen(true); dynamik(); textfelderAnpassen();
 });
 
 function artNeuZeigen(){
@@ -773,7 +904,7 @@ document.getElementById("artNeuOk").onclick = async ()=>{
   artWahl().value = w;
   if (!artAnwenden(true)){ artWahl().value = artVorher; gruppenSetzen(); return; }
   artVorher = w; eigenAnzeigen(); geaendert = true;
-  beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); dynamik(); textfelderAnpassen();
+  beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); wuZuruecksetzen(true); dynamik(); textfelderAnpassen();
   meldung(doppelt ? `„${name}“ gibt es schon in der Liste.` : `„${name}“ steht jetzt dauerhaft in der Liste der Urkundsarten.`);
 };
 document.getElementById("artWeg").onclick = async ()=>{
@@ -798,6 +929,7 @@ document.addEventListener("change", e=>{
     document.querySelectorAll(`[data-gruppe="${el.dataset.gruppe}"]`).forEach(o=>{ if(o!==el) o.checked=false; });
     if (el.dataset.gruppe==="ub") document.querySelector('[data-f="anzeige_grest"]').checked = true;
   }
+  { const m = /^wu_(\d)_ng_am$/.exec(el.dataset.f||""); if (m && el.value){ wuF(m[1],"ng_ein").checked = true; wuAnzeigen(); } }
   if (el.dataset.f==="kgs_ng_am" && el.value) document.querySelector('[data-f="kgs_ng_eingeholt"]').checked = true;
   if (el.dataset.f==="nachgen_eingeholt_am" && el.value)
     document.querySelector('[data-f="nachgen_bereits_eingeholt"]').checked = true;
@@ -831,7 +963,7 @@ function dynamik(ausloeser){
   document.getElementById("kgsNg").classList.toggle("aktiv", kgsRot);
   document.getElementById("kgsNgErstes").hidden = !kgsRot;
 }
-document.addEventListener("change", e=>{ if (e.target.type==="checkbox"){ dynamik(e.target); if (e.target.dataset.f==="cb_loeschung") loeschZuruecksetzen(true); } });
+document.addEventListener("change", e=>{ if (e.target.type==="checkbox"){ dynamik(e.target); if (e.target.dataset.f==="cb_loeschung") loeschZuruecksetzen(true); wuZuruecksetzen(true); } });
 artAnwenden(false); beteiligteZuruecksetzen(false);
 dynamik();
 window.addEventListener("beforeunload", e=>{ if (geaendert){ e.preventDefault(); e.returnValue=""; }});
@@ -870,9 +1002,15 @@ async function ordnerMitRecht(){
 /* Aufruf aus dem Word-Makro nach dem Versand: vollzug.html?uvz=2050/2026&vorgang=30462 trägt UVZ- und
    Vorgangs-Nr. ein und übernimmt den Versand, sobald der Ablageordner freigegeben ist.                    */
 const vorgangNorm = s => (s||"").replace(/\D/g,"").replace(/^0+/,"");
+const verweisName = (vg, uvz) => sauberName(vg) + " Vollzugsbogen" + (uvz ? " UVZ " + sauberName(uvz) : "") + " (im Sammelbogen).txt";
 async function bogenZumAufruf(vg, uvz){
   const kand = [];
   for await (const [name, h] of ordner.entries()){
+    const mv = h.kind==="file" && /^(.*) Vollzugsbogen(?: UVZ (.*?))? \(im Sammelbogen\)\.txt$/i.exec(name);
+    if (mv && vorgangNorm(mv[1]) && vorgangNorm(mv[1])===vorgangNorm(vg)){
+      const ziel = (await (await h.getFile()).text()).split(/\r?\n/)[0].trim();
+      try { const zh = await ordner.getFileHandle(ziel); await bogenLaden(await (await zh.getFile()).arrayBuffer(), ziel); return; } catch {}
+    }
     const m = h.kind==="file" && /^(.*) Vollzugsbogen(?: UVZ (.*))?\.pdf$/i.exec(name);
     if (m && vorgangNorm(m[1]) && vorgangNorm(m[1])===vorgangNorm(vg)) kand.push({name, h, uvz:(m[2]||"").trim()});
   }
@@ -914,6 +1052,7 @@ const fensterId = Math.random().toString(36).slice(2);
 function passtZuAufruf(uvz, vg){
   if (uvzWert() && uvzWert()===uvz) return 3;
   if (gsUvzWert() && gsUvzWert()===uvz) return 2;
+  if (wuUvzListe().some(([,u])=>u===uvz)) return 2;
   const kgs = document.querySelector('[data-f="kgs_uvz"]').value.trim();
   if (art()==="kauf" && !kgs && vg && vorgangNorm(vorgangWert())===vorgangNorm(vg)) return 1;   // Kaufvertrag desselben Vorgangs, Grundschuld-Nr. noch offen
   return 0;
@@ -928,11 +1067,13 @@ if (bogenKanal) bogenKanal.onmessage = async ({data:m})=>{
         document.querySelector('[data-f="kauf_grundschuld"]').checked = true; dynamik();
         document.querySelector('[data-f="kgs_uvz"]').value = m.uvz; geaendert = true;
       }
+      for (const [u,v] of (m.weitere||[])) wuEintragen(u, v);
       window.focus();
       await versandUebernehmen(false);
     } catch(e){ fehler(e); }
   }
 };
+let aufrufWeitere = [];   // aus dem Sammelversand: [[UVZ, Vorgang], …]
 async function anOffenenBogen(uvz, vg){
   if (!bogenKanal) return false;
   const antworten = [];
@@ -943,7 +1084,7 @@ async function anOffenenBogen(uvz, vg){
   bogenKanal.removeEventListener("message", hoeren);
   if (!antworten.length) return false;
   const ziel = antworten.sort((a,b)=>b.guete-a.guete)[0];
-  bogenKanal.postMessage({typ:"eintragen", an:ziel.von, von:fensterId, uvz, vg});
+  bogenKanal.postMessage({typ:"eintragen", an:ziel.von, von:fensterId, uvz, vg, weitere:aufrufWeitere});
   meldung(`Der Versand zu UVZ-Nr. ${uvz} wird in den schon geöffneten Vollzugsbogen eingetragen (anderes Fenster/anderer Tab). Dieses Fenster kann geschlossen werden.`);
   setTimeout(()=>{ try { window.close(); } catch {} }, 1500);
   return true;
@@ -951,6 +1092,7 @@ async function anOffenenBogen(uvz, vg){
 async function ausAufruf(){
   const q = new URLSearchParams(location.search), uvz = (q.get("uvz")||"").trim(), vg = (q.get("vorgang")||"").trim();
   if (!uvz && !vg) return;
+  aufrufWeitere = (q.get("weitere")||"").split(",").map(x=>x.split("|").map(t=>(t||"").trim())).filter(x=>x[0]);
   history.replaceState(null, "", location.pathname);   // beim Neuladen nicht erneut eintragen
   // Ist der passende Bogen schon in einem anderen Fenster offen (z. B. der Kaufvertrag, zu dem gerade der
   // Verteilerzettel der Grundschuld versandt wurde), wird der Versand dort eingetragen statt in einem leeren Bogen.
@@ -962,8 +1104,10 @@ async function ausAufruf(){
     // Liegt zum Vorgang schon ein Bogen, wird er geöffnet. Kommt der Aufruf vom Verteilerzettel der Grundschuld,
     // ist das der Kaufvertrags-Bogen: der Versand landet dann im Abschnitt Finanzierungsgrundschuld.
     if (vg) try { await bogenZumAufruf(vg, uvz); } catch(e){ fehler(e); }
+    for (const [u,v] of aufrufWeitere) wuEintragen(u, v);
     return versandUebernehmen(false).catch(fehler);
   }
+  for (const [u,v] of aufrufWeitere) wuEintragen(u, v);
   meldung(`UVZ-Nr. ${uvz} übernommen. Bitte auf „Verteilerzettel eintragen“ klicken, dann wird der Versand eingetragen.`);
 }
 
@@ -1245,6 +1389,25 @@ async function pdfErzeugen(){
   }
 
   }
+  // Sammelbogen: weitere Urkunden im selben Termin
+  { const karten = istAn("wu_an") ? wuKarten().filter(k=>!k.hidden && wuHatInhalt(k)) : [];
+    if (karten.length){
+      ueberschrift(nr(),"Weitere Urkunden im selben Termin");
+      text("Die Beteiligten aus Abschnitt 3 gelten für alle Urkunden.",{s:8.5,c:GRAU});
+      karten.forEach((k,j)=>{
+        const i = k.dataset.wu, kopf = [`${j+1}. ${wuArtName(v(`wu_${i}_art`)) || "Urkunde"}`, v(`wu_${i}_uvz`) && "UVZ-Nr. "+v(`wu_${i}_uvz`), v(`wu_${i}_vg`) && "Vorgangs-Nr. "+v(`wu_${i}_vg`)].filter(Boolean).join("  ·  ");
+        platz(40); y-=4; text(kopf,{s:9.5,f:fB,c:BLAU});
+        k.querySelectorAll("[data-wu-arten]").forEach(l=>{ if (!l.hidden) cbZeile(l.querySelector("input").checked, l.querySelector("span").textContent, ML+12, BW-12); });
+        if (v(`wu_${i}_ng`)){
+          const rot = !v(`wu_${i}_ng_ein`);
+          cbZeile(true, (rot ? "Nachgenehmigung – vorrangig zu erledigen!" : "Nachgenehmigung") + (v(`wu_${i}_ng_durch`) ? " durch " + v(`wu_${i}_ng_durch`) : "") + (rot ? "" : " – eingeholt am " + (v(`wu_${i}_ng_am`) ? nachDeutsch(v(`wu_${i}_ng_am`)) : "")), ML+12, BW-12, {fett:rot});
+        }
+        if (v(`wu_${i}_versand`)) { text("Kopien / Versand:",{x:ML+12,s:8.5,c:GRAU}); text(v(`wu_${i}_versand`),{x:ML+24,s:9,max:BW-24}); }
+        if (v(`wu_${i}_sonst`)) { text("Sonstiges:",{x:ML+12,s:8.5,c:GRAU}); text(v(`wu_${i}_sonst`),{x:ML+24,s:9,max:BW-24}); }
+        y-=2; page.drawLine({start:{x:ML,y},end:{x:W-MR,y},thickness:.4,color:LINIE}); y-=2;
+      });
+    }
+  }
   // 6 Bemerkungen
   ueberschrift(nr(),"Weitere Anweisungen / Bemerkungen");
   { const b=v("bemerkungen");
@@ -1314,9 +1477,63 @@ async function ablegen(){
   if (vorhanden && !confirm(`„${name}“ ist im Ordner „${dir.name}“ bereits vorhanden.\n\nÜberschreiben?`)) return false;
   await schreibenMitWiederholung(dir, name, pdf);
   geaendert=false;
-  meldung(`Abgelegt: „${name}“ im Ordner „${dir.name}“.`);
+  let verweise = 0;
+  for (const k of wuKarten().filter(k=>!k.hidden && istAn("wu_an"))){
+    const vg = wuF(k.dataset.wu,"vg").value.trim(), u = wuF(k.dataset.wu,"uvz").value.trim();
+    if (!vg || vorgangNorm(vg)===vorgangNorm(vorgangWert())) continue;
+    try { await schreibenMitWiederholung(dir, verweisName(vg,u), new TextEncoder().encode(name + "\r\nDiese Urkunde steht im Sammelbogen „" + name + "“.\r\n")); verweise++; } catch {}
+  }
+  meldung(`Abgelegt: „${name}“ im Ordner „${dir.name}“.` + (verweise ? ` Für ${verweise} weitere Urkunde${verweise>1?"n":""} liegt ein Verweis unter ihrer Vorgangs-Nr. im Ordner.` : ""));
   return true;
 }
+
+/* ---------- Sammelbogen zusätzlich als Einzelbögen ablegen (je weitere Urkunde ein eigener Bogen) ----------
+   Der Sammelbogen bleibt, wie er ist: er wird vorher als PDF erzeugt und danach wieder geladen.               */
+const WU_ZU_ART = { testament:"testament", vorsorge:"vorsorge", uebertragung:"uebertragung", kauf:"kauf", grundschuld:"grundschuld",
+  ehevertrag:"ehevertrag", patient:"eigen:vorsorge:Patientenverfügung", sonst:"eigen:vorsorge:Sonstige Urkunde" };
+async function wuEinzelnAblegen(){
+  const karten = istAn("wu_an") ? wuKarten().filter(k=>!k.hidden && wuF(k.dataset.wu,"uvz").value.trim()) : [];
+  if (!karten.length){ meldung("Bitte zuerst bei den weiteren Urkunden die UVZ-Nr. eintragen.","err"); return; }
+  if (nummerFehlt()) return;
+  const ohneArt = karten.filter(k=>!wuF(k.dataset.wu,"art").value);
+  if (ohneArt.length){ meldung("Bitte bei jeder weiteren Urkunde die Urkundsart wählen.","err"); ohneArt[0].querySelector("select").focus(); return; }
+  const dir = dateisystemOk ? await ordnerMitRecht() : null;
+  if (!dir){ meldung("Das Ablegen von Einzelbögen geht nur in Chrome oder Edge mit gewähltem Ablageordner.","err"); return; }
+  const hauptName = dateiname(), hauptBytes = await pdfErzeugen(), warGeaendert = geaendert;
+  const daten = karten.map(k=>{ const i=k.dataset.wu, o={};
+    k.querySelectorAll("[data-f]").forEach(el=>{ o[el.dataset.f.replace(`wu_${i}_`,"")] = el.type==="checkbox" ? el.checked : el.value; }); return o; });
+  const q = f => document.querySelector(`[data-f="${f}"]`);
+  const abgelegt = [], uebersprungen = [];
+  try {
+    for (const d of daten){
+      // auf den Hauptbogen zurücksetzen, dann zur weiteren Urkunde umbauen
+      await bogenLaden(hauptBytes, hauptName);
+      const w = WU_ZU_ART[d.art] || "vorsorge"; eigenOption(w);
+      artWahl().value = w; artAnwenden(false); artVorher = w; eigenAnzeigen();
+      q("uvz_nr").value = d.uvz.trim(); q("vorgang_nr").value = (d.vg||"").trim();
+      q("kauf_grundschuld").checked = false; q("geschaeftswert").value = "";
+      document.querySelectorAll("#schrittBereich [data-f]").forEach(el=>{ if (el.type==="checkbox") el.checked=false; else el.value=""; });
+      for (const [f,,,ziel] of WU_PUNKTE) if (ziel && d[f] && q(ziel)) q(ziel).checked = true;
+      q("nachgen_erforderlich").checked = !!d.ng; q("nachgen_durch").value = d.ng ? d.ng_durch : "";
+      q("nachgen_bereits_eingeholt").checked = !!(d.ng && d.ng_ein); q("nachgen_eingeholt_am").value = d.ng ? d.ng_am : ""; q("nachgen_hinweis").value = "";
+      tb.querySelectorAll('[data-f$="_kopien_erteilt"], [data-f$="_kopie_email"], [data-f$="_kopie_post"]').forEach(el=>{ if (el.type==="checkbox") el.checked=false; else el.value=""; });
+      q("bemerkungen").value = [`Aus dem Sammelbogen „${hauptName}“.`, d.versand && "Kopien / Versand:\n"+d.versand, d.sonst].filter(Boolean).join("\n");
+      leeren(document.getElementById("wuBereich"));
+      beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); wuZuruecksetzen(false); dynamik(); textfelderAnpassen();
+      const name = dateiname();
+      let vorhanden = true; try { await dir.getFileHandle(name); } catch { vorhanden = false; }
+      if (vorhanden && !confirm(`„${name}“ ist im Ordner bereits vorhanden.\n\nÜberschreiben?`)){ uebersprungen.push(name); continue; }
+      await schreibenMitWiederholung(dir, name, await pdfErzeugen());
+      // der Verweis auf den Sammelbogen ist jetzt überflüssig
+      try { await dir.removeEntry(verweisName(d.vg||"", d.uvz.trim())); } catch {}
+      abgelegt.push(name);
+    }
+  } finally {
+    await bogenLaden(hauptBytes, hauptName); geaendert = warGeaendert;
+  }
+  meldung(`Einzelbögen abgelegt (${abgelegt.length}): ${abgelegt.map(n=>`„${n}“`).join(", ")}` + (uebersprungen.length ? `. Nicht überschrieben: ${uebersprungen.join(", ")}` : "") + ". Der Sammelbogen ist wieder geöffnet.");
+}
+document.getElementById("wuEinzeln").onclick = ()=>wuEinzelnAblegen().catch(fehler);
 
 /* ---------- Vorhandenen Bogen öffnen ---------- */
 async function bogenLaden(bytes, name){
@@ -1331,7 +1548,7 @@ async function bogenLaden(bytes, name){
     for (const el of felder()){ const w=f[el.dataset.f]; if (el.type==="checkbox") el.checked=!!w; else el.value = w===undefined ? "" : w; }
     if (!ARTEN[artWahl().value]) artWahl().value = "kauf";
     artAnwenden(false); artVorher = artWahl().value; eigenAnzeigen();
-    beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); dynamik(); textfelderAnpassen(); geaendert=false;
+    beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); wuZuruecksetzen(true); dynamik(); textfelderAnpassen(); geaendert=false;
     meldung(`„${name}“ geöffnet. Änderungen mit „Vollzugsbogen ablegen“ speichern.`);
     return;
   }
@@ -1348,7 +1565,7 @@ async function bogenLaden(bytes, name){
     const b=c.dataset.zeigenWenn; if (!b.startsWith("!") && hatInhalt(c)){ const k=document.querySelector(`[data-f="${b}"]`); if(k) k.checked=true; }
   });
   artAnwenden(false); artVorher = artWahl().value; eigenAnzeigen();
-  beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); dynamik(); textfelderAnpassen(); geaendert=false; meldung(`„${name}“ geöffnet. Änderungen mit „Vollzugsbogen ablegen“ speichern.`);
+  beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); wuZuruecksetzen(true); dynamik(); textfelderAnpassen(); geaendert=false; meldung(`„${name}“ geöffnet. Änderungen mit „Vollzugsbogen ablegen“ speichern.`);
 }
 async function oeffnen(){
   if (geaendert && !confirm("Ungespeicherte Eingaben gehen verloren. Trotzdem einen anderen Bogen öffnen?")) return;
@@ -1368,7 +1585,7 @@ function neu(){
   if (geaendert && !confirm("Alle Eingaben leeren und einen neuen Bogen beginnen?")) return;
   for (const el of felder()){ if (el.type==="checkbox") el.checked=false; else el.value=""; }
   artWahl().value = "kauf"; artAnwenden(false); artVorher = "kauf"; eigenAnzeigen();
-  beteiligteZuruecksetzen(false); loeschZuruecksetzen(false); dynamik(); textfelderAnpassen(); geaendert=false; document.getElementById("msg").innerHTML=""; window.scrollTo(0,0);
+  beteiligteZuruecksetzen(false); loeschZuruecksetzen(false); wuZuruecksetzen(false); dynamik(); textfelderAnpassen(); geaendert=false; document.getElementById("msg").innerHTML=""; window.scrollTo(0,0);
   document.querySelector('[data-f="uvz_nr"]').focus();
 }
 function fehler(e){
@@ -1384,13 +1601,15 @@ document.getElementById("btnVersand").onclick = ()=>versandUebernehmen(false).ca
 // noch keine Namen eingetragen sind; sonst nur Hinweis
 document.querySelector('[data-f="uvz_nr"]').addEventListener("change", ()=>versandPruefen().catch(()=>{}));
 document.querySelector('[data-f="kgs_uvz"]').addEventListener("change", ()=>versandPruefen().catch(()=>{}));
+wuListe.addEventListener("change", e=>{ if (/^wu_\d_uvz$/.test(e.target.dataset.f||"")) versandPruefen().catch(()=>{}); });
 async function versandPruefen(){
   if (!dateisystemOk || !ordner || !uvzWert()) return;
   if (await ordner.queryPermission({mode:"read"}) !== "granted") return;
   const praefix = versandPraefix(uvzWert()), pGs = gsUvzWert() ? versandPraefix(gsUvzWert()) : null;
+  const pWu = wuUvzListe().map(([,u])=>versandPraefix(u));
   const erledigt = new Set(document.querySelector('[data-f="versand_uebernommen"]').value.split("|").filter(Boolean));
   for await (const [name, h] of ordner.entries())
-    if (h.kind==="file" && (name.startsWith(praefix) || (pGs && name.startsWith(pGs))) && !erledigt.has(name)){
+    if (h.kind==="file" && (name.startsWith(praefix) || (pGs && name.startsWith(pGs)) || pWu.some(pr=>name.startsWith(pr))) && !erledigt.has(name)){
       // noch keine Namen: alles aus dem Verteilerzettel übernehmen; sonst nur Hinweis, damit nichts überschrieben wird
       if (keineNamen()) return versandUebernehmen(true);
       meldung(`Zu UVZ-Nr. ${uvzWert()} liegt ein Versand aus dem Verteilerzettel vor. Mit „Versand übernehmen“ eintragen.`);
@@ -1473,6 +1692,25 @@ function grundschuldVersand(d, protokoll){
   const bem = q("bemerkungen");
   bem.value = [bem.value, `Versand Grundschuld ${d.uvz||gsUvzWert()} am ${tag} (${d.von||"Verteilerzettel"}): ` + (d.eintraege||[]).map(e=>e.name+" – "+[e.eabschrift&&"eAbschrift",e.einfach&&"einfache Abschrift",e.genehmigung&&"Genehmigung",e.papier&&"Papier",e.ben&&"beN offen"].filter(Boolean).join("+")).join("; ")].filter(Boolean).join("\n");
 }
+/* Versand einer weiteren Urkunde des Sammelbogens: Zeile „Kopien / Versand“ und Nachgenehmigung der Karte */
+function wuVersand(i, d, protokoll){
+  const tag = deDatum(d.zeit||new Date().toISOString()), iso = (d.zeit||new Date().toISOString()).slice(0,10);
+  const zeilen = [];
+  for (const e of d.eintraege||[]){
+    const post = !!e.perPost;
+    const was = [!post&&e.eabschrift&&"eAbschrift per E-Mail", !post&&e.einfach&&"einfache Abschrift per E-Mail", e.genehmigung&&(post?"Genehmigungserklärung für die Post ausgedruckt":"Genehmigungserklärung per E-Mail"), e.papier&&"Kopie auf Papier", e.ben&&"eAbschrift für beN abgelegt (in XNP versenden)"].filter(Boolean);
+    if (!was.length) continue;
+    zeilen.push(`${e.name}: ${was.join(", ")}`);
+    protokoll.push(`UVZ ${wuF(i,"uvz").value.trim()} ${e.name}: ${was.join(", ")}`);
+    if (e.genehmigung){
+      wuF(i,"ng").checked = true;
+      if (!wuF(i,"ng_durch").value.includes(e.name)) wuF(i,"ng_durch").value = [wuF(i,"ng_durch").value, e.name].filter(Boolean).join(", ");
+      if (!post){ wuF(i,"ng_ein").checked = true; if (!wuF(i,"ng_am").value || iso < wuF(i,"ng_am").value) wuF(i,"ng_am").value = iso; }
+    }
+  }
+  if (zeilen.length) wuF(i,"versand").value = [wuF(i,"versand").value, `${tag}: ` + zeilen.join("; ")].filter(Boolean).join("\n");
+  wuAnzeigen();
+}
 const deDatum = iso => { const [j,m,t] = iso.slice(0,10).split("-"); return `${t}.${m}.${j}`; };
 async function versandUebernehmen(still){
   const uvz = uvzWert();
@@ -1486,20 +1724,23 @@ async function versandUebernehmen(still){
   const erledigt = new Set(feld.value.split("|").filter(Boolean));
   const gsUvz = gsUvzWert();
   const pKv = versandPraefix(uvz), pGs = gsUvz ? versandPraefix(gsUvz) : null;
+  const pWu = wuUvzListe().map(([i,u])=>[versandPraefix(u), i]);
   const dateien = [];
   for await (const [name, h] of ordner.entries()){
     if (h.kind!=="file" || !name.toLowerCase().endsWith(".json") || erledigt.has(name)) continue;
-    if (name.startsWith(pKv)) dateien.push([name,h,false]);
-    else if (pGs && name.startsWith(pGs)) dateien.push([name,h,true]);
+    if (name.startsWith(pKv)) dateien.push([name,h,0]);
+    else if (pGs && name.startsWith(pGs)) dateien.push([name,h,1]);
+    else { const w = pWu.find(([pr])=>name.startsWith(pr)); if (w) dateien.push([name,h,"wu"+w[1]]); }
   }
-  if (!dateien.length){ if (!still) meldung(`Kein neuer Versand zu UVZ-Nr. ${uvz}${gsUvz?` (Grundschuld ${gsUvz})`:""} im Ablageordner.`); return; }
-  dateien.sort((a,b)=>(a[2]-b[2]) || a[0].localeCompare(b[0]));
+  if (!dateien.length){ if (!still) meldung(`Kein neuer Versand zu UVZ-Nr. ${uvz}${gsUvz?` (Grundschuld ${gsUvz})`:""}${pWu.length?` und den weiteren Urkunden`:""} im Ablageordner.`); return; }
+  dateien.sort((a,b)=>String(a[2]).localeCompare(String(b[2])) || a[0].localeCompare(b[0]));
 
   const protokoll = [];
   for (const [name, h, gs] of dateien){
     let d; try { d = JSON.parse(await (await h.getFile()).text()); } catch { continue; }
     if (d.art!=="WoinarVersand") continue;
-    if (gs){ grundschuldVersand(d, protokoll); erledigt.add(name); continue; }
+    if (gs===1){ grundschuldVersand(d, protokoll); erledigt.add(name); continue; }
+    if (typeof gs==="string"){ wuVersand(gs.slice(2), d, protokoll); erledigt.add(name); continue; }
     if (keineNamen() && d.beteiligte && d.beteiligte.length) namenAusVerteiler(d.beteiligte);
     const tag = deDatum(d.zeit||new Date().toISOString());
     for (const e of d.eintraege||[]){
@@ -1668,6 +1909,6 @@ window.addEventListener("beforeprint", textfelderAnpassen);
 document.addEventListener("input", e=>{ if (e.target.matches('textarea[data-f="sonstiges_vollzug_text"]')){ e.target.style.height="auto"; e.target.style.height=(e.target.scrollHeight+2)+"px"; } });
 document.getElementById("btnDrucken").onclick = ()=>{ textfelderAnpassen(); window.print(); };
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.33 · Stand 06.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.34 · Stand 10.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
