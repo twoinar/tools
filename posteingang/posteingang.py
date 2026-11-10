@@ -9,8 +9,10 @@ Y:\\Posteingang legt, zerlegt sie in einzelne Schreiben und legt jedes Schreiben
     Y:\\Posteingang\\Vorgänge\\<Vorgangsnr>\\...pdf      wenn eine Vorgangsnummer erkannt wird
     Y:\\Posteingang\\Nicht zugeordnet\\...pdf           wenn nichts sicher erkannt wird
 
-Ohne KI, nur mit festen Regeln (einstellungen.json). Alles läuft lokal, keine Netzverbindung
-ins Internet. Die Original-Scans werden nie gelöscht, sondern nach Original-Scans verschoben.
+Ohne KI, nur mit festen Regeln (einstellungen.json). Alles läuft lokal. Ins Internet gehen nur die
+Update-Prüfung (GitHub, nur herunterladen) und, wenn auf diesem PC eingerichtet, der E-Mail-Abruf aus dem
+Büro-Postfach (mailabruf.py, Microsoft Graph). Die Original-Scans werden nie gelöscht, sondern nach
+Original-Scans verschoben.
 
 Aufruf:
     posteingang.py                 einmal alle neuen Scans verarbeiten
@@ -31,12 +33,14 @@ import time
 import urllib.request
 import zipfile
 
+import mailabruf
+
 try:
     import pymupdf as fitz
 except ImportError:  # ältere PyMuPDF-Versionen
     import fitz
 
-VERSION = "1.8"
+VERSION = "1.9"
 STAND = "10.11.2026"
 
 # Windows-Konsole (cp850/cp1252) kann nicht jedes Zeichen darstellen: lieber ersetzen als abstürzen.
@@ -610,7 +614,12 @@ def verarbeite_datei(pfad, e, bestand, heute, probe=False):
     ohne_text = sum(1 for s in seiten if not s.leer and len(s.text.strip()) < 25)
     for s in seiten:
         analysiere(s, e, heute)
-    teile = zerlege(seiten, e)
+    # E-Mail (vom Mail-Abruf): eine Mail ist immer EIN Schreiben, Absender und Betreff aus der Mail
+    mail, _ = mailabruf.lies_begleitdatei(pfad)
+    if mail:
+        teile = [[s for s in seiten if not s.leer] or seiten]
+    else:
+        teile = zerlege(seiten, e)
     stempel = dt.datetime.fromtimestamp(os.path.getmtime(pfad)).strftime("%Y-%m-%d %H-%M")
     ergebnisse = []
     for i, teil in enumerate(teile, 1):
@@ -624,14 +633,16 @@ def verarbeite_datei(pfad, e, bestand, heute, probe=False):
         if art == "unklar":
             aktion = "zuordnen"
         kurz = kurzfassung(teil)
-        stamm = f"Eingang {stempel} Nr {i:02d}"
+        stamm = f"Mail {stempel} Nr {i:02d}" if mail else f"Eingang {stempel} Nr {i:02d}"
         if schreiben_art:
             stamm += f" - {_dateiteil(schreiben_art)}"
         ergebnisse.append(dict(teil=teil, art=art, wert=wert if art != "unklar" else "",
                                grund=grund, seiten=seiten_txt, ordner=ordner, stamm=stamm,
                                start=", ".join(teil[0].gruende), schreiben_art=schreiben_art,
-                               aktion=aktion, stichwort=stichwort, absender=absender(teil[0], e),
-                               betreff=kurz[0], kurz=kurz[1]))
+                               aktion=aktion, stichwort=stichwort,
+                               absender=(mail["von"][:60] if mail else absender(teil[0], e)),
+                               betreff=((mail["betreff"] or kurz[0]) if mail else kurz[0]), kurz=kurz[1],
+                               mail_anhaenge=(mail.get("anhaenge", []) if mail else [])))
     if probe:
         doc.close()
         return ergebnisse, ohne_text, len(seiten)
@@ -645,6 +656,16 @@ def verarbeite_datei(pfad, e, bestand, heute, probe=False):
         os.makedirs(r["ordner"], exist_ok=True)
         r["datei"] = freier_name(r["ordner"], r["stamm"])
         schreibe(doc, r["teil"], r["datei"])
+        # Anhänge einer Mail, die keine PDF werden konnten (Word, Excel …), kommen daneben
+        for anh in r.get("mail_anhaenge", []):
+            if os.path.exists(anh):
+                vorne = os.path.splitext(os.path.basename(r["datei"]))[0]   # wie die PDF, ggf. mit „(2)“
+                b, x = os.path.splitext(os.path.join(r["ordner"], f"{vorne} - {os.path.basename(anh)}"))
+                ziel, k = b + x, 2
+                while os.path.exists(ziel):
+                    ziel = f"{b} ({k}){x}"
+                    k += 1
+                shutil.move(anh, ziel)
         if r["art"] in ("urkunde", "vorgang") and r["aktion"] != "dublette":
             # Laufende Aktendaten für die Nebenakte (§ 43 NotAktVV); darf das Sortieren nie aufhalten
             try:
@@ -793,7 +814,28 @@ def durchlauf(e, ausgabe=print):
             pass
 
 
+_naechster_mailabruf = [0.0]
+
+
+def mail_abrufen(e, ausgabe=print, jetzt=False):
+    """Neue Mails aus dem Büro-Postfach holen (nur wenn auf diesem PC eingerichtet). Fehler halten das
+    Sortieren der Scans nie auf."""
+    cfg = e.get("mail") or {}
+    if not jetzt and time.time() < _naechster_mailabruf[0]:
+        return 0
+    _naechster_mailabruf[0] = time.time() + 60 * float(cfg.get("abruf_minuten", mailabruf.STANDARD["abruf_minuten"]))
+    try:
+        n = mailabruf.abrufen(e, ausgabe)
+        if n:
+            ausgabe(f"{n} E-Mail(s) aus dem Postfach abgeholt.")
+        return n
+    except Exception as ex:
+        ausgabe(f"E-Mail-Abruf fehlgeschlagen: {ex}")
+        return 0
+
+
 def _durchlauf(e, eingang, ausgabe, sperre):
+    mail_abrufen(e, ausgabe)
     heute = dt.date.today()
     bestand = Bestand(e, heute)
     anzahl = 0
@@ -813,11 +855,19 @@ def _durchlauf(e, eingang, ausgabe, sperre):
             os.makedirs(fehler, exist_ok=True)
             shutil.move(pfad, freier_name(fehler, os.path.splitext(name)[0]))
             continue
-        hinweis = "Scan ohne Texterkennung (OCR in PaperStream einschalten)" if ohne_text > n // 2 else ""
+        mail, begleit = mailabruf.lies_begleitdatei(pfad)
+        hinweis = "Scan ohne Texterkennung (OCR in PaperStream einschalten)" if ohne_text > n // 2 and not mail else ""
         protokolliere(e, pfad, ergebnisse, hinweis)
         archiv = os.path.join(e["archiv"], dt.date.today().strftime("%Y-%m"))
         os.makedirs(archiv, exist_ok=True)
-        shutil.move(pfad, freier_name(archiv, os.path.splitext(name)[0]))
+        ziel_archiv = freier_name(archiv, os.path.splitext(name)[0])
+        shutil.move(pfad, ziel_archiv)
+        if begleit:
+            shutil.move(begleit, os.path.splitext(ziel_archiv)[0] + mailabruf.SIDECAR_ENDUNG)
+            try:   # leerer Zwischenordner der Anhänge
+                os.rmdir(os.path.join(eingang, "Mail-Anhänge", os.path.splitext(name)[0]))
+            except OSError:
+                pass
         anzahl += 1
         zu = sum(1 for r in ergebnisse if r["art"] != "unklar")
         ausgabe(f"{name}: {n} Seiten -> {len(ergebnisse)} Schreiben, {zu} zugeordnet "
@@ -1103,6 +1153,14 @@ def main(argv):
         return
     if len(argv) > 1 and argv[1] == "--nebenakte":
         nebenakte_export(e, argv[2:])
+        return
+    if len(argv) > 1 and argv[1] == "--mail-einrichten":
+        mailabruf.einrichten(e)
+        input("Enter drücken zum Schließen …")
+        return
+    if len(argv) > 1 and argv[1] == "--mail-aus":
+        mailabruf.ausschalten()
+        input("Enter drücken zum Schließen …")
         return
     if len(argv) > 1 and argv[1] == "--nachtragen":
         print(nachtragen(e), "Tag(e) ergänzt.")

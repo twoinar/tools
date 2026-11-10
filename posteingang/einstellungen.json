@@ -10,6 +10,15 @@
   "dubletten_tage": 30,
   "tageslisten": "Y:\\Posteingang\\Tageslisten",
 
+  "mail": {
+    "nach_abholen": "verschieben",
+    "ordner_verarbeitet": "Verarbeitet",
+    "als_gelesen": true,
+    "abruf_minuten": 2,
+    "hoechstens_je_abruf": 25,
+    "erstabruf_tage": 1
+  },
+
   "nebenakte": {
     "export_ordner": "Y:\\Nebenakten-Export",
     "aufbewahrungsfrist": 7,
