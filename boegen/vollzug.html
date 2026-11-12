@@ -190,6 +190,21 @@ dialog.mail .alle button{background:transparent;color:var(--blue);padding:0;text
 dialog.mail .knoepfe{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
 dialog.mail .info{font-size:12px;color:var(--muted);margin:0}
 dialog.mail textarea{min-height:70px}
+dialog.mail.offen{width:min(980px,calc(100vw - 32px))}
+dialog.offen #offenInhalt{display:grid;gap:10px;max-height:65vh;overflow:auto}
+dialog.offen .hinweis{margin:0;padding:8px 10px;border-radius:4px;background:var(--red-bg);color:var(--red);font-size:14px}
+dialog.offen .hinweis.ok{background:#eef7ee;color:#1d6b2c}
+dialog.offen .info.err{color:var(--red)}
+table.offen{border-collapse:collapse;width:100%;font-size:13px}
+table.offen td,table.offen th{border-bottom:1px solid var(--line);padding:5px 6px;text-align:left;vertical-align:middle}
+table.offen td.pfad{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+table.offen td.akt{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+table.offen td.akt input{width:140px;padding:4px 6px}
+table.offen a.knopf.primary{background:var(--blue);color:#fff;font-weight:bold}
+table.offen a.knopf{display:inline-block;padding:5px 10px;border-radius:4px;text-decoration:none;font-size:13px}
+dialog.offen details summary{cursor:pointer;font-size:13px;color:var(--blue)}
+dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
+#btnOffen.warn{background:var(--red);color:#fff;border-color:var(--red)}
 /* Sammelbogen: weitere Urkunden im selben Termin */
 .wu-karte{border:1px solid var(--line);border-left:6px solid var(--blue);border-radius:4px;padding:8px 12px;margin:10px 0 0 0}
 .wu-kopf{display:grid;grid-template-columns:auto 1fr auto 130px auto 110px auto;gap:8px;align-items:center}
@@ -212,6 +227,7 @@ dialog.mail textarea{min-height:70px}
   <button type="button" id="btnOrdner">Ablageordner wählen</button>
   <button type="button" id="btnOeffnen">Bogen öffnen</button>
   <button type="button" id="btnNeu">Neuer Bogen</button>
+  <button type="button" id="btnOffen" title="Signierte Urkunden, zu denen noch kein Vollzugsbogen abgelegt ist">Offene Urkunden</button>
   <button type="button" id="btnDrucken">Drucken</button>
   <button type="button" id="btnMail">Per E-Mail versenden</button>
   <button type="button" id="btnNotar" title="Name, Anschrift und Mitarbeiter des Notariats">Notardaten</button>
@@ -436,6 +452,17 @@ dialog.mail textarea{min-height:70px}
     <div class="knoepfe"><span id="gwErg">Noch kein Geschäftswert berechnet.</span>
       <button type="button" id="gwAbbrechen">Schließen</button>
       <button type="button" class="primary" id="gwOk" disabled>Wert übernehmen</button></div>
+  </form>
+</dialog>
+
+<dialog class="mail offen nodruck" id="offenDialog">
+  <form method="dialog">
+    <h3>Offene Urkunden – signiert, aber noch ohne Vollzugsbogen</h3>
+    <div id="offenInhalt"></div>
+    <div class="knoepfe">
+      <button type="button" id="offenSigniert" title="Ordner „Signierte Dokumente“ der elektronischen Beurkundung (Y:\ElRv-Daten\…\eBeurkundung\Signierte Dokumente)">Ordner „Signierte Dokumente“ wählen</button>
+      <button type="submit" class="primary">Schließen</button>
+    </div>
   </form>
 </dialog>
 
@@ -1485,6 +1512,7 @@ async function ablegen(){
     try { await schreibenMitWiederholung(dir, verweisName(vg,u), new TextEncoder().encode(name + "\r\nDiese Urkunde steht im Sammelbogen „" + name + "“.\r\n")); verweise++; } catch {}
   }
   meldung(`Abgelegt: „${name}“ im Ordner „${dir.name}“.` + (verweise ? ` Für ${verweise} weitere Urkunde${verweise>1?"n":""} liegt ein Verweis unter ihrer Vorgangs-Nr. im Ordner.` : ""));
+  offeneErmitteln(false).then(r=>{ if (r) offenZaehler(r.offen.length); }).catch(()=>{});
   return true;
 }
 
@@ -1909,6 +1937,168 @@ document.getElementById("mailForm").addEventListener("submit", async ev=>{
   }catch(e){ fehler(e); }
 });
 
+/* ---------- Offene Urkunden: signierte Urkunden ohne Vollzugsbogen (Wunsch Thomas 12.11.2026) ----------
+   Quelle: Ordner „Signierte Dokumente“ der elektronischen Beurkundung samt Unterordnern (nur lesen).
+   Abgleich mit den Bögen im Ablageordner: Dateiname „… Vollzugsbogen UVZ …“, Verweise „(im Sammelbogen)“
+   und die im Bogen gespeicherten Nummern (UVZ, mitbeurkundete Grundschuld, weitere Urkunden).
+   „Kein Vollzug nötig“ steht für alle Arbeitsplätze in „Urkunden ohne Vollzug.json“ im Ablageordner;
+   das Prüfskript für die Aufgabenplanung (Vollzug-pruefen.ps1) liest dieselbe Datei.                        */
+const OHNE_VOLLZUG = "Urkunden ohne Vollzug.json";
+const UVZ_MUSTER = /(?<![\d.\-\/])0*(\d{1,5}) ?[-\/_] ?(20\d\d)(?!\d)/;
+function uvzSchluessel(s){
+  const m = UVZ_MUSTER.exec(String(s||""));
+  if (!m) return "";
+  const j = +m[2], jetzt = new Date().getFullYear();
+  return (j >= 2020 && j <= jetzt + 1 && +m[1] > 0) ? `${+m[1]}/${j}` : "";
+}
+const uvzSort = (a,b) => { const [na,ja]=a.split("/").map(Number), [nb,jb]=b.split("/").map(Number); return jb-ja || nb-na; };
+let signiertOrdner = null;
+async function signiertRecht(fragen){
+  if (!signiertOrdner) signiertOrdner = (await idbGet("signiert")) || null;
+  if (!signiertOrdner){
+    if (!fragen) return null;
+    signiertOrdner = await window.showDirectoryPicker({id:"signiert", mode:"read"});
+    await idbSet("signiert", signiertOrdner);
+  }
+  let p = await signiertOrdner.queryPermission({mode:"read"});
+  if (p!=="granted" && fragen) p = await signiertOrdner.requestPermission({mode:"read"});
+  return p==="granted" ? signiertOrdner : null;
+}
+// alle PDFs in „Signierte Dokumente“ samt Unterordnern; Nummer aus dem Dateinamen, sonst aus dem Ordnernamen
+async function signierteUrkunden(dir){
+  const urk = new Map(), unklar = [];
+  async function lauf(d, pfad, tiefe){
+    for await (const [name, h] of d.entries()){
+      if (h.kind==="directory"){ if (tiefe < 6) await lauf(h, [...pfad, name], tiefe+1); continue; }
+      if (!/\.pdf$/i.test(name)) continue;
+      let key = uvzSchluessel(name);
+      for (let i=pfad.length-1; !key && i>=0; i--) key = uvzSchluessel(pfad[i]);
+      const rel = [...pfad, name].join("\\");
+      if (!key){ unklar.push(rel); continue; }
+      let datum = 0; try { datum = (await h.getFile()).lastModified; } catch {}
+      const alt = urk.get(key);
+      if (!alt) urk.set(key, {key, datum, pfad: rel, dateien: 1});
+      else { alt.dateien++; if (datum && (!alt.datum || datum < alt.datum)){ alt.datum = datum; alt.pfad = rel; } }
+    }
+  }
+  await lauf(dir, [], 0);
+  return {urk, unklar};
+}
+// alle UVZ-Nummern, zu denen im Ablageordner ein Bogen (oder Verweis) liegt; gelesene Bögen werden zwischengespeichert
+async function erfassteUrkunden(dir){
+  const erfasst = new Map();   // Schlüssel → Dateiname des Bogens
+  const cache = (await idbGet("offenCache")) || {}, neuCache = {};
+  const dazu = (s, datei) => { const k = uvzSchluessel(s); if (k && !erfasst.has(k)) erfasst.set(k, datei); };
+  for await (const [name, h] of dir.entries()){
+    if (h.kind!=="file") continue;
+    const v = /^(.*) Vollzugsbogen UVZ (.*?) \(im Sammelbogen\)\.txt$/i.exec(name);
+    if (v){ let ziel = name; try { ziel = (await (await h.getFile()).text()).split(/\r?\n/)[0].trim() || name; } catch {} dazu(v[2], ziel); continue; }
+    if (!/\.pdf$/i.test(name) || !/Vollzugsbogen/i.test(name)) continue;
+    const m = /Vollzugsbogen UVZ (.*)\.pdf$/i.exec(name) || /^UVZ (.*) Vollzugsbogen\.pdf$/i.exec(name);
+    if (m) dazu(m[1], name);
+    let f; try { f = await h.getFile(); } catch { continue; }
+    const ck = name + "|" + f.size + "|" + f.lastModified;
+    let nummern = cache[ck];
+    if (!nummern){
+      const d = await bogenFelder(await f.arrayBuffer()) || {};
+      nummern = [d.uvz_nr, d.kauf_grundschuld !== false && d.kgs_uvz];
+      if (d.wu_an) for (let i=1; i<=9; i++) nummern.push(d[`wu_${i}_uvz`]);
+      nummern = nummern.filter(Boolean).map(String);
+    }
+    neuCache[ck] = nummern;
+    for (const n of nummern) dazu(n, name);
+  }
+  await idbSet("offenCache", neuCache);
+  return erfasst;
+}
+async function ohneVollzugLesen(dir){
+  try { const h = await dir.getFileHandle(OHNE_VOLLZUG); const j = JSON.parse(await (await h.getFile()).text()); return (j && typeof j==="object" && j.urkunden) || {}; }
+  catch { return {}; }
+}
+async function ohneVollzugSchreiben(dir, liste){
+  const text = JSON.stringify({hinweis:"Urkunden, für die kein Vollzugsbogen nötig ist (Vollzugsbogen › Offene Urkunden).", urkunden:liste}, null, 2);
+  await schreibenMitWiederholung(dir, OHNE_VOLLZUG, new TextEncoder().encode(text));
+}
+async function offeneErmitteln(fragen){
+  if (!dateisystemOk) throw new Error("Die Prüfung offener Urkunden geht nur in Chrome oder Edge.");
+  const ablage = fragen ? await ordnerMitRecht() : (ordner && await ordner.queryPermission({mode:"read"})==="granted" ? ordner : null);
+  if (!ablage) return null;
+  const sig = await signiertRecht(fragen);
+  if (!sig) return null;
+  const [{urk, unklar}, erfasst, ohne] = await Promise.all([signierteUrkunden(sig), erfassteUrkunden(ablage), ohneVollzugLesen(ablage)]);
+  const offen = [], befreit = [];
+  for (const u of urk.values()){
+    if (erfasst.has(u.key)) continue;
+    if (ohne[u.key]) befreit.push({...u, ...ohne[u.key]}); else offen.push(u);
+  }
+  offen.sort((a,b)=>uvzSort(a.key,b.key)); befreit.sort((a,b)=>uvzSort(a.key,b.key));
+  return {offen, befreit, unklar, gesamt: urk.size, ablage, sig};
+}
+function offenZaehler(n){
+  const b = document.getElementById("btnOffen");
+  b.textContent = n ? `Offene Urkunden (${n})` : "Offene Urkunden";
+  b.classList.toggle("warn", !!n);
+}
+const offenEsc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
+const offenDatum = t => t ? new Date(t).toLocaleDateString("de-DE") : "";
+async function offenZeigen(){
+  const dlg = document.getElementById("offenDialog"), inhalt = document.getElementById("offenInhalt");
+  if (!dlg.open) dlg.showModal();
+  inhalt.innerHTML = `<p class="info">Wird geprüft …</p>`;
+  let r;
+  try { r = await offeneErmitteln(true); }
+  catch(e){ if (e && e.name==="AbortError"){ dlg.close(); return; } inhalt.innerHTML = `<p class="info err">${offenEsc(e.message||e)}</p>`; return; }
+  if (!r){ inhalt.innerHTML = `<p class="info err">Ohne Zugriff auf beide Ordner geht die Prüfung nicht.</p>`; return; }
+  offenZaehler(r.offen.length);
+  const url = n => location.pathname + "?uvz=" + encodeURIComponent(n);
+  const zeile = u => `<tr data-key="${offenEsc(u.key)}"><td><b>${offenEsc(u.key)}</b></td><td>${offenDatum(u.datum)}</td>
+      <td class="pfad" title="${offenEsc(u.pfad)}">${offenEsc(u.pfad)}</td>
+      <td class="akt"><a href="${url(u.key)}" target="_blank" rel="noopener" class="knopf primary">Bogen anlegen</a>
+      <input type="text" placeholder="Grund (optional)" aria-label="Grund für UVZ ${offenEsc(u.key)}"><button type="button" data-ohne>kein Vollzug nötig</button></td></tr>`;
+  inhalt.innerHTML = `
+    <p class="info">Signiert: ${r.gesamt} Urkunde${r.gesamt===1?"":"n"} im Ordner „${offenEsc(r.sig.name)}“ · Bögen aus „${offenEsc(r.ablage.name)}“.</p>
+    ${r.offen.length
+      ? `<p class="hinweis"><b>${r.offen.length} Urkunde${r.offen.length===1?"":"n"} ohne Vollzugsbogen.</b> „Bogen anlegen“ öffnet einen neuen Bogen mit der UVZ-Nr. (Versand aus dem Verteilerzettel wird übernommen).</p>
+         <table class="offen"><thead><tr><th>UVZ-Nr.</th><th>signiert</th><th>Datei</th><th></th></tr></thead><tbody>${r.offen.map(zeile).join("")}</tbody></table>`
+      : `<p class="hinweis ok"><b>Alles erfasst:</b> zu jeder signierten Urkunde gibt es einen Vollzugsbogen.</p>`}
+    ${r.befreit.length ? `<details><summary>Als „kein Vollzug nötig“ markiert (${r.befreit.length})</summary>
+      <table class="offen"><tbody>${r.befreit.map(u=>`<tr data-key="${offenEsc(u.key)}"><td><b>${offenEsc(u.key)}</b></td><td>${offenEsc(u.grund||"")}</td><td>${offenEsc([u.von, u.am && offenDatum(u.am)].filter(Boolean).join(", "))}</td><td class="akt"><button type="button" data-zurueck>zurücknehmen</button></td></tr>`).join("")}</tbody></table></details>` : ""}
+    ${r.unklar.length ? `<details><summary>Dateien ohne erkennbare UVZ-Nr. (${r.unklar.length})</summary><ul class="unklar">${r.unklar.slice(0,200).map(p=>`<li>${offenEsc(p)}</li>`).join("")}</ul></details>` : ""}`;
+  inhalt.onclick = async e => {
+    const tr = e.target.closest("tr[data-key]"); if (!tr) return;
+    const key = tr.dataset.key;
+    if (!e.target.matches("[data-ohne],[data-zurueck]")) return;
+    try {
+      const liste = await ohneVollzugLesen(r.ablage);
+      if (e.target.matches("[data-ohne]")){
+        const grund = tr.querySelector("input").value.trim();
+        liste[key] = {grund, am: new Date().toISOString().slice(0,10), von: (localStorage.getItem("vollzugKuerzel")||"")};
+      } else delete liste[key];
+      await ohneVollzugSchreiben(r.ablage, liste);
+      await offenZeigen();
+    } catch(err){ fehler(err); }
+  };
+}
+document.getElementById("btnOffen").onclick = ()=>{ if(!dateisystemOk){ meldung("Die Prüfung offener Urkunden geht nur in Chrome oder Edge.","err"); return; } offenZeigen().catch(fehler); };
+document.getElementById("offenSigniert").onclick = async ()=>{
+  try { signiertOrdner = await window.showDirectoryPicker({id:"signiert", mode:"read"}); await idbSet("signiert", signiertOrdner); await offenZeigen(); } catch(e){ fehler(e); }
+};
+// Aufruf vollzug.html?offen=1 (Aufgabenplanung „Vollzug – offene Urkunden“ jeden Morgen): Liste sofort zeigen.
+// Ohne Freigabe der Ordner braucht der Browser einen Klick, deshalb dann erst der Knopf „Jetzt prüfen“.
+const offenAufruf = new URLSearchParams(location.search).has("offen");
+if (offenAufruf) history.replaceState(null, "", location.pathname);
+if (dateisystemOk) setTimeout(async ()=>{
+  let r = null;
+  try { r = await offeneErmitteln(false); } catch {}
+  if (r) offenZaehler(r.offen.length);
+  if (!offenAufruf) return;
+  if (r) return offenZeigen().catch(fehler);
+  const dlg = document.getElementById("offenDialog");
+  document.getElementById("offenInhalt").innerHTML = `<p class="info">Morgendliche Prüfung: Welche signierten Urkunden haben noch keinen Vollzugsbogen? Der Browser fragt dazu einmal nach dem Zugriff auf den Ablageordner und den Ordner „Signierte Dokumente“ (Tipp: „Bei jedem Besuch zulassen“ wählen).</p><p><button type="button" class="primary" id="offenJetzt">Jetzt prüfen</button></p>`;
+  document.getElementById("offenJetzt").onclick = ()=>offenZeigen().catch(fehler);
+  if (!dlg.open) dlg.showModal();
+}, offenAufruf ? 300 : 1500);
+
 /* ---------- Drucken: direkt aus dem Formular, mit Druckerauswahl im Druckdialog ---------- */
 function textfelderAnpassen(){
   document.querySelectorAll(".sheet textarea").forEach(t=>{ if (t.offsetParent===null) return; t.style.height="auto"; t.style.height=(t.scrollHeight+2)+"px"; });
@@ -1917,6 +2107,6 @@ window.addEventListener("beforeprint", textfelderAnpassen);
 document.addEventListener("input", e=>{ if (e.target.matches('textarea[data-f="sonstiges_vollzug_text"]')){ e.target.style.height="auto"; e.target.style.height=(e.target.scrollHeight+2)+"px"; } });
 document.getElementById("btnDrucken").onclick = ()=>{ textfelderAnpassen(); window.print(); };
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.35 · Stand 10.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.36 · Stand 12.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
