@@ -186,8 +186,7 @@ def vollzug(quelle):
     d = Datei("vollzug.html", quelle)
     d.ersetzen('<html lang="de">', '<html lang="de" data-titel="Vollzugsbogen">')
     d.ersetzen("<title>Vollzugsbogen – Notar Thomas Woinar</title>", '<title>Vollzugsbogen</title>\n<script src="notar.js"></script>')
-    # „Versand übernehmen“ gehört zum Word-Makro des Notariats Woinar
-    d.ersetzen('<button type="button" id="btnVersand" title=', '<button type="button" id="btnVersand" hidden title=')
+    # (Den Knopf „Verteilerzettel eintragen“ gibt es seit 10.11.2026 nicht mehr: der Versand wird von selbst übernommen.)
     d.ersetzen('  <button type="button" class="primary" id="btnAblegen">', NOTARDATEN_KNOPF + '  <button type="button" class="primary" id="btnAblegen">')
     d.ersetzen(KOPF_ALT, KOPF_NEU)
     d.ersetzen('<footer class="fuss">Notar Thomas Woinar · Vollzugsbogen</footer>',

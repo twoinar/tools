@@ -898,6 +898,9 @@ async function pdfErzeugen(){
       const v = el.dataset.date!==undefined ? nachDeutsch(el.value) : el.value;
       const f = form.getTextField(n);
       if (f.getMaxLength()!==undefined) f.removeMaxLength();
+      /* Schriftgröße und -farbe fest vorgeben (Kopfzeile 8 pt, sonst 9 pt). Sonst nimmt pdf-lib bei
+         manchen Vorlagen „automatische Größe“, und diktierter Text erscheint riesig. */
+      f.acroField.setDefaultAppearance("/Helv " + (/^(vorgespr_datum|vorgespr_zeit|vorgang_nr)$/.test(n) ? 8 : 9) + " Tf .176 .216 .282 rg");
       f.setText(pdfText(v));
       if (n==="sachverhalt_text" && v.length > 3000) f.setFontSize(0);   // sehr langer Text: Schrift automatisch verkleinern
       if ((n==="gegenstand" || n==="kosten_traeger") && v.length > 45) f.setFontSize(0);   // sehr langer Text: Schrift automatisch verkleinern
@@ -2137,6 +2140,6 @@ function kostenAusPdf(doc){
   if (nur==="kosten"){ krKasten.checked = true; krKasten.dispatchEvent(new Event("change")); weg(krKasten.closest("label")); }
 })();
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.38 · Stand 26.10.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.39 · Stand 12.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
