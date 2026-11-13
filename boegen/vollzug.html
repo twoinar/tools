@@ -119,6 +119,19 @@ td input.bez{min-width:0;width:118px;font-weight:bold;background:transparent;box
 td input.bez:focus{background:var(--field-focus)}
 .fussnote{font-size:11px;color:var(--muted);margin-top:6px}
 .sub.senk{flex-direction:column;gap:0}
+/* Editor für eigene Vollzugsschritte */
+dialog.mail#schrittDialog{width:min(680px,calc(100vw - 32px))}
+.sliste{display:grid;gap:4px;max-height:52vh;overflow:auto;border:1px solid var(--line);border-radius:4px;padding:6px}
+.sliste:empty::before{content:"Noch keine Vollzugsschritte. Fügen Sie unten einen hinzu.";color:var(--muted);font-size:13px;padding:6px}
+.srow{display:flex;gap:4px;align-items:center}
+.srow .snr{width:22px;text-align:right;color:var(--muted);font-size:12px;flex:none}
+.srow input[type=text]{flex:1;min-width:0}
+.srow button{padding:4px 9px;background:transparent;border:1px solid var(--line);color:var(--text);flex:none}
+.srow button:disabled{opacity:.35;cursor:default}
+.srow small{color:var(--muted);font-size:11px;white-space:nowrap;flex:none}
+.szusatz{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.szusatz button{background:transparent;color:var(--blue);border:1px dashed var(--line);padding:6px 12px}
+.szusatz select{max-width:100%}
 .gs-ausf{display:grid;grid-template-columns:auto auto auto;gap:0 18px;align-items:center;padding-left:25px}
 .gs-ausf>span{color:var(--muted);grid-row:span 2}
 @media (max-width:640px){.gs-ausf{grid-template-columns:1fr}}
@@ -262,10 +275,10 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
     <div class="artneu nodruck" id="artNeu" hidden>
       <label for="artNeuName">Bezeichnung:</label><input type="text" id="artNeuName" autocomplete="off" placeholder="z. B. Vermächtniserfüllungsvertrag">
       <label for="artNeuBasis">Aufbau wie:</label><select id="artNeuBasis"></select>
-      <button type="button" id="artNeuOk">In die Liste aufnehmen</button><button type="button" id="artNeuAb">Abbrechen</button>
-      <div class="hilfe">Beteiligte, Vollzugsschritte, Löschungen und Geschäftswert richten sich nach dem gewählten Aufbau. Die neue Urkundsart bleibt dauerhaft in der Liste (auch für die Kollegen, die denselben Ablageordner nutzen).</div>
+      <button type="button" id="artNeuOk">Weiter: Vollzugsschritte festlegen</button><button type="button" id="artNeuAb">Abbrechen</button>
+      <div class="hilfe">Beteiligte, Löschungen und Geschäftswert richten sich nach dem gewählten Aufbau. Die Vollzugsschritte legen Sie danach selbst fest: Vorschlag aus dem Aufbau, frei änderbar (eigene Schritte hinzufügen, umbenennen, löschen, Reihenfolge). Die neue Urkundsart bleibt mit ihren Schritten dauerhaft in der Liste (auch für die Kollegen, die denselben Ablageordner nutzen).</div>
     </div>
-    <div class="artneu nodruck" id="artEigen" hidden><span>Eigene Urkundsart.</span><button type="button" id="artWeg">Aus der Liste entfernen</button></div>
+    <div class="artneu nodruck" id="artEigen" hidden><span>Eigene Urkundsart.</span><button type="button" id="artSchritte">Vollzugsschritte bearbeiten</button><button type="button" id="artWeg">Aus der Liste entfernen</button></div>
     <div class="artzeile" id="gwZeile"><label for="f_gw">Geschäftswert:</label>
       <div class="gw-feld"><input type="text" id="f_gw" data-f="geschaeftswert" inputmode="decimal" autocomplete="off" placeholder="von Hand eintragen oder ermitteln"><span>€</span>
         <button type="button" id="btnGw" class="nodruck">Geschäftswert ermitteln</button></div></div>
@@ -462,6 +475,22 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
     <div class="knoepfe">
       <button type="button" id="offenSigniert" title="Ordner „Signierte Dokumente“ der elektronischen Beurkundung (Y:\ElRv-Daten\…\eBeurkundung\Signierte Dokumente)">Ordner „Signierte Dokumente“ wählen</button>
       <button type="submit" class="primary">Schließen</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="mail nodruck" id="schrittDialog">
+  <form method="dialog" id="schrittForm">
+    <h3 id="schrittTitel">Vollzugsschritte festlegen</h3>
+    <p class="info">Diese Schritte erscheinen künftig bei jedem Bogen dieser Urkundsart zum Ankreuzen. Text anklicken zum Umbenennen, ↑ ↓ für die Reihenfolge, × zum Löschen. Übernommene Schritte behalten ihre Unterpunkte (z. B. „mit UB / ohne UB“).</p>
+    <div class="sliste" id="schrittListe"></div>
+    <div class="szusatz">
+      <button type="button" id="schrittPlus">+ eigenen Schritt hinzufügen</button>
+      <select id="schrittVorh" aria-label="Vorhandenen Schritt übernehmen"></select>
+    </div>
+    <div class="knoepfe">
+      <button type="button" id="schrittAb">Abbrechen</button>
+      <button type="submit" class="primary" id="schrittOk">Speichern</button>
     </div>
   </form>
 </dialog>
@@ -729,12 +758,7 @@ function eigenOption(w){
 function eigenListe(){ try{ return JSON.parse(localStorage.getItem("vollzug_urkundsarten")||"[]").filter(eigenAusWert); }catch{ return []; } }
 async function eigenSpeichern(liste){
   try{ localStorage.setItem("vollzug_urkundsarten", JSON.stringify(liste)); }catch{}
-  try{
-    if (ordner && await ordner.queryPermission({mode:"readwrite"})==="granted"){
-      const w = await (await ordner.getFileHandle(EIGEN_DATEI,{create:true})).createWritable();
-      await w.write(JSON.stringify({urkundsarten:liste}, null, 1)); await w.close();
-    }
-  }catch{}
+  try{ await urkundsartenDatei(d=>{ d.urkundsarten = liste; if (d.entfernt) d.entfernt = d.entfernt.filter(x=>!liste.includes(x)); }); }catch{}
 }
 async function eigenLaden(){
   let liste = eigenListe();
@@ -743,6 +767,9 @@ async function eigenLaden(){
       const d = JSON.parse(await (await (await ordner.getFileHandle(EIGEN_DATEI)).getFile()).text());
       const weg = new Set((d.entfernt||[]));
       liste = [...new Set([...(d.urkundsarten||[]), ...liste])].filter(w=>eigenAusWert(w) && !weg.has(w));
+      if (d.schritte && typeof d.schritte==="object"){   // Schritt-Vorlagen der Kollegen (Datei geht vor)
+        try{ localStorage.setItem(SCHRITT_LS, JSON.stringify({...vorlagenAlle(), ...d.schritte})); }catch{}
+      }
     }
   }catch{}
   liste.forEach(eigenOption);
@@ -816,6 +843,79 @@ let geaendert = false;
 
 /* ---------- Urkundsart: passende Beteiligte, Vollzugsschritte und Löschungen ---------- */
 const schrittSpalten = () => Array.from(document.querySelectorAll(".schritte > div"));
+
+/* ---------- Eigene Vollzugsschritte je Urkundsart ----------
+   Vorlage = Liste der Schritte in ihrer Reihenfolge: {f:"anzeige_grest", t?:"anderer Text"} ist ein vorhandener
+   Schritt samt Unterpunkten, {id:"es_…", t:"Text"} ein selbst angelegter. Die Vorlage liegt zur Urkundsart im
+   Browser und in „Urkundsarten.json“ (Ablageordner) und wird in jedem Bogen mitgespeichert, damit er sich an
+   jedem PC so öffnet, wie er abgelegt wurde.                                                                  */
+const SCHRITT_EINHEITEN = (()=>{ const r = [];
+  for (const el of schrittSpalten()[0].children){
+    if (el.matches("label.cb")) r.push({f:el.querySelector("input").dataset.f, els:[el], text:el.querySelector("span").textContent.trim(), arten:el.dataset.arten||""});
+    else if (el.matches(".sub") && r.length) r[r.length-1].els.push(el);
+  }
+  return r; })();
+const SCHRITT_LS = "vollzug_schritte";
+let aktVorlage = null;
+function vorlagenAlle(){ try{ const o = JSON.parse(localStorage.getItem(SCHRITT_LS)||"{}"); return o && typeof o==="object" ? o : {}; }catch{ return {}; } }
+function vorlageGueltig(v){
+  if (!Array.isArray(v)) return null;
+  const gesehen = new Set();
+  return v.filter(s=>{
+    if (!s || typeof s!=="object") return false;
+    const k = s.f ? s.f : s.id;
+    if (gesehen.has(k)) return false; gesehen.add(k);
+    return s.f ? SCHRITT_EINHEITEN.some(e=>e.f===s.f) : (/^es_[a-z0-9]+$/.test(s.id||"") && String(s.t||"").trim()!=="");
+  }).map(s=>s.f ? (s.t && String(s.t).trim() ? {f:s.f, t:String(s.t).trim()} : {f:s.f}) : {id:s.id, t:String(s.t).trim()});
+}
+const vorlageFuerArt = w => vorlageGueltig(vorlagenAlle()[w]);
+const vorlageAusBasis = basis => SCHRITT_EINHEITEN.filter(e=>e.arten.split(" ").includes(basis)).map(e=>({f:e.f}));
+function schrittPasst(l, a, v){
+  if (!v) return l.dataset.arten.split(" ").includes(a);
+  const sub = l.closest(".sub");
+  if (!sub) return v.some(s=>s.f===l.querySelector("input").dataset.f);
+  // Unterpunkte eines übernommenen Schritts: die zum Aufbau passenden, sonst alle
+  const passend = [...sub.querySelectorAll("[data-arten]")].filter(x=>x.dataset.arten.split(" ").includes(a));
+  return !passend.length || passend.includes(l);
+}
+// Schritte in die Reihenfolge der Vorlage bringen, eigene Schritte anlegen/entfernen (ohne Vorlage: Grundordnung)
+function schritteAufbauen(v){
+  const s1 = schrittSpalten()[0];
+  const vorhanden = new Map([...document.querySelectorAll(".schritte [data-eigen-schritt]")].map(l=>[l.querySelector("input").dataset.f, l]));
+  SCHRITT_EINHEITEN.forEach(e=>{ e.els[0].querySelector("span").textContent = e.text; });
+  const reihe = [];
+  for (const s of (v||[])){
+    if (s.f){
+      const e = SCHRITT_EINHEITEN.find(x=>x.f===s.f); if (!e || reihe.includes(e.els)) continue;
+      if (s.t) e.els[0].querySelector("span").textContent = s.t;
+      reihe.push(e.els);
+    } else {
+      let l = vorhanden.get(s.id);
+      if (!l){
+        l = document.createElement("label"); l.className = "cb"; l.dataset.eigenSchritt = "";
+        l.innerHTML = '<input type="checkbox"><span></span>'; l.querySelector("input").dataset.f = s.id;
+      }
+      vorhanden.delete(s.id); l.querySelector("span").textContent = s.t; reihe.push([l]);
+    }
+  }
+  vorhanden.forEach(l=>l.remove());
+  const rest = SCHRITT_EINHEITEN.filter(e=>!reihe.includes(e.els)).map(e=>e.els);
+  [...reihe, ...rest].flat().forEach(el=>s1.appendChild(el));
+}
+async function urkundsartenDatei(aendern){
+  // liest „Urkundsarten.json“ aus dem Ablageordner, ändert sie mit aendern(d) und schreibt sie zurück
+  if (!ordner || await ordner.queryPermission({mode:"readwrite"})!=="granted") return false;
+  let d = {}; try{ d = JSON.parse(await (await (await ordner.getFileHandle(EIGEN_DATEI)).getFile()).text()) || {}; }catch{}
+  aendern(d);
+  const w = await (await ordner.getFileHandle(EIGEN_DATEI,{create:true})).createWritable();
+  await w.write(JSON.stringify(d, null, 1)); await w.close();
+  return true;
+}
+async function vorlageSpeichern(w, v){
+  const alle = vorlagenAlle(); alle[w] = v;
+  try{ localStorage.setItem(SCHRITT_LS, JSON.stringify(alle)); }catch{}
+  try{ return await urkundsartenDatei(d=>{ d.schritte = {...(d.schritte||{}), [w]:v}; }); }catch{ return false; }
+}
 function schritteVerteilen(){
   const [s1, s2] = schrittSpalten(), sonst = s2.querySelector(".sonst");
   const einheiten = [];   // Grunderwerbsteuer und „mit/ohne UB“ bleiben zusammen
@@ -832,22 +932,25 @@ function schritteVerteilen(){
     n += gewicht(e);
   }
 }
-function artAnwenden(nachfragen){
+function artAnwenden(nachfragen, vorlage){
   const a = art(), cfg = ARTEN[a];
-  const wegSchritte = [...document.querySelectorAll(".schritte [data-arten]")].filter(l=>!l.dataset.arten.split(" ").includes(a));
+  const v = vorlage!==undefined ? vorlage : vorlageFuerArt(artWahl().value);
+  const wegSchritte = [...document.querySelectorAll(".schritte [data-arten]")].filter(l=>!schrittPasst(l,a,v));
+  const wegEigen = [...document.querySelectorAll(".schritte [data-eigen-schritt] input")].filter(i=>!(v||[]).some(s=>s.id===i.dataset.f));
   const wegLoesch = !cfg.loesch;
   gruppenSetzen();
   const wegZeilen = Object.values(GRUPPEN).filter(g=>g.aus).flatMap(g=>g.keys).filter(k=>!zeile(k).hidden || zeileHatInhalt(k));
   if (nachfragen){
-    const verlust = wegSchritte.some(l=>l.querySelector("input").checked) || (cfg.ohneNg && istAn("nachgen_erforderlich")) || (cfg.ohneSchritte && hatInhalt(document.getElementById("schrittBereich"))) || (cfg.ohneVz && [...tb.querySelectorAll('td.vz input')].some(c=>c.checked)) || (a!=="kauf" && istAn("kauf_grundschuld")) || (cfg.gw !== (ARTEN[artVorher]||{}).gw && document.getElementById("f_gw").value.trim()!=="") || (wegLoesch && istAn("cb_loeschung")) || wegZeilen.some(zeileHatInhalt);
+    const verlust = wegSchritte.some(l=>l.querySelector("input").checked) || wegEigen.some(i=>i.checked) || (cfg.ohneNg && istAn("nachgen_erforderlich")) || (cfg.ohneSchritte && hatInhalt(document.getElementById("schrittBereich"))) || (cfg.ohneVz && [...tb.querySelectorAll('td.vz input')].some(c=>c.checked)) || (a!=="kauf" && istAn("kauf_grundschuld")) || (cfg.gw !== (ARTEN[artVorher]||{}).gw && document.getElementById("f_gw").value.trim()!=="") || (wegLoesch && istAn("cb_loeschung")) || wegZeilen.some(zeileHatInhalt);
     if (verlust && !confirm(`Für „${cfg.name}“ entfallen Angaben, die schon eingetragen sind (Vollzugsschritte, Beteiligte oder Löschungen). Diese werden gelöscht. Fortfahren?`)) return false;
   }
   wegSchritte.forEach(l=>{ l.querySelector("input").checked = false; });
+  aktVorlage = v; schritteAufbauen(v);
   if (cfg.ohneVz) tb.querySelectorAll('td.vz input').forEach(c=>{ c.checked = false; });
   tb.closest("table").classList.toggle("ohne-vz", !!cfg.ohneVz);
   document.getElementById("betHinw").textContent = cfg.hinweis || ""; document.getElementById("betHinw").hidden = !cfg.hinweis;
   wegZeilen.forEach(zeileLeeren);
-  document.querySelectorAll(".schritte [data-arten]").forEach(l=>{ l.hidden = !l.dataset.arten.split(" ").includes(a); });
+  document.querySelectorAll(".schritte [data-arten]").forEach(l=>{ l.hidden = !schrittPasst(l,a,v); });
   if (nachfragen && cfg.gw !== (ARTEN[artVorher]||{}).gw) document.getElementById("f_gw").value = "";
   document.getElementById("gwZeile").hidden = !cfg.gw;
   const gk = document.getElementById("gsKauf");
@@ -925,14 +1028,90 @@ document.getElementById("artNeuOk").onclick = async ()=>{
   if (!name){ document.getElementById("artNeuName").focus(); return; }
   const doppelt = Object.entries(ARTEN).find(([,c])=>c.name.toLowerCase()===name.toLowerCase());
   const w = doppelt ? doppelt[0] : eigenWert(basis, name);
-  if (!doppelt){ eigenOption(w); await eigenSpeichern([...new Set([...eigenListe(), w])]); }
-  document.getElementById("artNeu").hidden = true;
-  artWahl().value = w;
-  if (!artAnwenden(true)){ artWahl().value = artVorher; gruppenSetzen(); return; }
-  artVorher = w; eigenAnzeigen(); geaendert = true;
-  beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); wuZuruecksetzen(true); dynamik(); textfelderAnpassen();
-  meldung(doppelt ? `„${name}“ gibt es schon in der Liste.` : `„${name}“ steht jetzt dauerhaft in der Liste der Urkundsarten.`);
+  const uebernehmen = async v=>{
+    if (!doppelt){ eigenOption(w); await eigenSpeichern([...new Set([...eigenListe(), w])]); await vorlageSpeichern(w, v); }
+    document.getElementById("artNeu").hidden = true;
+    artWahl().value = w;
+    if (!artAnwenden(true)){ artWahl().value = artVorher; gruppenSetzen(); return; }
+    artVorher = w; eigenAnzeigen(); geaendert = true;
+    beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); wuZuruecksetzen(true); dynamik(); textfelderAnpassen();
+    meldung(doppelt ? `„${name}“ gibt es schon in der Liste.` : `„${name}“ steht jetzt mit ${v.length} Vollzugsschritt${v.length===1?"":"en"} dauerhaft in der Liste der Urkundsarten.`);
+  };
+  if (doppelt) return uebernehmen(null);
+  schrittEditor(`Vollzugsschritte für „${name}“`, vorlageAusBasis(basis), uebernehmen);
 };
+document.getElementById("artSchritte").onclick = ()=>{
+  const w = artWahl().value, c = ARTEN[w]; if (!c || !c.eigen) return;
+  schrittEditor(`Vollzugsschritte für „${c.name}“`, aktVorlage || vorlageAusBasis(c.basis), async v=>{
+    const geteilt = await vorlageSpeichern(w, v);
+    const ok = artAnwenden(true, v);
+    if (ok){ geaendert = true; dynamik(); textfelderAnpassen(); }
+    meldung((ok ? `Vollzugsschritte für „${c.name}“ gespeichert` : `Vollzugsschritte für „${c.name}“ gespeichert; dieser Bogen behält seine bisherigen Schritte`)
+      + (geteilt ? " (auch für die Kollegen im Ablageordner)." : ". Für die Kollegen wird die Vorlage übernommen, sobald der Ablageordner freigegeben ist und Sie erneut speichern."));
+  });
+};
+
+/* Editor-Dialog: Schritte hinzufügen, umbenennen, löschen, Reihenfolge ändern */
+const schrittDialog = document.getElementById("schrittDialog"), schrittListe = document.getElementById("schrittListe");
+let schrittFertig = null;
+const neueSchrittId = () => "es_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+function schrittZeile(s){
+  const e = s.f ? SCHRITT_EINHEITEN.find(x=>x.f===s.f) : null;
+  const z = document.createElement("div"); z.className = "srow";
+  if (s.f) z.dataset.f = s.f; else z.dataset.id = s.id || neueSchrittId();
+  z.innerHTML = `<span class="snr"></span><input type="text" aria-label="Bezeichnung des Schritts"${e ? "" : ' placeholder="z. B. Anzeige an …"'}>`
+    + (e && e.els.length>1 ? '<small title="Unterpunkte werden mit übernommen">+ Unterpunkte</small>' : "")
+    + '<button type="button" data-s="hoch" title="nach oben" aria-label="nach oben">↑</button><button type="button" data-s="runter" title="nach unten" aria-label="nach unten">↓</button><button type="button" data-s="weg" title="Schritt löschen" aria-label="Schritt löschen">×</button>';
+  const inp = z.querySelector("input"); inp.value = s.t || (e ? e.text : "");
+  if (e) inp.placeholder = e.text;
+  return z;
+}
+function schrittListeAnzeigen(){
+  const zeilen = [...schrittListe.children];
+  zeilen.forEach((z,i)=>{ z.querySelector(".snr").textContent = (i+1)+"."; z.querySelector('[data-s="hoch"]').disabled = i===0; z.querySelector('[data-s="runter"]').disabled = i===zeilen.length-1; });
+  const da = new Set(zeilen.map(z=>z.dataset.f).filter(Boolean)), sel = document.getElementById("schrittVorh");
+  sel.innerHTML = '<option value="">vorhandenen Schritt übernehmen …</option>' + SCHRITT_EINHEITEN.filter(e=>!da.has(e.f)).map(e=>`<option value="${e.f}">${e.text.replace(/[<>&]/g,"")}</option>`).join("");
+  sel.hidden = sel.options.length<=1;
+}
+function schrittEditor(titel, vorlage, fertig){
+  document.getElementById("schrittTitel").textContent = titel;
+  schrittListe.innerHTML = ""; (vorlage||[]).forEach(s=>schrittListe.append(schrittZeile(s)));
+  schrittListeAnzeigen(); schrittFertig = fertig; schrittDialog.showModal();
+  const erst = schrittListe.querySelector("input"); (erst || document.getElementById("schrittPlus")).focus();
+}
+function schrittNeu(nach){
+  const z = schrittZeile({}); if (nach) nach.after(z); else schrittListe.append(z);
+  schrittListeAnzeigen(); z.querySelector("input").focus(); z.scrollIntoView({block:"nearest"});
+}
+document.getElementById("schrittPlus").onclick = ()=>schrittNeu();
+document.getElementById("schrittVorh").onchange = e=>{
+  const f = e.target.value; if (!f) return;
+  const z = schrittZeile({f}); schrittListe.append(z); schrittListeAnzeigen(); z.scrollIntoView({block:"nearest"});
+};
+schrittListe.addEventListener("click", e=>{
+  const b = e.target.closest("button[data-s]"); if (!b) return;
+  const z = b.closest(".srow");
+  if (b.dataset.s==="hoch" && z.previousElementSibling) z.previousElementSibling.before(z);
+  if (b.dataset.s==="runter" && z.nextElementSibling) z.nextElementSibling.after(z);
+  if (b.dataset.s==="weg") z.remove();
+  schrittListeAnzeigen();
+  if (b.isConnected && !b.disabled) b.focus();
+});
+schrittListe.addEventListener("keydown", e=>{
+  if (e.key!=="Enter" || e.target.tagName!=="INPUT") return;
+  e.preventDefault(); schrittNeu(e.target.closest(".srow"));   // Enter: nächster Schritt darunter
+});
+document.getElementById("schrittAb").onclick = ()=>schrittDialog.close();
+document.getElementById("schrittForm").addEventListener("submit", e=>{
+  e.preventDefault();
+  const v = vorlageGueltig([...schrittListe.children].map(z=>{
+    const t = z.querySelector("input").value.replace(/\s+/g," ").trim();
+    if (z.dataset.f){ const e = SCHRITT_EINHEITEN.find(x=>x.f===z.dataset.f); return (t && t!==e.text) ? {f:z.dataset.f, t} : {f:z.dataset.f}; }
+    return {id:z.dataset.id, t};
+  }));
+  const f = schrittFertig; schrittDialog.close(); schrittFertig = null;
+  if (f) Promise.resolve().then(()=>f(v)).catch(fehler);
+});
 document.getElementById("artWeg").onclick = async ()=>{
   const w = artWahl().value, c = ARTEN[w]; if (!c || !c.eigen) return;
   if (!confirm(`„${c.name}“ aus der Liste der Urkundsarten entfernen?\n\nDieser Bogen behält seine Urkundsart; nur für neue Bögen steht sie nicht mehr zur Wahl.`)) return;
@@ -1158,7 +1337,7 @@ const nachIso = de => { const m=/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(de.trim()
 const DATENSCHLUESSEL = "WoinarVollzugsbogen";
 function datenSammeln(){
   const f={}; felder().forEach(el=>{ f[el.dataset.f] = el.type==="checkbox" ? el.checked : el.value; });
-  return { version:2, f };
+  return aktVorlage ? { version:2, f, schritte:aktVorlage } : { version:2, f };
 }
 async function pdfErzeugen(){
   const { PDFDocument, StandardFonts, rgb, PDFName, PDFHexString } = PDFLib;
@@ -1575,9 +1754,11 @@ async function bogenLaden(bytes, name){
     for (const [a,n] of Object.entries(ALT)) if (f[a]) f[n] = true;
     if (["gen_grdstvg","zust_eigentuemer","zust_verwalter","gen_sanierung","gen_entwicklung","gen_betreuungsgericht","gen_nachlassgericht","gen_familiengericht"].some(n=>f[n])) f.gen_sammel = true;
     if (f.urkundsart) eigenOption(f.urkundsart);
+    const vorlage = vorlageGueltig(d.schritte);   // so wie abgelegt (ohne mitgespeicherte Vorlage: Schritte des Aufbaus)
+    schritteAufbauen(vorlage);
     for (const el of felder()){ const w=f[el.dataset.f]; if (el.type==="checkbox") el.checked=!!w; else el.value = w===undefined ? "" : w; }
     if (!ARTEN[artWahl().value]) artWahl().value = "kauf";
-    artAnwenden(false); artVorher = artWahl().value; eigenAnzeigen();
+    artAnwenden(false, vorlage); artVorher = artWahl().value; eigenAnzeigen();
     beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); wuZuruecksetzen(true); dynamik(); textfelderAnpassen(); geaendert=false;
     meldung(`„${name}“ geöffnet. Änderungen mit „Vollzugsbogen ablegen“ speichern.`); setTimeout(()=>versandPruefen().catch(()=>{}), 0);
     return;
@@ -2107,6 +2288,6 @@ window.addEventListener("beforeprint", textfelderAnpassen);
 document.addEventListener("input", e=>{ if (e.target.matches('textarea[data-f="sonstiges_vollzug_text"]')){ e.target.style.height="auto"; e.target.style.height=(e.target.scrollHeight+2)+"px"; } });
 document.getElementById("btnDrucken").onclick = ()=>{ textfelderAnpassen(); window.print(); };
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.36 · Stand 12.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.37 · Stand 13.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
