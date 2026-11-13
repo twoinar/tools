@@ -378,6 +378,7 @@ section.eingeklappt .klapp-info{display:block}
   <div class="folder" id="ordnerAnzeige">Ablageordner: <b>noch nicht gewählt</b></div>
   <button type="button" id="btnOrdner" title="Ordner, in dem die Beteiligten unterschreiben">Ablageordner wählen</button>
   <button type="button" id="btnOrdner2" title="zusätzliche Kopie, z. B. für die Vorgangsakte">Kopie-Ordner wählen</button>
+  <button type="button" id="btnOrdner2Aus" hidden title="Keine Kopie mehr ablegen – der signierte Bogen kommt automatisch aus „Signierte Dokumente“ nach Y:\Vorgänge">Keine Kopie</button>
   <button type="button" id="btnOeffnen">Bogen öffnen</button>
   <button type="button" id="btnNeu">Neuer Bogen</button>
   <button type="button" id="btnDrucken">Drucken</button>
@@ -825,7 +826,8 @@ function zeigeOrdner(){
   const n = o => o ? `<b>${o.name.replace(/[<>&]/g, "")}</b>` : "<b>noch nicht gewählt</b>";
   document.getElementById("ordnerAnzeige").innerHTML = !dateisystemOk
     ? "Direkte Ablage nur in Chrome oder Edge möglich – hier wird heruntergeladen."
-    : `Ablage: ${n(ordner)} · Kopie: ${n(ordner2)}`;
+    : `Ablage: ${n(ordner)} · Kopie: ${ordner2 ? n(ordner2) : "<b>keine</b>"}`;
+  { const aus = document.getElementById("btnOrdner2Aus"); if (aus) aus.hidden = !ordner2; }
 }
 async function ordnerWaehlen(){ ordner = await window.showDirectoryPicker({id:"vorgespraech", mode:"readwrite"}); await idbSet("ordner", ordner); zeigeOrdner(); }
 async function ordnerMitRecht(){
@@ -851,8 +853,8 @@ async function ordnerRecht(o){
   return o;
 }
 (async()=>{ if (dateisystemOk){ ordner = (await idbGet("ordner")) || null;
-  ordner2 = (await idbGet("ordner2")) || null;
-  if (!ordner2){ ordner2 = await maskeKopieOrdner(); if (ordner2) await idbSet("ordner2", ordner2); } } zeigeOrdner(); })();
+  const k2 = await idbGet("ordner2"); ordner2 = (k2 && k2 !== "aus") ? k2 : null;
+  if (!ordner2 && k2 !== "aus"){ const m = await maskeKopieOrdner(); if (m === "aus") await idbSet("ordner2", "aus"); else if (m){ ordner2 = m; await idbSet("ordner2", m); } } } zeigeOrdner(); })();
 
 /* ---------- PDF erzeugen ---------- */
 const WINANSI_EXTRA = "€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ";
@@ -1227,6 +1229,8 @@ window.addEventListener("beforeprint", ()=>{ textfelderAnpassen(); erbspiegelDru
 
 document.getElementById("btnOrdner").onclick = ()=>{ if(!dateisystemOk){ meldung("Die Ordnerauswahl gibt es nur in Chrome und Edge.","err"); return;} ordnerWaehlen().then(()=>meldung(`Ablageordner „${ordner.name}“ gespeichert.`)).catch(fehler); };
 document.getElementById("btnOrdner2").onclick = ()=>{ if(!dateisystemOk){ meldung("Die Ordnerauswahl gibt es nur in Chrome und Edge.","err"); return;} ordner2Waehlen().then(()=>meldung(`Kopie-Ordner „${ordner2.name}“ gewählt.`)).catch(fehler); };
+document.getElementById("btnOrdner2Aus").onclick = async ()=>{ ordner2 = null; await idbSet("ordner2", "aus"); zeigeOrdner();
+  meldung("Es wird keine Kopie mehr abgelegt. Der Bogen landet nur im Ablageordner zum Unterschreiben."); };
 /* Ablegen mit sichtbarer Rückmeldung (wie in der Maske): Knopf leuchtet kurz auf, Hinweis unten mit Datei und Ordnern */
 let toastTimer = null;
 function toast(text, art = "ok"){
@@ -2175,6 +2179,6 @@ function kostenAusPdf(doc){
   if (nur==="kosten"){ krKasten.checked = true; krKasten.dispatchEvent(new Event("change")); weg(krKasten.closest("label")); }
 })();
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.44 · Stand 12.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.45 · Stand 13.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>

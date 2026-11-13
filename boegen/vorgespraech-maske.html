@@ -448,6 +448,7 @@ button.abgelegt{animation:abgelegt 1.6s ease-out}
   <div class="folder" id="ordnerAnzeige">Ablageordner: <b>noch nicht gewählt</b></div>
   <button type="button" id="btnOrdner" title="Ordner, in dem die Beteiligten unterschreiben">Ablageordner wählen</button>
   <button type="button" id="btnOrdner2" title="zusätzliche Kopie, z. B. für die Vorgangsakte">Kopie-Ordner wählen</button>
+  <button type="button" id="btnOrdner2Aus" hidden title="Keine Kopie mehr ablegen – der signierte Bogen kommt automatisch aus „Signierte Dokumente“ nach Y:\Vorgänge">Keine Kopie</button>
   <button type="button" id="btnOeffnen">Bogen öffnen</button>
   <button type="button" id="btnNeu">Neuer Bogen</button>
   <button type="button" id="btnDrucken">Drucken</button>
@@ -2540,7 +2541,7 @@ function mkPruefen(){
   if (istAn("cb_email")) p(!!wert("email_an"), wert("email_an") ? "Entwurf per E-Mail an " + wert("email_an") : "Entwurf per E-Mail: Adresse fehlt", 5);
   if (istAn("cb_post")) p(!!wert("post_an"), wert("post_an") ? "Entwurf per Post an " + wert("post_an") : "Entwurf per Post: Anschrift fehlt", 5);
   if (dateisystemOk) p(!!ordner, ordner ? `Ablageordner (Unterschrift): ${ordner.name}` : "Ablageordner noch nicht gewählt (wird beim Ablegen gefragt)", 0);
-  if (dateisystemOk) p(!!mkOrdner2, mkOrdner2 ? `Kopie zusätzlich in: ${mkOrdner2.name}` : "Kein Kopie-Ordner gewählt (oben „Kopie-Ordner wählen“)", 0);
+  if (dateisystemOk) p(!!mkOrdner2, mkOrdner2 ? `Kopie zusätzlich in: ${mkOrdner2.name}` : "Keine Kopie (nur Ablageordner zum Unterschreiben)", 0);
   const box = document.getElementById("pruefListe"); box.innerHTML = "";
   P.forEach(x => { const d = document.createElement("div"); d.className = x.ok ? "ok" : "fehlt"; d.textContent = (x.ok ? "✓ " : "! ") + x.text;
     if (!x.ok && x.n){ const b = document.createElement("button"); b.type = "button"; b.textContent = "zu Schritt " + x.n; b.onclick = () => mkOeffnen(x.n); d.appendChild(b); }
@@ -2895,7 +2896,8 @@ function zeigeOrdner(){
   const n = o => o ? `<b>${o.name.replace(/[<>&]/g, "")}</b>` : "<b>noch nicht gewählt</b>";
   document.getElementById("ordnerAnzeige").innerHTML = !dateisystemOk
     ? "Direkte Ablage nur in Chrome oder Edge möglich – hier wird heruntergeladen."
-    : `Ablage: ${n(ordner)} · Kopie: ${n(mkOrdner2)}`;
+    : `Ablage: ${n(ordner)} · Kopie: ${mkOrdner2 ? n(mkOrdner2) : "<b>keine</b>"}`;
+  const aus = document.getElementById("btnOrdner2Aus"); if (aus) aus.hidden = !mkOrdner2;
 }
 async function mkOrdner2Waehlen(){
   mkOrdner2 = await window.showDirectoryPicker({id: "vorgespraechKopie", mode: "readwrite"});
@@ -2936,6 +2938,11 @@ async function ablegen(){
 }
 document.getElementById("btnOrdner2").onclick = () => { if (!dateisystemOk){ meldung("Die Ordnerauswahl gibt es nur in Chrome und Edge.", "err"); return; }
   mkOrdner2Waehlen().then(() => meldung(`Kopie-Ordner „${mkOrdner2.name}“ gewählt.`)).catch(fehler); };
+/* „Keine Kopie“: Kopie-Ordner abschalten (bleibt aus, auch im klassischen Bogen, bis wieder einer gewählt wird).
+   Der signierte Bogen kommt dann über die Ablage-Routine am PC aus „Signierte Dokumente“ nach Y:\Vorgänge. */
+document.getElementById("btnOrdner2Aus").onclick = async () => {
+  mkOrdner2 = null; await idbSet("ordner2", "aus"); zeigeOrdner(); mkPruefen();
+  meldung("Es wird keine Kopie mehr abgelegt. Der Bogen landet nur im Ablageordner zum Unterschreiben."); };
 
 /* ---------- Benachrichtigung „Vorgespräch abgelegt“ ----------
    Nach dem Ablegen in den Ordner meldet der Bogen dem Server Vorgangsnummer und Bogenart; der Server
@@ -2998,12 +3005,12 @@ setTimeout(() => entwurfAngebot(), 600);
 
 /* ---------- Start ---------- */
 mkLeeren(); mkBarHoehe(); mkOeffnen(1, false); geaendert = false;
-(async () => { if (!dateisystemOk) return; mkOrdner2 = (await idbGet("ordner2")) || null;
-  if (!mkOrdner2){ mkOrdner2 = await mkAltOrdner(); if (mkOrdner2) await idbSet("ordner2", mkOrdner2); }
+(async () => { if (!dateisystemOk) return; const k2 = await idbGet("ordner2"); mkOrdner2 = (k2 && k2 !== "aus") ? k2 : null;
+  if (!mkOrdner2 && k2 !== "aus"){ mkOrdner2 = await mkAltOrdner(); if (mkOrdner2) await idbSet("ordner2", mkOrdner2); }
   zeigeOrdner(); mkPruefen(); })();
 (async () => { await new Promise(r => setTimeout(r, 300)); mkPruefen(); })();
 </script>
 
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.16 · Stand 13.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.17 · Stand 13.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
