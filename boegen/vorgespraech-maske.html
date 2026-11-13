@@ -979,11 +979,14 @@ const DIKTAT_GRUND = [
   ["Niesbrauch", "Nießbrauch"], ["Wohnungs Recht", "Wohnungsrecht"], ["Pflichtteils Verzicht", "Pflichtteilsverzicht"],
   ["Teilungs Erklärung", "Teilungserklärung"], ["Wohnungs Eigentum", "Wohnungseigentum"], ["Erbbau Recht", "Erbbaurecht"],
   ["Flur Stück", "Flurstück"], ["Gesellschafter Versammlung", "Gesellschafterversammlung"],
-  ["Geschäfts Führer", "Geschäftsführer"], ["Handels Register", "Handelsregister"], ["Testaments Vollstrecker", "Testamentsvollstrecker"]
+  ["Geschäfts Führer", "Geschäftsführer"], ["Handels Register", "Handelsregister"], ["Testaments Vollstrecker", "Testamentsvollstrecker"],
+  ["Sparkasse Oder Spree", "Sparkasse Oder-Spree"], ["Frankfurt Oder", "Frankfurt (Oder)"]
 ];
+/* Nur Notariat Woinar (in der Kollegen-Fassung leer): Hörfehler bei Name und Amtsbezeichnung */
+const DIKTAT_NOTAR = [];
 function diktatEigene(){ try { return localStorage.getItem(DIKTAT_SPEICHER) || ""; } catch(e){ return ""; } }
 function diktatRegeln(){
-  const r = DIKTAT_GRUND.map(x => x.slice());
+  const r = DIKTAT_NOTAR.concat(DIKTAT_GRUND).map(x => x.slice());
   diktatEigene().split(/\r?\n/).forEach(z => { const m = z.match(/^\s*(.+?)\s*(?:=>|→|=)\s*(.*?)\s*$/); if (m && m[1]) r.push([m[1], m[2]]); });
   return r;   // eigene Zeilen zuletzt: sie gewinnen
 }
@@ -3194,6 +3197,6 @@ mkLeeren(); mkBarHoehe(); mkOeffnen(1, false); geaendert = false;
 (async () => { await new Promise(r => setTimeout(r, 300)); mkPruefen(); })();
 </script>
 
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.20 · Stand 13.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.21 · Stand 13.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
