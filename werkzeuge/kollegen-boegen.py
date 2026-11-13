@@ -130,8 +130,14 @@ async function kiSenden(body){
     return d.s
 
 
+def ohne_diktat_notar(d):
+    """Diktat-Korrekturen mit Thomas' Namen und „Notar“ statt „Notarin“ gelten nur im Notariat Woinar."""
+    d.s = re.sub(r"const DIKTAT_NOTAR = \[.*?\];", "const DIKTAT_NOTAR = [];", d.s)
+
+
 def gemeinsam(d):
     """Teile, die im klassischen Bogen und in der Maske gleich sind."""
+    ohne_diktat_notar(d)
     d.ersetzen('title="Kopie für die Vorgangsakte, dort sucht auch das Claude-Fenster"', 'title="zusätzliche Kopie, z. B. für die Vorgangsakte"')
     ohne_benachrichtigung(d)
     d.ersetzen("(#vorgang=4711/2026, z. B. vom Claude-Fenster)", "(#vorgang=4711/2026)")
@@ -247,6 +253,7 @@ def main():
     ohne_benachrichtigung(d)
     d.ersetzen("(#vorgang=4711/2026, z. B. vom Claude-Fenster)", "(#vorgang=4711/2026)")
     d.ersetzen("in dem auch das Claude-Fenster sucht.", "z. B. in die Vorgangsakte.")
+    ohne_diktat_notar(d)
     pruefen("vorgespraech-maske.html", d.s)
     (ZIEL / "vorgespraech-maske.html").write_text(d.s, encoding="utf-8")
 
