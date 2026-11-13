@@ -200,6 +200,14 @@ textarea.sachverhalt{min-height:340px;line-height:1.5}
 .hinweise li{margin:3px 0}
 .hinweise b{color:var(--text)}
 .druckText{display:none}
+.mark-leiste{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 4px;font-size:11.5px;color:var(--muted)}
+.mark-leiste button{font:inherit;font-size:12px;padding:2px 9px;border:1px solid var(--line);border-radius:4px;background:var(--sheet);color:var(--text);cursor:pointer}
+.mark-leiste button:hover{border-color:var(--blue)}
+.mk-fett{font-weight:700}
+.mk-rot{color:#c00000}
+.druckText.vorschau{display:block;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.45;border:1px dashed var(--line);border-radius:4px;padding:5px 8px;margin-top:4px;color:var(--text)}
+.druckText.vorschau::before{content:"So erscheint es im PDF:";display:block;font-size:10.5px;color:var(--muted);font-weight:400}
+@media print{ .mark-leiste{display:none!important} .druckText.vorschau{border:0;margin:0;padding:5px 7px;font-size:11px;background:var(--field);border-radius:2px} .druckText.vorschau::before{display:none} }
 @media print{
   .aufklapp{animation:none!important}
   section.lang{break-inside:auto!important;page-break-inside:auto!important}
@@ -857,10 +865,67 @@ function textfelderAnpassen(){
     // Für den Ausdruck: Textkopie, die über mehrere Seiten umbrechen kann
     let d=t.nextElementSibling;
     if (!d || !d.classList.contains("druckText")){ d=document.createElement("div"); d.className="druckText"; t.after(d); }
-    d.textContent=t.value;
+    if (t.dataset.f==="bemerkungen"){ d.innerHTML=markHtml(t.value); d.classList.toggle("vorschau", markHat(t.value)); }
+    else d.textContent=t.value;
   });
 }
 document.addEventListener("input", e=>{ if (e.target.tagName==="TEXTAREA") textfelderAnpassen(); });
+
+/* ---------- Bemerkung: Text fett oder rot markieren ----------
+   Das Feld bleibt ein normales Textfeld (Dragon kann es weiter steuern). Markiert wird mit
+   Kennzeichen im Text: **fett** und !!rot!!. Knöpfe „Fett“/„Rot“ bzw. Strg+B / Strg+R setzen
+   sie um den markierten Text. Bildschirm-Vorschau, Ausdruck und PDF zeigen die Hervorhebung. */
+const MARK_ZEICHEN = {"**": "fett", "!!": "rot"};
+function markSegmente(text){
+  const teile = String(text || "").split(/(\*\*|!!)/), zahl = {"**": 0, "!!": 0};
+  teile.forEach(x => { if (x in zahl) zahl[x]++; });
+  const offen = {"**": 0, "!!": 0}, an = {fett: false, rot: false}, segs = [];
+  teile.forEach(x => {
+    if (x in MARK_ZEICHEN && (offen[x] < zahl[x] - (zahl[x] % 2))){ offen[x]++; an[MARK_ZEICHEN[x]] = !an[MARK_ZEICHEN[x]]; return; }
+    if (x) segs.push({t: x, fett: an.fett, rot: an.rot});
+  });
+  return segs;
+}
+const markHat = text => markSegmente(text).some(s => s.fett || s.rot);
+const markOhne = text => markSegmente(text).map(s => s.t).join("");
+function markHtml(text){
+  const esc = x => x.replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  return markSegmente(text).map(s => !s.fett && !s.rot ? esc(s.t)
+    : `<span class="${[s.fett && "mk-fett", s.rot && "mk-rot"].filter(Boolean).join(" ")}">${esc(s.t)}</span>`).join("");
+}
+function markieren(ta, art){
+  const z = art === "rot" ? "!!" : "**", v = ta.value;
+  let a = ta.selectionStart, e = ta.selectionEnd;
+  while (a < e && /\s/.test(v[a])) a++;          // Leerzeichen am Rand der Auswahl nicht mit einschließen
+  while (e > a && /\s/.test(v[e - 1])) e--;
+  ta.focus();
+  if (v.slice(a - 2, a) === z && v.slice(e, e + 2) === z){      // schon markiert: Markierung wieder entfernen
+    ta.setRangeText(v.slice(a, e), a - 2, e + 2, "select");
+  } else if (a === e){
+    ta.setRangeText(z + z, a, a, "end"); ta.selectionStart = ta.selectionEnd = a + 2;
+  } else {
+    ta.setRangeText(z + v.slice(a, e) + z, a, e, "end"); ta.setSelectionRange(a + 2, e + 2);
+  }
+  ta.dispatchEvent(new Event("input", {bubbles: true}));
+}
+function markLeisteEinbauen(){
+  document.querySelectorAll('textarea[data-f="bemerkungen"]').forEach(ta => {
+    if (ta.previousElementSibling && ta.previousElementSibling.classList.contains("mark-leiste")) return;
+    const l = document.createElement("div"); l.className = "mark-leiste";
+    l.innerHTML = `<button type="button" data-mark="fett" title="Markierten Text fett (Strg+B)"><b>F</b> Fett</button>`
+      + `<button type="button" data-mark="rot" title="Markierten Text rot (Strg+R)"><span class="mk-rot mk-fett">A</span> Rot</button>`
+      + `<span>Text markieren und Knopf drücken. Nochmals drücken hebt es auf.</span>`;
+    l.addEventListener("mousedown", ev => { if (ev.target.closest("button")) ev.preventDefault(); });   // Auswahl im Feld behalten
+    l.addEventListener("click", ev => { const b = ev.target.closest("button[data-mark]"); if (b) markieren(ta, b.dataset.mark); });
+    ta.before(l);
+    ta.addEventListener("keydown", ev => {
+      if (!(ev.ctrlKey || ev.metaKey) || ev.altKey || ev.shiftKey) return;
+      const k = ev.key.toLowerCase();
+      if (k === "b" || k === "r"){ ev.preventDefault(); markieren(ta, k === "b" ? "fett" : "rot"); }
+    });
+  });
+}
+markLeisteEinbauen();
 
 /* ---------- Neuer Bogen: Vorbelegung, Datum und Uhrzeit ---------- */
 const zwei = n => String(n).padStart(2,"0");
@@ -2596,28 +2661,32 @@ async function pdfErzeugen(){
   function umbrechen(segs, gr, max){
     const zeilen = [[]]; let w = 0;
     const leer = fN.widthOfTextAtSize(" ", gr);
-    segs.forEach(sg => String(sg.t).split("\n").forEach((absatz, ai) => {
+    let vorEnde = "";   // Teile mit an:true schließen ohne Abstand an, wenn kein Leerzeichen dazwischen steht (z. B. „**wichtig**,“)
+    segs.forEach(sg => { const st = String(sg.t), kleben0 = !!sg.an && !!vorEnde && !/\s$/.test(vorEnde) && !/^\s/.test(st); vorEnde = st || vorEnde;
+      st.split("\n").forEach((absatz, ai) => {
       if (ai){ zeilen.push([]); w = 0; }
+      let erstes = ai === 0 && kleben0;
       absatz.split(/ +/).forEach(wort => {
         if (!wort) return;
+        const kl = erstes; erstes = false;
         let ww = breite(wort, sg.f || fN, gr);
         const z = zeilen.at(-1);
-        if (z.length && w + leer + ww > max){ zeilen.push([]); w = 0; }
+        if (z.length && w + (kl ? 0 : leer) + ww > max){ zeilen.push([]); w = 0; }
         while (ww > max){        // überlanges Wort (z. B. Adresse ohne Leerzeichen) hart trennen
           let n = wort.length; while (n > 1 && breite(wort.slice(0, n), sg.f || fN, gr) > max) n--;
           zeilen.at(-1).push({t: wort.slice(0, n), f: sg.f, c: sg.c}); zeilen.push([]); w = 0;
           wort = wort.slice(n); ww = breite(wort, sg.f || fN, gr);
         }
         const zz = zeilen.at(-1);
-        if (zz.length) w += leer;
-        zz.push({t: wort, f: sg.f, c: sg.c}); w += ww;
+        if (zz.length && !kl) w += leer;
+        zz.push({t: wort, f: sg.f, c: sg.c, k: kl && zz.length > 0}); w += ww;
       });
-    }));
+    }); });
     return zeilen;
   }
   function zeileZeichnen(z, px, py, gr){
     let x = px; const leer = fN.widthOfTextAtSize(" ", gr);
-    z.forEach((w, i) => { if (i) x += leer; text(w.t, x, py, {f: w.f, c: w.c, gr}); x += breite(w.t, w.f || fN, gr); });
+    z.forEach((w, i) => { if (i && !w.k) x += leer; text(w.t, x, py, {f: w.f, c: w.c, gr}); x += breite(w.t, w.f || fN, gr); });
   }
   /* graues Feld wie im Bogen, wächst mit dem Text und läuft über Seiten weiter */
   const LH = 12.4;
@@ -2747,7 +2816,9 @@ async function pdfErzeugen(){
   kreuzZeile(istAn("cb_kein_termin"), [{t: "Beurkundungsauftrag wird heute"}, {t: "noch nicht", f: fB}, {t: "erteilt (zunächst nur reiner Entwurfsauftrag)"}], X0);
 
   ueberschrift(String(nr++), "Sonstiges / Bemerkungen");
-  y += 2; feldText(wert("bemerkungen") ? [{t: wert("bemerkungen")}] : [], {minZeilen: 3});
+  /* **fett** und !!rot!! aus dem Feld als Hervorhebung setzen */
+  const ROT = P.rgb(.75, 0, 0);
+  y += 2; feldText(markSegmente(wert("bemerkungen")).map(sg => ({t: sg.t, an: true, f: sg.fett ? fB : undefined, c: sg.rot ? ROT : undefined})), {minZeilen: 3});
 
   ueberschrift(String(nr++), "Wichtige Hinweise");
   const hh = HINW.top - HINW.bottom; platz(hh + 4);
@@ -3011,6 +3082,6 @@ mkLeeren(); mkBarHoehe(); mkOeffnen(1, false); geaendert = false;
 (async () => { await new Promise(r => setTimeout(r, 300)); mkPruefen(); })();
 </script>
 
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.17 · Stand 13.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.18 · Stand 13.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
