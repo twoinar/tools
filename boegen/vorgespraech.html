@@ -216,6 +216,13 @@ textarea.bem-quelle{display:none!important}
 .bem-edit{font:inherit;font-size:13px;color:var(--text);background:var(--field);border-radius:2px;padding:5px 7px;min-height:6em;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.45;cursor:text}
 .bem-edit:focus{outline:none;background:var(--field-focus);box-shadow:inset 0 0 0 1px var(--line)}
 @media print{ .mark-leiste,.bem-edit{display:none!important} }
+.diktat-leiste{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 4px;font-size:11.5px;color:var(--muted)}
+.diktat-leiste button,.diktat-panel button{font:inherit;font-size:12px;padding:2px 9px;border:1px solid var(--line);border-radius:4px;background:var(--sheet);color:var(--text);cursor:pointer}
+.diktat-leiste button:hover,.diktat-panel button:hover{border-color:var(--blue)}
+.diktat-panel{margin:6px 0;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font-size:12px;color:var(--text)}
+.diktat-panel p{margin:0 0 6px}
+.diktat-panel textarea{width:100%;box-sizing:border-box;min-height:110px!important;font:12px/1.4 ui-monospace,Consolas,monospace;margin-bottom:6px}
+@media print{ .diktat-leiste,.diktat-panel{display:none!important} }
 @media print{
   .aufklapp{animation:none!important}
   section.lang{break-inside:auto!important;page-break-inside:auto!important}
@@ -883,6 +890,77 @@ function markLeisteEinbauen(){
   });
 }
 markLeisteEinbauen();
+/* Diktat korrigieren (13.11.2026): Korrekturliste für typische Hörfehler der Spracherkennung (Dragon).
+   Wirkt nur auf Knopfdruck auf das Sachverhaltsfeld, damit Dragon beim Diktieren nicht gestört wird.
+   Die eigene Liste bleibt nur in diesem Browser (localStorage), es geht nichts an einen Server. */
+const DIKTAT_SPEICHER = "diktat-korrekturliste";
+const DIKTAT_GRUND = [
+  ["Grund Schuld", "Grundschuld"], ["Grundbuch Amt", "Grundbuchamt"], ["Kauf Vertrag", "Kaufvertrag"],
+  ["Kauf Preis", "Kaufpreis"], ["Auflassungs Vormerkung", "Auflassungsvormerkung"], ["Erb Schein", "Erbschein"],
+  ["Erb Vertrag", "Erbvertrag"], ["Vorsorge Vollmacht", "Vorsorgevollmacht"], ["Patienten Verfügung", "Patientenverfügung"],
+  ["Ehe Vertrag", "Ehevertrag"], ["Übergabe Vertrag", "Übergabevertrag"], ["Nieß Brauch", "Nießbrauch"],
+  ["Niesbrauch", "Nießbrauch"], ["Wohnungs Recht", "Wohnungsrecht"], ["Pflichtteils Verzicht", "Pflichtteilsverzicht"],
+  ["Teilungs Erklärung", "Teilungserklärung"], ["Wohnungs Eigentum", "Wohnungseigentum"], ["Erbbau Recht", "Erbbaurecht"],
+  ["Flur Stück", "Flurstück"], ["Gesellschafter Versammlung", "Gesellschafterversammlung"],
+  ["Geschäfts Führer", "Geschäftsführer"], ["Handels Register", "Handelsregister"], ["Testaments Vollstrecker", "Testamentsvollstrecker"]
+];
+function diktatEigene(){ try { return localStorage.getItem(DIKTAT_SPEICHER) || ""; } catch(e){ return ""; } }
+function diktatRegeln(){
+  const r = DIKTAT_GRUND.map(x => x.slice());
+  diktatEigene().split(/\r?\n/).forEach(z => { const m = z.match(/^\s*(.+?)\s*(?:=>|→|=)\s*(.*?)\s*$/); if (m && m[1]) r.push([m[1], m[2]]); });
+  return r;   // eigene Zeilen zuletzt: sie gewinnen
+}
+function diktatEsc(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+"); }
+function diktatAnwenden(text){
+  let n = 0;
+  for (const [falsch, richtig] of diktatRegeln()){
+    const re = new RegExp("(?<![\\p{L}\\p{N}])" + diktatEsc(falsch) + "(?![\\p{L}\\p{N}])", "giu");
+    text = text.replace(re, t => { n++;
+      return (t[0] !== t[0].toLowerCase() && richtig) ? richtig[0].toUpperCase() + richtig.slice(1) : richtig; });
+  }
+  const vor = text;   // Leerzeichen-Kleinigkeiten, wie sie beim Diktieren entstehen
+  text = text.replace(/[ \t]+([,.;:!?)])/g, "$1").replace(/\( +/g, "(").replace(/([^\s]) {2,}(?=\S)/g, "$1 ");
+  if (text !== vor) n++;
+  return { text, n };
+}
+function diktatEinbauen(){
+  document.querySelectorAll("textarea.sachverhalt").forEach(ta => {
+    if (ta.dataset.diktat) return; ta.dataset.diktat = "1";
+    ta.lang = "de"; ta.spellcheck = true;
+    const l = document.createElement("div"); l.className = "diktat-leiste nodruck";
+    l.innerHTML = `<button type="button" data-d="los" title="Typische Hörfehler der Spracherkennung im Sachverhalt ersetzen">Diktat korrigieren</button>`
+      + `<button type="button" data-d="zurueck" hidden>Rückgängig</button>`
+      + `<button type="button" data-d="liste" title="Eigene Korrekturen eintragen">Korrekturliste …</button>`
+      + `<span class="diktat-info" aria-live="polite"></span>`;
+    const p = document.createElement("div"); p.className = "diktat-panel nodruck"; p.hidden = true;
+    p.innerHTML = `<p>Eine Korrektur je Zeile: <b>falsch = richtig</b>, z. B. <code>Herr Wojnar = Herr Woinar</code>. Ganze Wörter, Groß-/Kleinschreibung egal. `
+      + `Die Liste gilt für diesen Browser an diesem PC. Fachwörter, die getrennt erkannt werden (z. B. „Grund Schuld“), sind schon eingebaut.</p>`
+      + `<textarea rows="6" spellcheck="false" aria-label="Eigene Korrekturliste"></textarea>`
+      + `<div><button type="button" data-d="speichern" class="primary">Liste speichern</button> <button type="button" data-d="zu">Schließen</button></div>`;
+    ta.before(l, p);   // Leiste und Liste vor das Feld: danach folgt die Druckkopie (druckText)
+    const info = l.querySelector(".diktat-info"), zurueck = l.querySelector('[data-d="zurueck"]'), liste = p.querySelector("textarea");
+    let alt = null;
+    const setze = v => { ta.value = v; ta.dispatchEvent(new Event("input", { bubbles: true })); ta.dispatchEvent(new Event("change", { bubbles: true })); };
+    l.addEventListener("click", ev => { const b = ev.target.closest("button"); if (!b) return;
+      if (b.dataset.d === "los"){
+        const e = diktatAnwenden(ta.value);
+        if (e.text === ta.value){ info.textContent = "Nichts zu korrigieren."; zurueck.hidden = true; return; }
+        alt = ta.value; setze(e.text); zurueck.hidden = false;
+        info.textContent = e.n === 1 ? "1 Korrektur übernommen." : e.n + " Korrekturen übernommen.";
+      } else if (b.dataset.d === "zurueck"){
+        if (alt !== null) setze(alt); alt = null; zurueck.hidden = true; info.textContent = "Rückgängig gemacht.";
+      } else if (b.dataset.d === "liste"){ liste.value = diktatEigene(); p.hidden = !p.hidden; if (!p.hidden) liste.focus(); }
+    });
+    p.addEventListener("click", ev => { const b = ev.target.closest("button"); if (!b) return;
+      if (b.dataset.d === "speichern"){
+        try { localStorage.setItem(DIKTAT_SPEICHER, liste.value.trim()); info.textContent = "Korrekturliste gespeichert."; }
+        catch(e){ info.textContent = "Speichern nicht möglich (Browser-Speicher gesperrt)."; }
+        p.hidden = true;
+      } else if (b.dataset.d === "zu") p.hidden = true;
+    });
+  });
+}
+diktatEinbauen();
 
 /* ---------- Neuer Bogen: Vorbelegung, Datum und Uhrzeit ---------- */
 const zwei = n => String(n).padStart(2,"0");
@@ -2316,6 +2394,6 @@ function kostenAusPdf(doc){
   if (nur==="kosten"){ krKasten.checked = true; krKasten.dispatchEvent(new Event("change")); weg(krKasten.closest("label")); }
 })();
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.47 · Stand 13.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.48 · Stand 13.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
