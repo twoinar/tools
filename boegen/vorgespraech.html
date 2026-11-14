@@ -936,7 +936,7 @@ function diktatEinbauen(){
       + `<button type="button" data-d="liste" title="Eigene Korrekturen eintragen">Korrekturliste …</button>`
       + `<span class="diktat-info" aria-live="polite"></span>`;
     const p = document.createElement("div"); p.className = "diktat-panel nodruck"; p.hidden = true;
-    p.innerHTML = `<p>Eine Korrektur je Zeile: <b>falsch = richtig</b>, z. B. <code>Herr Wojnar = Herr Woinar</code>. Ganze Wörter, Groß-/Kleinschreibung egal. `
+    p.innerHTML = `<p>Eine Korrektur je Zeile: <b>falsch = richtig</b>, z. B. <code>Herr Maier = Herr Meier</code>. Ganze Wörter, Groß-/Kleinschreibung egal. `
       + `Die Liste gilt für diesen Browser an diesem PC. Fachwörter, die getrennt erkannt werden (z. B. „Grund Schuld“), sind schon eingebaut.</p>`
       + `<textarea rows="6" spellcheck="false" aria-label="Eigene Korrekturliste"></textarea>`
       + `<div><button type="button" data-d="speichern" class="primary">Liste speichern</button> <button type="button" data-d="zu">Schließen</button></div>`;
