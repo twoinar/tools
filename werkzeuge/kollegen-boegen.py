@@ -55,7 +55,7 @@ OHNE_MITARBEITER = '  if (!mailListeAufbauen()){ meldung("Bitte zuerst unter „
 # Übrig bleiben dürfen nur technische Schlüssel (WoinarVorgespraech, woinar-bedarfsbewertung …) und die
 # gemeinsame Adresse tools.notariat-woinar.de (Kostenrechner, dort liegen auch die Kollegen-Bögen).
 VERBOTEN = ["Thomas Woinar", "Notariats Thomas", "Gubener", "500 86", "notar@woinar", "@notar-woinar.de",
-            '"/api/', "localhost:8766", "Claude-Fenster", "tools.notariat-woinar.de/boegen/"]
+            '"/api/', "localhost:8766", "Claude-Fenster", "tools.notariat-woinar.de/boegen/", "Herr Woinar"]
 
 
 class Datei:
@@ -133,6 +133,8 @@ async function kiSenden(body){
 def ohne_diktat_notar(d):
     """Diktat-Korrekturen mit Thomas' Namen und „Notar“ statt „Notarin“ gelten nur im Notariat Woinar."""
     d.s = re.sub(r"const DIKTAT_NOTAR = \[.*?\];", "const DIKTAT_NOTAR = [];", d.s)
+    # Beispiel in der Hilfe ohne den Namen Woinar
+    d.s = d.s.replace("Herr Wojnar = Herr Woinar", "Herr Maier = Herr Meier")
 
 
 def gemeinsam(d):
