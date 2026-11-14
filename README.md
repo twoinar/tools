@@ -27,6 +27,9 @@ Jedes Tool liegt in einem eigenen Unterordner und läuft vollständig im Browser
 - `apps/` – Handy-Apps mit QR-Code und Anleitung: Handy-Scan, Sprachnachricht (APK aus
   `twoinar/sprachnachricht`, Release „neueste“).
 
+- `video/` – Erklärvideo zur Einstiegsseite (Überblick über alle Tools, nur Testdaten). Neu erzeugen nach
+  größeren Änderungen; Machart wie die übrigen Erklärvideos (Playwright-Bildschirmfotos, Stimme Piper „thorsten“).
+
 Jede Seite zeigt unten klein „Version … · Stand …“ (`python3 werkzeuge/stand.py <datei> <version>`).
 Bei jeder inhaltlichen Änderung die Version erhöhen.
 
