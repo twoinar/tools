@@ -13,12 +13,23 @@
   a.karte { display:block; padding:16px 18px; margin:12px 0; border-radius:10px; background:var(--card); color:var(--link); text-decoration:none; font-weight:600; }
   a.karte small { display:block; color:var(--muted); font-weight:400; }
   h2 { font-size:16px; color:var(--muted); margin-top:32px; }
+  details.video { margin:16px 0 8px; padding:12px 16px; border-radius:10px; background:var(--card); }
+  details.video summary { cursor:pointer; font-weight:600; color:var(--link); }
+  details.video video { display:block; width:100%; height:auto; margin-top:12px; border-radius:6px; background:#000; }
+  details.video p { margin:8px 0 0; color:var(--muted); font-size:14px; }
 </style>
 </head>
 <body>
 <main>
   <h1>Tools fürs Notariat</h1>
   <p class="unter">Werkzeuge für Notariate. Sie laufen im Browser; Eingaben bleiben auf dem eigenen Gerät.</p>
+  <details class="video" open>
+    <summary>▶ Erklärvideo: die Tools im Überblick (gut 4 Minuten)</summary>
+    <video controls preload="none" poster="video/erklaervideo-tools.jpg" src="video/erklaervideo-tools.mp4">
+      Ihr Browser kann das Video nicht abspielen: <a href="video/erklaervideo-tools.mp4">Video herunterladen</a>.
+    </video>
+    <p>Vorgesprächsbogen (Maske und klassisch), Vollzugsbogen, Geldwäscheprüfung, XNP – Sonstige Anträge (z. B. Erbausschlagung), Kostenrechner und Handy-Apps. Alle Daten im Video sind erfundene Testdaten. <a href="video/erklaervideo-tools.mp4" download>Herunterladen</a></p>
+  </details>
   <a class="karte" href="xnp/">XNP – Sonstige Anträge<small>XNP-Importdatei für Erbausschlagung, Erbscheinsantrag, Adoption, gerichtliche Genehmigungen u. a. aus der beglaubigten Abschrift samt Anlagen</small></a>
   <a class="karte" href="boegen/">Bögen<small>Vorgesprächsbogen mit Erbspiegel, Grundstückswert und Kostenberechnung; Vollzugsbogen. Eigene Notardaten und Mitarbeiter einstellbar (Brandenburg)</small></a>
   <a class="karte" href="geldwaesche/">Geldwäscheprüfung Kaufvertrag<small>Kaufvertrag einlesen, Prüfliste nach GwG und GwGMeldV-Immobilien mit Fundstellen, Vermerk zum Ausdrucken</small></a>
@@ -28,6 +39,6 @@
   <h2>Intern</h2>
   <a class="karte" href="intern/">Tools intern 🔒<small>Nur für das eigene Notariat, mit Passwort</small></a>
 </main>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.8 · Stand 23.10.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.9 · Stand 14.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
