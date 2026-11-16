@@ -8,7 +8,7 @@
 # Start: Desktop-Symbol „Claude“ (Claude-Starten.ps1). Einmalig vorher: „Einrichten.cmd“.
 
 $ErrorActionPreference = 'Stop'
-$Version = '1.9'
+$Version = '1.10'
 
 # ---------------------------------------------------------------- Einstellungen
 $cfg = [ordered]@{ Ablageordner = ''; Vorgangsordner = $false; NurZiffern = $true
@@ -340,7 +340,7 @@ function Invoke-Vorgespraech($ctx, $q) {
 
 function Invoke-Info($ctx) {
     Send-Json $ctx 200 @{ ok = $true; version = $Version; rechner = $env:COMPUTERNAME; basis = $Basis
-        basisOk = ($Basis -ne '' -and (Test-Path -LiteralPath $Basis)); nurZiffern = $NurZiffern; registerportal = $Registerportal }
+        basisOk = ($Basis -ne '' -and (Test-Path -LiteralPath $Basis)); nurZiffern = $NurZiffern; registerportal = $Registerportal; vorgangsordner = $MitVorgangsordner }
 }
 
 function Invoke-ClaudeStatus($ctx) {

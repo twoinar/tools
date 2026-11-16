@@ -194,7 +194,7 @@
       <button id="saveAs" class="full" disabled>Speichern unter …</button>
       <div class="pill" id="ablageInfo"></div>
       <div class="status" id="status"></div>
-      <div class="ver">Lageplan-Schraffur · Version 1.3 · Stand 16.11.2026</div>
+      <div class="ver">Lageplan-Schraffur · Version 1.4 · Stand 16.11.2026</div>
     </footer>
   </aside>
 
@@ -216,6 +216,19 @@
       <div class="sheet hidden" id="sheet"><canvas id="pdf"></canvas><canvas id="ov"></canvas></div>
     </div>
   </main>
+</div>
+
+<div id="dlg" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:50;display:flex;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;max-width:470px;padding:22px 24px;box-shadow:0 10px 40px rgba(0,0,0,.25);line-height:1.5">
+    <h3 style="margin:0 0 10px;font-size:17px">Ablageordner einmal festlegen</h3>
+    <ol style="margin:0 0 14px;padding-left:20px">
+      <li>Im nächsten Fenster links <b>Dieser PC</b> und dann das Laufwerk <b>Y:</b> öffnen.</li>
+      <li>Den Ordner <b>Vorgänge</b> <u>einmal anklicken</u> (nicht hineingehen) und <b>Ordner auswählen</b> drücken.</li>
+      <li>Die Frage von Edge mit <b>Änderungen zulassen</b> bestätigen.</li>
+    </ol>
+    <p style="margin:0 0 16px;color:#6b6a65;font-size:13px">Danach legt das Werkzeug jeden Lageplan selbst unter Y:\Vorgänge\&lt;Vorgangsnummer&gt; ab. Edge fragt höchstens noch einmal am Tag mit „Zulassen“ nach.</p>
+    <div class="row" style="justify-content:flex-end"><button id="dlgNein">Abbrechen</button><button id="dlgJa" class="primary">Ordner wählen …</button></div>
+  </div>
 </div>
 
 <script>
@@ -651,21 +664,36 @@
   async function ordnerMerken(h) { try { const d = await idb(); await new Promise((ok, err) => { const t = d.transaction("ordner", "readwrite"); t.objectStore("ordner").put(h, "vorgaenge"); t.oncomplete = ok; t.onerror = () => err(t.error); }); } catch (e) {} }
   async function ablageZeigen() {
     const el = $("ablageInfo");
+    if (server) { el.textContent = "Ablage: " + server.basis + " › Vorgang (über das Claude-Fenster)"; return; }
     if (!kannOrdner) { el.textContent = "Ablage im Vorgang geht hier nicht – die PDF wird heruntergeladen."; return; }
     const h = await ordnerHolen();
+    if (server) return;
     el.innerHTML = h ? 'Ablage: Ordner „' + h.name.replace(/[<>&]/g, "") + '“ › Vorgangsnummer · <a href="#" id="ordnerNeu">ändern</a>'
                      : 'Ablage: beim ersten Speichern einmal <b>Y:\\Vorgänge</b> wählen.';
     const a = $("ordnerNeu"); if (a) a.onclick = async e => { e.preventDefault(); try { await ordnerWaehlen(true); } catch (x) {} ablageZeigen(); };
+  }
+  function erklaeren() {
+    return new Promise(ok => {
+      $("dlg").classList.remove("hidden");
+      const fertig = v => { $("dlg").classList.add("hidden"); $("dlgJa").onclick = $("dlgNein").onclick = null; ok(v); };
+      $("dlgJa").onclick = () => fertig(true); $("dlgNein").onclick = () => fertig(false);
+    });
   }
   async function ordnerWaehlen(neu) {
     let h = neu ? null : await ordnerHolen();
     if (h && (await h.queryPermission({ mode: "readwrite" })) === "granted") return h;
     if (h && (await h.requestPermission({ mode: "readwrite" })) === "granted") return h;
-    status("Bitte den Ordner Y:\\Vorgänge auswählen …");
-    h = await window.showDirectoryPicker({ id: "vorgaenge", mode: "readwrite", startIn: "documents" });
+    if (!(await erklaeren())) { const e = new Error("abgebrochen"); e.name = "AbortError"; throw e; }
+    h = await window.showDirectoryPicker({ id: "vorgaenge", mode: "readwrite" });
     await ordnerMerken(h);
     return h;
   }
+  // Läuft das Werkzeug im Claude-Fenster am Büro-PC (Claude-Starter), legt dessen Server die Datei ab – ohne Ordnerwahl.
+  let server = null;
+  (async () => {
+    if (!/^https?:$/.test(location.protocol) || !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return;
+    try { const r = await fetch("/api/info", { cache: "no-store" }); const j = await r.json(); if (j && j.ok && j.basisOk) { server = j; ablageZeigen(); } } catch (e) {}
+  })();
   async function vorgangsordner(basis, nr) {
     for await (const [name, h] of basis.entries()) if (h.kind === "directory" && (name === nr || name.startsWith(nr + " "))) return h;
     return basis.getDirectoryHandle(nr, { create: true });
@@ -700,6 +728,19 @@
     if (!bereit()) return;
     const nr = nummer($("nr").value);
     if (!nr) { status("Bitte zuerst die Vorgangsnummer eintragen."); $("nr").focus(); return; }
+    if (server) {
+      try {
+        status("Erzeuge PDF …");
+        const bytes = await buildPdf();
+        let bez = dateiname().replace(/\.pdf$/i, "");
+        if (server.vorgangsordner === false && bez.startsWith(nr + " ")) bez = bez.slice(nr.length + 1);   // Server setzt die Nummer selbst davor
+        const r = await fetch("/api/ablegen?" + new URLSearchParams({ nr, datei: bez }), { method: "POST", headers: { "Content-Type": "application/pdf" }, body: bytes });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.ok) throw new Error(j.fehler || ("HTTP " + r.status));
+        status("Gespeichert: " + server.basis + "\\" + j.datei);
+      } catch (e) { console.error(e); status("Speichern im Vorgang nicht möglich: " + (e.message || e)); }
+      return;
+    }
     if (!kannOrdner) { status("Erzeuge PDF …"); return herunterladen(await buildPdf(), dateiname()); }
     try {
       const basis = await ordnerWaehlen(false);   // zuerst, solange der Klick noch „frisch“ ist
