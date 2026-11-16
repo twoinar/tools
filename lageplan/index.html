@@ -116,7 +116,7 @@
   <aside>
     <div class="scroll">
       <h1>Lageplan schraffieren</h1>
-      <p class="sub">PDF laden, Eckpunkte anklicken – Flächen schraffieren, Leitungen und Wege einzeichnen, Ecken mit A, B, C … und Beschriftung.</p>
+      <p class="sub">PDF laden, Eckpunkte anklicken – Flächen schraffieren, Leitungen und Wege einzeichnen, Ecken mit A, B, C …, Beschriftung und Maße.</p>
 
       <label class="btn full" style="display:block;text-align:center">
         PDF öffnen …
@@ -128,6 +128,7 @@
       <div class="row" style="margin-top:8px">
         <button id="newArea" disabled>+ Fläche</button>
         <button id="newLine" disabled>+ Linie / Leitung</button>
+        <button id="newMass" disabled title="Maßlinie: zwei Punkte anklicken">+ Maß</button>
         <button id="undo" disabled title="Strg+Z">Rückgängig</button>
       </div>
 
@@ -152,7 +153,10 @@
             </select>
           </label>
           <label class="check"><input id="fill" type="checkbox"> Fläche zusätzlich leicht einfärben</label>
+          <label class="check"><input id="showArea" type="checkbox"> Flächengröße anzeigen (m²)</label>
         </div>
+        <div id="nurMassHinweis" class="pill" style="margin:4px 0 6px">Beschriftung leer lassen = gemessene Länge wird angezeigt. Für einen festen Wert z. B. „4,00 m“ eintragen.</div>
+        <label class="check" id="showLenBox"><input id="showLen" type="checkbox"> Seitenlängen anzeigen (m)</label>
         <div id="nurLinie">
           <label class="field">Linienart
             <select id="dash">
@@ -166,6 +170,12 @@
         </div>
         <label class="check"><input id="letters" type="checkbox" checked> Eckpunkte mit Buchstaben</label>
       </div>
+
+      <h2>Maßstab</h2>
+      <label class="field">Maßstab 1 : <input id="massstab" type="number" min="1" max="100000" step="1" placeholder="z. B. 500"></label>
+      <div class="row"><button id="kalib" disabled title="Zwei Punkte mit bekanntem Abstand anklicken">Mit bekannter Strecke einmessen …</button></div>
+      <div class="pill" id="massInfo" style="margin-top:6px">Für Maße bitte Maßstab eintragen oder einmessen.</div>
+      <label class="check"><input id="ca" type="checkbox" checked> Maße mit „ca.“ (aus der Zeichnung gemessen)</label>
 
       <h2>Darstellung</h2>
       <label class="field">Linienabstand (mm) <input id="spacing" type="number" min="0.5" max="20" step="0.5" value="2.5"></label>
@@ -185,6 +195,7 @@
         <li><b>Doppelklick</b> auf Buchstabe/Beschriftung: Position zurücksetzen</li>
         <li>Mehrere Flächen dürfen sich überlagern – so liegt z. B. ein Wegerecht über der Teilfläche.</li>
         <li><b>Strg+Z</b>: rückgängig</li>
+        <li><b>✂ Zuschneiden</b> (oben): Rahmen ziehen – die PDF enthält dann nur den Ausschnitt.</li>
       </ul>
     </div>
     <footer>
@@ -194,7 +205,7 @@
       <button id="saveAs" class="full" disabled>Speichern unter …</button>
       <div class="pill" id="ablageInfo"></div>
       <div class="status" id="status"></div>
-      <div class="ver">Lageplan-Schraffur · Version 1.4 · Stand 16.11.2026</div>
+      <div class="ver">Lageplan-Schraffur · Version 1.5 · Stand 16.11.2026</div>
     </footer>
   </aside>
 
@@ -204,6 +215,9 @@
       <span class="pill" id="zoomLbl">–</span>
       <button id="zoomIn" disabled>+</button>
       <button id="zoomFit" disabled>Einpassen</button>
+      <span class="sep"></span>
+      <button id="crop" disabled title="Rahmen um den gewünschten Ausschnitt ziehen">✂ Zuschneiden</button>
+      <button id="cropAus" class="hidden">Zuschnitt aufheben</button>
       <span class="sep"></span>
       <button id="prev" disabled>◀</button>
       <span class="pill" id="pageLbl">Seite –</span>
@@ -231,6 +245,15 @@
   </div>
 </div>
 
+<div id="dlg2" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:50;display:flex;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;max-width:380px;padding:20px 22px;box-shadow:0 10px 40px rgba(0,0,0,.25);line-height:1.5">
+    <h3 style="margin:0 0 8px;font-size:17px">Strecke einmessen</h3>
+    <p style="margin:0 0 10px">Wie lang ist die eben angeklickte Strecke in Wirklichkeit?</p>
+    <label class="field" style="grid-template-columns:1fr 120px">Länge in Metern <input id="kalibM" type="text" inputmode="decimal" placeholder="z. B. 25,40" style="font:inherit;padding:5px 6px;border:1px solid var(--line);border-radius:6px;width:100%"></label>
+    <div class="row" style="justify-content:flex-end;margin-top:12px"><button id="kalibNein">Abbrechen</button><button id="kalibJa" class="primary">Übernehmen</button></div>
+  </div>
+</div>
+
 <script>
 (() => {
   // ---------- Bibliotheken ----------
@@ -245,7 +268,9 @@
   let pageIdx = 0, scale = 1, viewport = null, dpr = window.devicePixelRatio || 1;
   let areas = [], activeId = null, nextId = 1;
   const history = [];
-  const settings = { spacing: 2.5, lineW: 0.6, outlineW: 1.5, fontSize: 12, textSize: 9, halo: true, restart: false };
+  const settings = { spacing: 2.5, lineW: 0.6, outlineW: 1.5, fontSize: 12, textSize: 9, halo: true, restart: false, massstab: 0, kalib: 0, ca: true };
+  let kalibModus = false, kalibPts = [];
+  let cropModus = false, cropDrag = null, crops = {};   // Zuschnitt je Seite in PDF-Koordinaten {x, y, w, h}
   const VORLAGEN = { "Weg": "#8a5a00", "Straße": "#555555", "Leitung": "#000000", "Stromleitung": "#d00000", "Wasserleitung": "#0055cc",
     "Abwasserleitung": "#7a4a1e", "Telekomleitung": "#c000a0", "Medienleitung": "#6a2fa0", "Gasleitung": "#d49a00" };
   const DASH = { solid: null, dash: [6, 3], dashdot: [8, 3, 1.5, 3], dot: [1.2, 2.5] };
@@ -323,7 +348,7 @@
   const lpos = (a, i) => labelPos(a.pts, i, a.kind === "linie");
   // Beschriftung: Lage in PDF-Koordinaten und Richtung der zugehörigen Linie (Grad, PDF), null = waagerecht
   function textPos(a) {
-    if (!a.text || !a.pts.length || (a.kind === "linie" && a.pts.length < 2)) return null;
+    if (!a.pts.length || (a.kind === "linie" && a.pts.length < 2)) return null;
     let x, y, seg = null;
     if (a.kind === "linie") {
       let best = 0, bl = -1;
@@ -346,6 +371,49 @@
     return inPoly(c.x, c.y, pts) ? c : m;
   }
   // lesbar halten: Winkel auf dem Bildschirm zwischen -90° und +90°
+  function mPerPt() { return settings.kalib > 0 ? settings.kalib : (settings.massstab > 0 ? settings.massstab * 25.4 / 72 / 1000 : 0); }
+  function fmtLen(pt) { const f = mPerPt(); if (!f) return "? m"; return (settings.ca ? "ca. " : "") + (pt * f).toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " m"; }
+  function fmtArea(pt2) { const f = mPerPt(); if (!f) return "? m²"; return (settings.ca ? "ca. " : "") + Math.round(pt2 * f * f).toLocaleString("de-DE") + " m²"; }
+  function polyArea(pts) { let A = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; A += p.x * q.y - q.x * p.y; } return Math.abs(A) / 2; }
+  const dist = (p, q) => Math.hypot(q.x - p.x, q.y - p.y);
+  const segDeg = (p, q, rot) => aufrecht(Math.atan2(q.y - p.y, q.x - p.x) * 180 / Math.PI - rot) + rot;
+  // Alle Beschriftungen eines Eintrags in PDF-Koordinaten: {x, y, deg (Textrichtung im PDF), text, main}
+  function labels(a, rot) {
+    const out = [], ts = settings.textSize;
+    let main = "";
+    if (a.kind === "mass") main = a.pts.length >= 2 ? (a.text || fmtLen(dist(a.pts[0], a.pts[1]))) : "";
+    else main = a.text || "";
+    if (a.kind === "flaeche" && a.showArea && a.pts.length >= 3) main = (main ? main + " – " : "") + fmtArea(polyArea(a.pts));
+    if (main && a.pts.length >= (a.kind === "flaeche" ? 1 : 2)) {
+      if (a.kind === "mass") {
+        const p = a.pts[0], q = a.pts[1], deg = segDeg(p, q, rot), n = (deg + 90) * Math.PI / 180;
+        const x = a.tx != null ? a.tx : (p.x + q.x) / 2 + Math.cos(n) * ts * 0.75, y = a.tx != null ? a.ty : (p.y + q.y) / 2 + Math.sin(n) * ts * 0.75;
+        out.push({ x, y, deg, text: main, main: true });
+      } else {
+        const tp = textPos(a);
+        out.push({ x: tp.x, y: tp.y, deg: tp.seg ? segDeg(tp.seg[0], tp.seg[1], rot) : rot, text: main, main: true });
+      }
+    }
+    if (a.showLen && a.kind !== "mass") {
+      const ring = a.kind === "flaeche" && a.pts.length >= 3, n = a.pts.length;
+      for (let i = 0; i < (ring ? n : n - 1); i++) {
+        const p = a.pts[i], q = a.pts[(i + 1) % n], L = dist(p, q);
+        if (L < 1e-6) continue;
+        const deg = segDeg(p, q, rot);
+        let nx = -(q.y - p.y) / L, ny = (q.x - p.x) / L;
+        const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
+        if (ring) { if (inPoly(mx + nx, my + ny, a.pts)) { nx = -nx; ny = -ny; } }
+        else { const r = (deg + 90) * Math.PI / 180; nx = Math.cos(r); ny = Math.sin(r); }
+        const off = ring ? ts * 0.9 : ts * 1.3;
+        out.push({ x: mx + nx * off, y: my + ny * off, deg, text: fmtLen(L), main: false });
+      }
+    }
+    return out;
+  }
+  function pfeil(p, q, len, wid) {   // Pfeilspitze an p, Richtung von q nach p
+    const L = dist(p, q) || 1, ux = (p.x - q.x) / L, uy = (p.y - q.y) / L, bx = p.x - ux * len, by = p.y - uy * len;
+    return [p, { x: bx - uy * wid, y: by + ux * wid }, { x: bx + uy * wid, y: by - ux * wid }];
+  }
   function aufrecht(deg) { let d = ((deg % 360) + 540) % 360 - 180; if (d > 90) d -= 180; else if (d <= -90) d += 180; return d; }
 
   // ---------- PDF laden / rendern ----------
@@ -361,9 +429,11 @@
       if (!nummer($("nr").value)) { const m = f.name.match(/^(\d{1,9})(?=[\s_.-])/); if (m) { $("nr").value = m[1]; nameAktualisieren(); } } areas = []; activeId = null; nextId = 1; history.length = 0;
       $("fileLbl").textContent = f.name + " · " + pdfDoc.numPages + (pdfDoc.numPages === 1 ? " Seite" : " Seiten");
       $("drop").classList.add("hidden"); $("sheet").classList.remove("hidden");
-      ["zoomOut", "zoomIn", "zoomFit", "newArea", "newLine", "save", "saveAs"].forEach(id => $(id).disabled = false);
+      ["zoomOut", "zoomIn", "zoomFit", "newArea", "newLine", "newMass", "kalib", "crop", "save", "saveAs"].forEach(id => $(id).disabled = false);
       $("undo").disabled = true;
+      settings.kalib = 0; settings.massstab = 0; $("massstab").value = ""; kalibModus = false; crops = {}; cropModus = false; cropKnoepfe();
       await fitWidth();
+      massstabErkennen();
       status("Klicken Sie die Eckpunkte der Teilfläche nacheinander an.");
     } catch (e) { console.error(e); status("Die PDF konnte nicht geöffnet werden: " + (e.message || e)); }
   }
@@ -389,6 +459,7 @@
     try { await renderTask.promise; } catch (e) { if (e && e.name === "RenderingCancelledException") return; }
     $("zoomLbl").textContent = Math.round(scale * 100) + " %";
     $("pageLbl").textContent = "Seite " + (pageIdx + 1) + " / " + pdfDoc.numPages;
+    cropKnoepfe();
     $("prev").disabled = pageIdx === 0; $("next").disabled = pageIdx >= pdfDoc.numPages - 1;
     draw();
   }
@@ -406,7 +477,14 @@
       if (a.page !== pageIdx || !a.pts.length) continue;
       const sp = a.pts.map(p => toS(p.x, p.y));
       octx.strokeStyle = a.color; octx.fillStyle = a.color; octx.lineCap = "butt";
-      if (a.kind === "linie") {
+      if (a.kind === "mass") {
+        octx.lineWidth = Math.max(1, a.width * scale);
+        octx.beginPath(); sp.forEach((p, i) => i ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y)); octx.stroke();
+        if (a.pts.length >= 2) for (const [p, q] of [[a.pts[0], a.pts[1]], [a.pts[1], a.pts[0]]]) {
+          const t = pfeil(p, q, 4 + a.width * 2, 1.6 + a.width * 0.6).map(z => toS(z.x, z.y));
+          octx.beginPath(); octx.moveTo(t[0].x, t[0].y); octx.lineTo(t[1].x, t[1].y); octx.lineTo(t[2].x, t[2].y); octx.closePath(); octx.fill();
+        }
+      } else if (a.kind === "linie") {
         octx.lineWidth = Math.max(1, a.width * scale);
         const d = DASH[a.dash]; octx.setLineDash(d ? d.map(v => v * a.width * scale / 2) : []);
         octx.lineCap = a.dash === "dot" ? "round" : "butt";
@@ -432,17 +510,15 @@
           octx.stroke(); octx.setLineDash([]);
         }
       }
-      // Beschriftung (Weg, Stromleitung …)
-      const tp = textPos(a);
-      if (tp) {
-        const s = toS(tp.x, tp.y);
-        let ang = 0;
-        if (tp.seg) { const p1 = toS(tp.seg[0].x, tp.seg[0].y), p2 = toS(tp.seg[1].x, tp.seg[1].y); ang = aufrecht(Math.atan2(-(p2.y - p1.y), p2.x - p1.x) * 180 / Math.PI); }
-        octx.save(); octx.translate(s.x, s.y); octx.rotate(-ang * Math.PI / 180);
+      // Beschriftungen und Maße
+      const vrot = viewport.rotation || 0;
+      for (const L of labels(a, vrot)) {
+        const sc = toS(L.x, L.y), ang = L.deg - vrot;
+        octx.save(); octx.translate(sc.x, sc.y); octx.rotate(-ang * Math.PI / 180);
         octx.font = "bold " + ts + "px Helvetica, Arial, sans-serif"; octx.textAlign = "center"; octx.textBaseline = "alphabetic";
-        const w = octx.measureText(a.text).width, capH = ts * 0.72, desc = ts * 0.22, pad = 1.5 * scale;
+        const w = octx.measureText(L.text).width, capH = ts * 0.72, desc = ts * 0.22, pad = 1.5 * scale;
         if (settings.halo) { octx.fillStyle = "rgba(255,255,255,0.88)"; octx.fillRect(-w / 2 - pad, -capH / 2 - pad, w + 2 * pad, capH + desc + 2 * pad); }
-        octx.fillStyle = a.color; octx.fillText(a.text, 0, capH / 2);
+        octx.fillStyle = a.color; octx.fillText(L.text, 0, capH / 2);
         octx.restore();
       }
       // Buchstaben
@@ -459,9 +535,23 @@
       // Griffe des aktiven Eintrags
       if (a.id === activeId) {
         sp.forEach(p => { octx.beginPath(); octx.arc(p.x, p.y, 5, 0, Math.PI * 2); octx.fillStyle = "#fff"; octx.fill(); octx.lineWidth = 2; octx.strokeStyle = a.color; octx.stroke(); });
-      } else if (a.kind !== "linie") {
+      } else if (a.kind === "flaeche") {
         sp.forEach(p => { octx.beginPath(); octx.arc(p.x, p.y, 2.5, 0, Math.PI * 2); octx.fillStyle = a.color; octx.fill(); });
       }
+    }
+    const cr = cropDrag ? cropDrag.rect : crops[pageIdx];
+    if (cr) {
+      const a1 = toS(cr.x, cr.y), a2 = toS(cr.x + cr.w, cr.y + cr.h);
+      const x = Math.min(a1.x, a2.x), y = Math.min(a1.y, a2.y), w = Math.abs(a2.x - a1.x), h = Math.abs(a2.y - a1.y);
+      octx.fillStyle = "rgba(40,40,40,0.45)";
+      octx.beginPath(); octx.rect(0, 0, ov.width / dpr, ov.height / dpr); octx.rect(x, y, w, h); octx.fill("evenodd");
+      octx.strokeStyle = "#fff"; octx.lineWidth = 1.5; octx.setLineDash([6, 4]); octx.strokeRect(x, y, w, h); octx.setLineDash([]);
+    }
+    if (kalibModus && kalibPts.length) {
+      const k = kalibPts.map(p => toS(p.x, p.y));
+      octx.strokeStyle = "#0a7d2c"; octx.fillStyle = "#0a7d2c"; octx.lineWidth = 2; octx.setLineDash([4, 3]);
+      octx.beginPath(); k.forEach((p, i) => i ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y)); octx.stroke(); octx.setLineDash([]);
+      k.forEach(p => { octx.beginPath(); octx.arc(p.x, p.y, 4, 0, Math.PI * 2); octx.fill(); });
     }
   }
 
@@ -469,15 +559,16 @@
   function refreshUI() {
     const lm = letterMap(), box = $("areas"); box.innerHTML = "";
     if (!areas.length) box.innerHTML = '<div class="pill">Noch nichts eingetragen – einfach in den Plan klicken (neue Fläche) oder „+ Linie / Leitung“.</div>';
-    const zaehler = { flaeche: 0, linie: 0 };
+    const zaehler = { flaeche: 0, linie: 0, mass: 0 };
     areas.forEach(a => {
       const nr = ++zaehler[a.kind];
       const el = document.createElement("div");
       el.className = "area" + (a.id === activeId ? " active" : "");
       const ls = a.letters ? a.pts.map((_, i) => lm.get(a.id + ":" + i)).join("–") : a.pts.length + " Punkte";
-      const symbol = a.kind === "linie" ? "━" : "■";
-      const name = (a.text ? a.text : (a.kind === "linie" ? "Linie " : "Fläche ") + nr).replace(/[<>&]/g, "");
-      const min = a.kind === "linie" ? 2 : 3;
+      const symbol = { linie: "━", mass: "↔", flaeche: "■" }[a.kind];
+      const auto = a.kind === "mass" && a.pts.length >= 2 ? fmtLen(dist(a.pts[0], a.pts[1])) : "";
+      const name = (a.text ? a.text : (auto ? "Maß " + auto : ({ linie: "Linie ", mass: "Maß ", flaeche: "Fläche " }[a.kind]) + nr)).replace(/[<>&]/g, "");
+      const min = a.kind === "flaeche" ? 3 : 2;
       el.innerHTML = '<div class="t"><span><span style="color:' + a.color + '">' + symbol + '</span> ' + name + '</span><button class="x" title="Eintrag löschen">×</button></div>' +
         '<div class="m">Seite ' + (a.page + 1) + ' · ' + (a.pts.length ? ls : "noch keine Punkte") + (a.pts.length && a.pts.length < min ? " (mind. " + min + " Punkte)" : "") + '</div>';
       el.onclick = async e => {
@@ -489,9 +580,13 @@
     const a = active();
     $("areaSettings").classList.toggle("hidden", !a);
     if (a) {
-      $("setTitle").textContent = a.kind === "linie" ? "Aktive Linie / Leitung" : "Aktive Fläche";
-      $("nurFlaeche").classList.toggle("hidden", a.kind === "linie");
-      $("nurLinie").classList.toggle("hidden", a.kind !== "linie");
+      $("setTitle").textContent = { linie: "Aktive Linie / Leitung", mass: "Aktives Maß", flaeche: "Aktive Fläche" }[a.kind];
+      $("nurFlaeche").classList.toggle("hidden", a.kind !== "flaeche");
+      $("nurLinie").classList.toggle("hidden", a.kind === "flaeche");
+      $("nurMassHinweis").classList.toggle("hidden", a.kind !== "mass");
+      $("showLenBox").classList.toggle("hidden", a.kind === "mass");
+      $("showLen").checked = !!a.showLen; $("showArea").checked = !!a.showArea;
+      $("text").placeholder = a.kind === "mass" ? "leer = gemessene Länge" : "auswählen oder tippen";
       if (document.activeElement !== $("text")) $("text").value = a.text || "";
       $("color").value = a.color; $("style").value = a.style; $("fill").checked = a.fill;
       $("dash").value = a.dash; $("width").value = a.width; $("letters").checked = a.letters;
@@ -503,7 +598,9 @@
     const prev = [...areas].reverse().find(z => z.kind === kind);
     const a = { id: nextId++, kind, page: pageIdx, pts: [], text: "", tx: null, ty: null,
       style: prev ? prev.style : "diag", color: kind === "linie" ? (prev ? prev.color : "#d00000") : (prev ? prev.color : "#c00000"),
-      fill: prev ? prev.fill : false, dash: prev ? prev.dash : "dash", width: prev ? prev.width : 2, letters: kind !== "linie" };
+      fill: prev ? prev.fill : false, dash: prev ? prev.dash : (kind === "mass" ? "solid" : "dash"), width: prev ? prev.width : (kind === "mass" ? 0.8 : 2),
+      letters: kind === "flaeche", showLen: prev ? !!prev.showLen : false, showArea: prev ? !!prev.showArea : false };
+    if (kind === "mass" && !prev) a.color = "#1d1d1b";
     areas.push(a); activeId = a.id; return a;
   }
 
@@ -518,14 +615,14 @@
     const r = settings.fontSize * scale * 0.65 + 3;
     for (const a of order) { if (a.page !== pageIdx || !a.letters) continue;
       for (let i = 0; i < a.pts.length; i++) { const lp = lpos(a, i), s = toS(lp.x, lp.y); if (Math.hypot(s.x - m.x, s.y - m.y) <= r) return { kind: "lbl", a, i }; } }
-    // 3) Beschriftung
+    // 3) Beschriftung (Hauptbeschriftung bzw. Maßzahl, verschiebbar)
     octx.font = "bold " + settings.textSize * scale + "px Helvetica, Arial, sans-serif";
+    const vrot = viewport.rotation || 0;
     for (const a of order) { if (a.page !== pageIdx) continue;
-      const tp = textPos(a); if (!tp) continue;
-      const s = toS(tp.x, tp.y), w = octx.measureText(a.text).width / 2 + 4, h = settings.textSize * scale * 0.6 + 4;
-      let ang = 0; if (tp.seg) { const p1 = toS(tp.seg[0].x, tp.seg[0].y), p2 = toS(tp.seg[1].x, tp.seg[1].y); ang = aufrecht(Math.atan2(-(p2.y - p1.y), p2.x - p1.x) * 180 / Math.PI) * Math.PI / 180; }
+      const L = labels(a, vrot).find(z => z.main); if (!L) continue;
+      const s = toS(L.x, L.y), w = octx.measureText(L.text).width / 2 + 4, h = settings.textSize * scale * 0.6 + 4, ang = (L.deg - vrot) * Math.PI / 180;
       const dx = m.x - s.x, dy = m.y - s.y, u = dx * Math.cos(ang) - dy * Math.sin(ang), v = dx * Math.sin(ang) + dy * Math.cos(ang);
-      if (Math.abs(u) <= w && Math.abs(v) <= h) return { kind: "txt", a, i: -1 };
+      if (Math.abs(u) <= w && Math.abs(v) <= h) return { kind: "txt", a, i: -1, L };
     }
     return null;
   }
@@ -533,19 +630,23 @@
   ov.addEventListener("contextmenu", e => e.preventDefault());
   ov.addEventListener("mousedown", e => {
     if (!viewport) return;
-    const m = mousePos(e), h = hit(m);
+    const m = mousePos(e);
+    if (cropModus && e.button === 0) { cropDrag = { start: m, rect: null }; return; }
+    const h = kalibModus ? null : hit(m);
     if (e.button === 2) { if (h && h.kind === "pt") { snapshot(); h.a.pts.splice(h.i, 1); activeId = h.a.id; refreshUI(); } return; }
     if (e.button !== 0) return;
     drag = { start: m, h, moved: false, snap: false, shift: e.shiftKey };
     if (h) {
       let s;
-      if (h.kind === "txt") { const tp = textPos(h.a); s = toS(tp.x, tp.y); }
+      if (h.kind === "txt") { s = toS(h.L.x, h.L.y); }
       else { const pt = h.a.pts[h.i]; const lp = lpos(h.a, h.i); s = h.kind === "pt" ? toS(pt.x, pt.y) : toS(lp.x, lp.y); }
       drag.off = { x: m.x - s.x, y: m.y - s.y };
     }
   });
+  function rechteck(a, b) { const p = toP(a.x, a.y), q = toP(b.x, b.y); return { x: Math.min(p.x, q.x), y: Math.min(p.y, q.y), w: Math.abs(q.x - p.x), h: Math.abs(q.y - p.y) }; }
   window.addEventListener("mousemove", e => {
-    if (!drag || !viewport) { if (viewport) { const h = hit(mousePos(e)); ov.style.cursor = h ? "move" : "crosshair"; } return; }
+    if (cropDrag) { cropDrag.rect = rechteck(cropDrag.start, mousePos(e)); draw(); return; }
+    if (!drag || !viewport) { if (viewport && !cropModus) { const h = hit(mousePos(e)); ov.style.cursor = h ? "move" : "crosshair"; } return; }
     const m = mousePos(e);
     if (!drag.moved && Math.hypot(m.x - drag.start.x, m.y - drag.start.y) < 3) return;
     drag.moved = true;
@@ -560,15 +661,26 @@
     draw();
   });
   window.addEventListener("mouseup", e => {
+    if (cropDrag) {
+      const r = cropDrag.rect; cropDrag = null; cropModus = false; $("crop").classList.remove("primary"); ov.style.cursor = "crosshair";
+      if (r && r.w > 10 && r.h > 10) { crops[pageIdx] = r; status("Zugeschnitten – gespeichert wird nur der helle Ausschnitt. Neu zuschneiden: noch einmal „Zuschneiden“."); }
+      else status("Zuschneiden abgebrochen (Rahmen zu klein).");
+      cropKnoepfe(); draw(); return;
+    }
     if (!drag) return;
     const d = drag; drag = null;
     if (d.moved) { refreshUI(); return; }
     if (d.h) { if (activeId !== d.h.a.id) { activeId = d.h.a.id; refreshUI(); } return; }
     // Klick ins Leere: Punkt hinzufügen / einfügen
     const p = toP(d.start.x, d.start.y);
+    if (kalibModus) {
+      kalibPts.push(p); draw();
+      if (kalibPts.length === 2) kalibFragen();
+      return;
+    }
     snapshot();
     let a = active();
-    if (!a || a.page !== pageIdx) a = newArea(a ? a.kind : "flaeche");
+    if (!a || a.page !== pageIdx || (a.kind === "mass" && a.pts.length >= 2 && !d.shift)) a = newArea(a ? a.kind : "flaeche");
     if (d.shift && a.pts.length >= 2) {
       let best = -1, bd = Infinity;
       const n = a.pts.length, ring = n >= 3 && a.kind !== "linie";
@@ -598,11 +710,20 @@
     const doc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
     const font = await doc.embedFont(StandardFonts.HelveticaBold);
     const lm = letterMap();
-    const latin = t => t.replace(/[^\x20-\x7E\xA0-\xFF]/g, "?");
+    const latin = t => t.replace(/[^\x20-\x7E\xA0-\xFF\u2013\u2014\u2018\u2019\u201A\u201C\u201D\u201E\u2022\u2026\u20AC]/g, "?");
     for (const a of areas.filter(z => z.pts.length >= 1)) {
       const page = doc.getPage(a.page), col = hexRgb(a.color);
       const rot = ((page.getRotation().angle % 360) + 360) % 360, r = rot * Math.PI / 180;
-      if (a.kind === "linie") {
+      if (a.kind === "mass") {
+        if (a.pts.length >= 2) {
+          const [p, q] = a.pts;
+          page.drawLine({ start: { x: p.x, y: p.y }, end: { x: q.x, y: q.y }, thickness: a.width, color: col });
+          for (const [u, v] of [[p, q], [q, p]]) {
+            const t = pfeil(u, v, 4 + a.width * 2, 1.6 + a.width * 0.6);
+            page.drawSvgPath("M " + t.map(z => z.x + " " + (-z.y)).join(" L ") + " Z", { x: 0, y: 0, color: col });
+          }
+        }
+      } else if (a.kind === "linie") {
         if (a.pts.length >= 2) {
           const path = a.pts.map((p, i) => (i ? "L " : "M ") + p.x + " " + (-p.y)).join(" ");
           const d = DASH[a.dash], opt = { x: 0, y: 0, borderColor: col, borderWidth: a.width };
@@ -619,13 +740,10 @@
         if (a.fill) { opt.color = col; opt.opacity = 0.15; }
         if (opt.borderColor || opt.color) page.drawSvgPath(path, opt);
       }
-      const tp = textPos(a);
-      if (tp) {
-        const t = latin(a.text), size = settings.textSize, w = font.widthOfTextAtSize(t, size), capH = size * 0.72, desc = size * 0.22, pad = 1.5;
-        let deg = rot;
-        if (tp.seg) { const a0 = Math.atan2(tp.seg[1].y - tp.seg[0].y, tp.seg[1].x - tp.seg[0].x) * 180 / Math.PI; deg = aufrecht(a0 - rot) + rot; }
-        const rr = deg * Math.PI / 180, c = Math.cos(rr), s = Math.sin(rr);
-        const ax = tp.x + (-w / 2) * c - (-capH / 2) * s, ay = tp.y + (-w / 2) * s + (-capH / 2) * c;
+      for (const L of labels(a, rot)) {
+        const t = latin(L.text), size = settings.textSize, w = font.widthOfTextAtSize(t, size), capH = size * 0.72, desc = size * 0.22, pad = 1.5;
+        const deg = L.deg, rr = deg * Math.PI / 180, c = Math.cos(rr), s = Math.sin(rr);
+        const ax = L.x + (-w / 2) * c - (-capH / 2) * s, ay = L.y + (-w / 2) * s + (-capH / 2) * c;
         if (settings.halo) page.drawRectangle({ x: ax + (-pad) * c - (-desc - pad) * s, y: ay + (-pad) * s + (-desc - pad) * c, width: w + 2 * pad, height: capH + desc + 2 * pad, rotate: degrees(deg), color: rgb(1, 1, 1), opacity: 0.88 });
         page.drawText(t, { x: ax, y: ay, size, font, color: col, rotate: degrees(deg) });
       }
@@ -636,6 +754,11 @@
         const ox = -w / 2 * Math.cos(r) + capH / 2 * Math.sin(r), oy = -w / 2 * Math.sin(r) - capH / 2 * Math.cos(r);
         page.drawText(t, { x: lp.x + ox, y: lp.y + oy, size, font, color: col, rotate: degrees(rot) });
       });
+    }
+    for (const [i, r] of Object.entries(crops)) {
+      const page = doc.getPage(+i);
+      page.setMediaBox(r.x, r.y, r.w, r.h); page.setCropBox(r.x, r.y, r.w, r.h);
+      try { page.setTrimBox(r.x, r.y, r.w, r.h); page.setBleedBox(r.x, r.y, r.w, r.h); page.setArtBox(r.x, r.y, r.w, r.h); } catch (e) {}
     }
     return await doc.save();
   }
@@ -720,7 +843,7 @@
   }
   function bereit() {
     if (!pdfBytes) return false;
-    if (!areas.some(a => a.pts.length)) { status("Es sind noch keine Punkte gesetzt."); return false; }
+    if (!areas.some(a => a.pts.length) && !Object.keys(crops).length) { status("Es ist noch nichts eingezeichnet oder zugeschnitten."); return false; }
     return true;
   }
 
@@ -780,6 +903,14 @@
   ["dragleave", "drop"].forEach(ev => document.addEventListener(ev, e => { e.preventDefault(); if (ev === "drop" || !e.relatedTarget) document.body.classList.remove("dragging"); }));
   document.addEventListener("drop", e => { const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) loadFile(f); });
   $("newArea").onclick = () => { snapshot(); newArea("flaeche"); refreshUI(); status("Neue Fläche: Eckpunkte anklicken. Sie darf über einer anderen liegen."); };
+  function cropKnoepfe() { $("cropAus").classList.toggle("hidden", !crops[pageIdx]); }
+  $("crop").onclick = () => {
+    cropModus = !cropModus; kalibModus = false;
+    $("crop").classList.toggle("primary", cropModus); ov.style.cursor = cropModus ? "cell" : "crosshair";
+    status(cropModus ? "Zuschneiden: Rahmen um den gewünschten Ausschnitt ziehen." : "");
+  };
+  $("cropAus").onclick = () => { delete crops[pageIdx]; cropKnoepfe(); draw(); status("Zuschnitt aufgehoben."); };
+  $("newMass").onclick = () => { snapshot(); newArea("mass"); refreshUI(); status("Maß: Anfangs- und Endpunkt anklicken (z. B. Wegbreite). Jeder weitere Klick beginnt ein neues Maß."); };
   $("newLine").onclick = () => { snapshot(); newArea("linie"); refreshUI(); status("Neue Linie: Punkte entlang der Leitung bzw. des Wegs anklicken."); };
   $("undo").onclick = undo;
   $("save").onclick = saveVorgang;
@@ -800,6 +931,43 @@
   areaProp("dash", "dash", el => el.value);
   areaProp("width", "width", el => Math.max(0.3, parseFloat(el.value) || 2));
   areaProp("letters", "letters", el => el.checked);
+  areaProp("showLen", "showLen", el => el.checked);
+  areaProp("showArea", "showArea", el => el.checked);
+  // ---------- Maßstab ----------
+  function massInfo(quelle) {
+    const f = mPerPt();
+    $("massInfo").textContent = !f ? "Für Maße bitte Maßstab eintragen oder einmessen."
+      : (settings.kalib ? "Eingemessen: " : (quelle || "Maßstab: ")) + "1 cm im Plan = " + (f * 72 / 2.54).toLocaleString("de-DE", { maximumFractionDigits: 2 }) + " m";
+  }
+  $("massstab").addEventListener("input", () => { settings.massstab = parseFloat($("massstab").value) || 0; settings.kalib = 0; massInfo(); refreshUI(); });
+  $("ca").addEventListener("change", () => { settings.ca = $("ca").checked; refreshUI(); });
+  $("kalib").onclick = () => { kalibModus = true; kalibPts = []; status("Einmessen: Anfang und Ende einer Strecke mit bekannter Länge anklicken (z. B. eine bemaßte Grenze)."); draw(); };
+  function kalibFragen() {
+    $("dlg2").classList.remove("hidden"); $("kalibM").value = ""; setTimeout(() => $("kalibM").focus(), 50);
+    const ende = ok => {
+      $("dlg2").classList.add("hidden");
+      if (ok) {
+        const m = parseFloat($("kalibM").value.replace(/\./g, "").replace(",", ".")), d = dist(kalibPts[0], kalibPts[1]);
+        if (m > 0 && d > 0) { settings.kalib = m / d; settings.massstab = Math.round(settings.kalib * 1000 * 72 / 25.4); $("massstab").value = settings.massstab; massInfo(); status("Eingemessen – Maßstab ca. 1 : " + settings.massstab + "."); }
+        else status("Keine gültige Länge – nicht eingemessen.");
+      } else status("Einmessen abgebrochen.");
+      kalibModus = false; kalibPts = []; refreshUI();
+    };
+    $("kalibJa").onclick = () => ende(true); $("kalibNein").onclick = () => ende(false);
+    $("kalibM").onkeydown = e => { if (e.key === "Enter") ende(true); if (e.key === "Escape") ende(false); };
+  }
+  // Maßstab aus dem Text der PDF lesen (z. B. „M 1:500“)
+  async function massstabErkennen() {
+    try {
+      for (let i = 1; i <= Math.min(pdfDoc.numPages, 3); i++) {
+        const tc = await (await pdfDoc.getPage(i)).getTextContent();
+        const txt = tc.items.map(t => t.str).join(" ");
+        const m = txt.match(/1\s*:\s*(\d{3,5})(?!\d)/);
+        if (m) { const v = parseInt(m[1], 10); if (v >= 100 && v <= 25000) { settings.massstab = v; $("massstab").value = v; massInfo("Aus der PDF erkannt (1 : " + v + "): "); return; } }
+      }
+    } catch (e) {}
+    massInfo();
+  }
   let textSnap = false;
   $("text").addEventListener("focus", () => { textSnap = false; });
   $("text").addEventListener("input", () => {
@@ -812,6 +980,7 @@
   for (const k of ["spacing", "lineW", "outlineW", "fontSize", "textSize"]) $(k).addEventListener("input", () => { const v = parseFloat($(k).value); if (!isNaN(v) && v >= 0) { settings[k] = v; draw(); } });
   $("halo").addEventListener("change", () => { settings.halo = $("halo").checked; draw(); });
   $("restart").addEventListener("change", () => { settings.restart = $("restart").checked; refreshUI(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && kalibModus && $("dlg2").classList.contains("hidden")) { kalibModus = false; kalibPts = []; status("Einmessen abgebrochen."); draw(); } });
   document.addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); } });
   let rT; window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => { if (pdfDoc && Math.abs((window.devicePixelRatio || 1) - dpr) > 0.01) render(); }, 200); });
 
