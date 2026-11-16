@@ -24,6 +24,12 @@ Jedes Tool liegt in einem eigenen Unterordner und läuft vollständig im Browser
   sich die Quelle geändert und das Skript muss angepasst werden; die Kollegen-Bögen bleiben dann unverändert.
   Auf dem Server sind alle Tools unter `/tools/` und der Kostenrechner ohne Login erreichbar; Login nur für
   Tools intern, das Claude-Fenster, `/api/` und Thomas' eigene Bögen unter `/boegen/` (`server/Caddyfile`).
+- `lageplan/` – Lageplan schraffieren: Lageplan-PDF laden, Eckpunkte der Teilfläche anklicken; die Fläche
+  wird schraffiert (schräg, Kreuz, waagerecht) und die Ecken mit A, B, C … beschriftet, Ergebnis als neue PDF
+  (`…_schraffiert.pdf`). Eine einzige HTML-Datei mit eingebauten Bibliotheken (pdf.js 3.11.174, pdf-lib 1.17.1),
+  läuft daher auch offline bzw. als Datei auf Y:. Versionszeile steht in der Seitenleiste. Wird über die Aktion
+  „Tools intern: öffentliche Tools übernehmen“ (`werkzeuge/intern-tools.py`, Liste `werkzeuge/intern-tools.json`)
+  unverändert auch nach Tools intern übernommen und erscheint so auch als Kachel im Claude-Fenster.
 - `apps/` – Handy-Apps mit QR-Code und Anleitung: Handy-Scan, Sprachnachricht (APK aus
   `twoinar/sprachnachricht`, Release „neueste“).
 

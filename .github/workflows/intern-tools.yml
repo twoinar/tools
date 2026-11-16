@@ -1,0 +1,39 @@
+# Übernimmt öffentliche Tools (Liste in werkzeuge/intern-tools.json) unverändert auch nach „Tools intern“,
+# samt Karte in deren Übersicht – damit erscheinen sie auch als Kachel im Claude-Fenster.
+# Läuft nach jeder Änderung an diesen Tools und auf Knopfdruck. Braucht das Secret INTERN_PASSWORT.
+name: "Tools intern: öffentliche Tools übernehmen"
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "lageplan/**"
+      - "werkzeuge/intern-tools.json"
+      - "werkzeuge/intern-tools.py"
+      - ".github/workflows/intern-tools.yml"
+permissions:
+  contents: write
+concurrency: intern-passwort
+jobs:
+  uebernehmen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet cryptography
+      - name: Tools in Tools intern übernehmen
+        env:
+          INTERN_PASSWORT: ${{ secrets.INTERN_PASSWORT }}
+        run: |
+          if [ -z "$INTERN_PASSWORT" ]; then echo "::error::Secret INTERN_PASSWORT fehlt (Settings › Secrets and variables › Actions)."; exit 1; fi
+          python3 werkzeuge/intern-tools.py
+      - name: Hochladen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A intern
+          if git diff --cached --quiet; then echo "Keine Änderung."; exit 0; fi
+          git commit -m "Tools intern: öffentliche Tools übernommen"
+          for i in 1 2 3; do git push && exit 0; git pull --rebase; done; exit 1

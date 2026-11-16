@@ -487,7 +487,7 @@ const INTERN_APP = WEB ? WEB.internApp : location.origin + '/intern/app/';
 const INTERN_ANMELDUNG = WEB ? WEB.internAnmeldung : location.origin + '/intern/';
 let intern = { status: 'laedt', gruppen: [], dateien: {} };
 const VORGESPRAECH_MASKE = (WEB ? location.origin : 'https://tools.notariat-woinar.de') + '/boegen/vorgespraech-maske.html';
-const ORDNER_ICONS = { xnp: '📨', geldwaesche: '🔍', erbausschlagung: '⚖️', apps: '📲' };
+const ORDNER_ICONS = { xnp: '📨', geldwaesche: '🔍', erbausschlagung: '⚖️', apps: '📲', lageplan: '📐' };
 const BOEGEN = {
   'vorgespraech.html': { icon: '📝', titel: 'Vorgesprächsbogen klassisch' }, 'vollzug.html': { icon: '📋' }, 'erbspiegel.html': { icon: '🌳' },
   'geschaeftswert.html': { icon: '💶' }, 'bewertung.html': { icon: '🧮', titel: 'Grundstückswert lokal' }, 'vorgespraech-maske.html': { icon: '🧭' }, 'kosten.html': { icon: '🧾' },
