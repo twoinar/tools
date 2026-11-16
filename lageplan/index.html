@@ -191,6 +191,7 @@
       <ul class="help">
         <li><b>Klick</b>: Eckpunkt setzen</li>
         <li><b>Ziehen</b>: Eckpunkt, Buchstabe oder Beschriftung verschieben</li>
+        <li><b>Klick auf einen Eckpunkt einer anderen Fläche</b>: übernimmt ihn als gemeinsamen Punkt (gleicher Buchstabe, zweifarbig)</li>
         <li><b>Umschalt + Klick</b> nahe einer Kante: Punkt einfügen</li>
         <li><b>Rechtsklick</b> auf Punkt: löschen</li>
         <li><b>Doppelklick</b> auf Buchstabe/Beschriftung: Position zurücksetzen</li>
@@ -207,7 +208,7 @@
       <button id="saveAs" class="full" disabled>Speichern unter …</button>
       <div class="pill" id="ablageInfo"></div>
       <div class="status" id="status"></div>
-      <div class="ver">Lageplan-Schraffur · Version 1.7 · Stand 16.11.2026</div>
+      <div class="ver">Lageplan-Schraffur · Version 1.8 · Stand 16.11.2026</div>
     </footer>
   </aside>
 
@@ -275,10 +276,11 @@
   const PROJEKT_DATEI = "lageplan-bearbeitung.json", ORIGINAL_DATEI = "lageplan-original.pdf";
   function projektDaten() {
     return { programm: "Lageplan schraffieren", format: 1, gespeichert: new Date().toLocaleString("de-DE"), originalName: fileName,
-      nr: $("nr").value, areas, nextId, crops, settings: { ...settings } };
+      nr: $("nr").value, areas, nextId, nextPid, crops, settings: { ...settings } };
   }
   function projektLaden(pj) {
     areas = Array.isArray(pj.areas) ? pj.areas : []; nextId = pj.nextId || (Math.max(0, ...areas.map(a => a.id)) + 1);
+    nextPid = pj.nextPid || 1; pidSichern();
     crops = pj.crops || {}; activeId = null; history.length = 0; $("undo").disabled = true;
     Object.assign(settings, pj.settings || {});
     for (const k of ["spacing", "lineW", "outlineW", "fontSize", "textSize"]) $(k).value = settings[k];
@@ -288,7 +290,7 @@
     massInfo(); cropKnoepfe(); refreshUI();
   }
   let cropModus = false, cropDrag = null, crops = {};   // Zuschnitt je Seite in PDF-Koordinaten {x, y, w, h}
-  const VORLAGEN = { "Weg": "#8a5a00", "Straße": "#555555", "Leitung": "#000000", "Stromleitung": "#d00000", "Wasserleitung": "#0055cc",
+  const VORLAGEN = { "Weg": "#2e8b3a", "Straße": "#555555", "Leitung": "#000000", "Stromleitung": "#d00000", "Wasserleitung": "#0055cc",
     "Abwasserleitung": "#7a4a1e", "Telekomleitung": "#c000a0", "Medienleitung": "#6a2fa0", "Gasleitung": "#d49a00" };
   const DASH = { solid: null, dash: [6, 3], dashdot: [8, 3, 1.5, 3], dot: [1.2, 2.5] };
 
@@ -305,9 +307,32 @@
 
   // ---------- Buchstaben ----------
   function letter(n) { let s = ""; n++; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+  let nextPid = 1;
+  function pidSichern() {
+    let mx = 0;
+    for (const a of areas) for (const p of a.pts) { if (p.pid == null) p.pid = 0; mx = Math.max(mx, p.pid); }
+    nextPid = Math.max(nextPid, mx + 1);
+    for (const a of areas) for (const p of a.pts) if (!p.pid) p.pid = nextPid++;
+  }
+  const neuerPunkt = (x, y) => ({ pid: nextPid++, x, y, lx: null, ly: null });
+  // Buchstaben je Punkt-ID: gemeinsame Eckpunkte mehrerer Flächen behalten ihren Buchstaben und tragen alle Farben
+  function letterInfo() {
+    pidSichern();
+    const info = new Map(); let c = 0;
+    for (const a of areas) {
+      if (!a.letters) continue;
+      if (settings.restart) c = 0;
+      a.pts.forEach((p, i) => {
+        const e = info.get(p.pid);
+        if (e) { if (!e.colors.includes(a.color)) e.colors.push(a.color); }
+        else info.set(p.pid, { text: letter(c++), colors: [a.color], a, i });
+      });
+    }
+    return info;
+  }
   function letterMap() {
-    const map = new Map(); let c = 0;
-    for (const a of areas) { if (!a.letters) continue; if (settings.restart) c = 0; a.pts.forEach((p, i) => map.set(a.id + ":" + i, letter(c++))); }
+    const info = letterInfo(), map = new Map();
+    for (const a of areas) a.pts.forEach((p, i) => { const e = info.get(p.pid); if (e) map.set(a.id + ":" + i, e.text); });
     return map;
   }
   const closed = a => a.kind !== "linie" && a.pts.length >= 3;
@@ -453,7 +478,7 @@
         }
       } catch (e) { console.warn("Keine Bearbeitungsdaten lesbar", e); projekt = null; }
       fileName = projekt && projekt.originalName ? projekt.originalName : f.name; pageIdx = 0;
-      if (!nummer($("nr").value)) { const m = f.name.match(/^(\d{1,9})(?=[\s_.-])/); if (m) { $("nr").value = m[1]; nameAktualisieren(); } } areas = []; activeId = null; nextId = 1; history.length = 0;
+      if (!nummer($("nr").value)) { const m = f.name.match(/^(\d{1,9})(?=[\s_.-])/); if (m) { $("nr").value = m[1]; nameAktualisieren(); } } areas = []; activeId = null; nextId = 1; nextPid = 1; history.length = 0;
       $("fileLbl").textContent = f.name + " · " + pdfDoc.numPages + (pdfDoc.numPages === 1 ? " Seite" : " Seiten");
       $("drop").classList.add("hidden"); $("sheet").classList.remove("hidden");
       ["zoomOut", "zoomIn", "zoomFit", "newArea", "newLine", "newMass", "kalib", "crop", "save", "saveAs"].forEach(id => $(id).disabled = false);
@@ -543,8 +568,12 @@
           octx.stroke(); octx.setLineDash([]);
         }
       }
-      // Beschriftungen und Maße
-      const vrot = viewport.rotation || 0;
+    }
+    // zweiter Durchgang: Beschriftungen, Buchstaben und Griffe liegen immer obenauf
+    const vrot = viewport.rotation || 0;
+    for (const a of areas) {
+      if (a.page !== pageIdx || !a.pts.length) continue;
+      const sp = a.pts.map(p => toS(p.x, p.y));
       for (const L of labels(a, vrot)) {
         const sc = toS(L.x, L.y), ang = L.deg - vrot;
         octx.save(); octx.translate(sc.x, sc.y); octx.rotate(-ang * Math.PI / 180);
@@ -554,17 +583,25 @@
         octx.fillStyle = a.color; octx.fillText(L.text, 0, capH / 2);
         octx.restore();
       }
-      // Buchstaben
-      octx.font = "bold " + fs + "px Helvetica, Arial, sans-serif";
-      octx.textAlign = "center"; octx.textBaseline = "alphabetic";
-      if (a.letters) a.pts.forEach((p, i) => {
-        const t = lm.get(a.id + ":" + i), lp = lpos(a, i), s = toS(lp.x, lp.y);
-        const w = octx.measureText(t).width, capH = fs * 0.72;
-        if (settings.halo) {
-          octx.fillStyle = "rgba(255,255,255,0.88)"; octx.beginPath(); octx.arc(s.x, s.y, Math.max(w, capH) / 2 + 2 * scale, 0, Math.PI * 2); octx.fill();
-        }
-        octx.fillStyle = a.color; octx.fillText(t, s.x, s.y + capH / 2);
+    }
+    // Buchstaben (je Punkt nur einmal; gemeinsame Punkte in allen Farben, nebeneinander geteilt)
+    octx.font = "bold " + fs + "px Helvetica, Arial, sans-serif";
+    octx.textAlign = "center"; octx.textBaseline = "alphabetic";
+    for (const e of letterInfo().values()) {
+      if (e.a.page !== pageIdx) continue;
+      const lp = lpos(e.a, e.i), s = toS(lp.x, lp.y);
+      const w = octx.measureText(e.text).width, capH = fs * 0.72, n = e.colors.length;
+      if (settings.halo) { octx.fillStyle = "rgba(255,255,255,0.88)"; octx.beginPath(); octx.arc(s.x, s.y, Math.max(w, capH) / 2 + 2 * scale, 0, Math.PI * 2); octx.fill(); }
+      e.colors.forEach((col, k) => {
+        octx.save();
+        if (n > 1) { octx.beginPath(); octx.rect(s.x - w / 2 + k * w / n - (k === 0 ? 20 : 0), s.y - fs, w / n + (k === 0 || k === n - 1 ? 20 : 0), fs * 2); octx.clip(); }
+        octx.fillStyle = col; octx.fillText(e.text, s.x, s.y + capH / 2);
+        octx.restore();
       });
+    }
+    for (const a of areas) {
+      if (a.page !== pageIdx || !a.pts.length) continue;
+      const sp = a.pts.map(p => toS(p.x, p.y));
       // Griffe des aktiven Eintrags
       if (a.id === activeId) {
         sp.forEach(p => { octx.beginPath(); octx.arc(p.x, p.y, 5, 0, Math.PI * 2); octx.fillStyle = "#fff"; octx.fill(); octx.lineWidth = 2; octx.strokeStyle = a.color; octx.stroke(); });
@@ -646,8 +683,8 @@
       for (let i = 0; i < a.pts.length; i++) { const s = toS(a.pts[i].x, a.pts[i].y); if (Math.hypot(s.x - m.x, s.y - m.y) <= 8) return { kind: "pt", a, i }; } }
     // 2) Buchstaben
     const r = settings.fontSize * scale * 0.65 + 3;
-    for (const a of order) { if (a.page !== pageIdx || !a.letters) continue;
-      for (let i = 0; i < a.pts.length; i++) { const lp = lpos(a, i), s = toS(lp.x, lp.y); if (Math.hypot(s.x - m.x, s.y - m.y) <= r) return { kind: "lbl", a, i }; } }
+    for (const e of letterInfo().values()) { if (e.a.page !== pageIdx) continue;
+      const lp = lpos(e.a, e.i), s = toS(lp.x, lp.y); if (Math.hypot(s.x - m.x, s.y - m.y) <= r) return { kind: "lbl", a: e.a, i: e.i }; }
     // 3) Beschriftung (Hauptbeschriftung bzw. Maßzahl, verschiebbar)
     octx.font = "bold " + settings.textSize * scale + "px Helvetica, Arial, sans-serif";
     const vrot = viewport.rotation || 0;
@@ -669,6 +706,8 @@
     if (e.button === 2) { if (h && h.kind === "pt") { snapshot(); h.a.pts.splice(h.i, 1); activeId = h.a.id; refreshUI(); } return; }
     if (e.button !== 0) return;
     drag = { start: m, h, moved: false, snap: false, shift: e.shiftKey };
+    const akt = active();
+    if (h && h.kind === "pt" && akt && akt.page === pageIdx && h.a.id !== akt.id && !akt.pts.some(q => q.pid === h.a.pts[h.i].pid)) drag.teilen = akt;
     if (h) {
       let s;
       if (h.kind === "txt") { s = toS(h.L.x, h.L.y); }
@@ -684,12 +723,15 @@
     if (!drag.moved && Math.hypot(m.x - drag.start.x, m.y - drag.start.y) < 3) return;
     drag.moved = true;
     if (!drag.h) return;
-    if (!drag.snap) { snapshot(); drag.snap = true; activeId = drag.h.a.id; }
+    if (!drag.snap) { snapshot(); drag.snap = true; if (!drag.teilen) activeId = drag.h.a.id; }
     const p = toP(m.x - drag.off.x, m.y - drag.off.y), pt = drag.h.a.pts[drag.h.i];
     if (drag.h.kind === "txt") { drag.h.a.tx = p.x; drag.h.a.ty = p.y; }
     else if (drag.h.kind === "pt") {
-      if (pt.lx != null) { pt.lx += p.x - pt.x; pt.ly += p.y - pt.y; }
-      pt.x = p.x; pt.y = p.y;
+      const dx = p.x - pt.x, dy = p.y - pt.y, pid = pt.pid;
+      for (const z of areas) for (const q of z.pts) if (q === pt || (pid && q.pid === pid)) {
+        if (q.lx != null) { q.lx += dx; q.ly += dy; }
+        q.x += dx; q.y += dy;
+      }
     } else { pt.lx = p.x; pt.ly = p.y; }
     draw();
   });
@@ -703,6 +745,14 @@
     if (!drag) return;
     const d = drag; drag = null;
     if (d.moved) { refreshUI(); return; }
+    if (d.h && d.teilen && d.h.kind === "pt") {
+      // Klick auf einen Eckpunkt einer anderen Fläche: als gemeinsamen Punkt übernehmen
+      snapshot();
+      const q = d.h.a.pts[d.h.i];
+      d.teilen.pts.push({ pid: q.pid, x: q.x, y: q.y, lx: null, ly: null });
+      status("Gemeinsamer Eckpunkt übernommen – er behält seinen Buchstaben.");
+      refreshUI(); return;
+    }
     if (d.h) { if (activeId !== d.h.a.id) { activeId = d.h.a.id; refreshUI(); } return; }
     // Klick ins Leere: Punkt hinzufügen / einfügen
     const p = toP(d.start.x, d.start.y);
@@ -724,9 +774,9 @@
         const dist = Math.hypot(s1.x + t * dx - d.start.x, s1.y + t * dy - d.start.y);
         if (dist < bd) { bd = dist; best = i; }
       }
-      a.pts.splice(best + 1, 0, { x: p.x, y: p.y, lx: null, ly: null });
+      a.pts.splice(best + 1, 0, neuerPunkt(p.x, p.y));
     } else {
-      a.pts.push({ x: p.x, y: p.y, lx: null, ly: null });
+      a.pts.push(neuerPunkt(p.x, p.y));
     }
     refreshUI();
   });
@@ -773,6 +823,11 @@
         if (a.fill) { opt.color = col; opt.opacity = 0.15; }
         if (opt.borderColor || opt.color) page.drawSvgPath(path, opt);
       }
+    }
+    // zweiter Durchgang: Beschriftungen und Buchstaben obenauf
+    for (const a of areas.filter(z => z.pts.length >= 1)) {
+      const page = doc.getPage(a.page), col = hexRgb(a.color);
+      const rot = ((page.getRotation().angle % 360) + 360) % 360;
       for (const L of labels(a, rot)) {
         const t = latin(L.text), size = settings.textSize, w = font.widthOfTextAtSize(t, size), capH = size * 0.72, desc = size * 0.22, pad = 1.5;
         const deg = L.deg, rr = deg * Math.PI / 180, c = Math.cos(rr), s = Math.sin(rr);
@@ -780,12 +835,22 @@
         if (settings.halo) page.drawRectangle({ x: ax + (-pad) * c - (-desc - pad) * s, y: ay + (-pad) * s + (-desc - pad) * c, width: w + 2 * pad, height: capH + desc + 2 * pad, rotate: degrees(deg), color: rgb(1, 1, 1), opacity: 0.88 });
         page.drawText(t, { x: ax, y: ay, size, font, color: col, rotate: degrees(deg) });
       }
-      if (a.letters) a.pts.forEach((p, i) => {
-        const t = lm.get(a.id + ":" + i), lp = lpos(a, i);
-        const size = settings.fontSize, w = font.widthOfTextAtSize(t, size), capH = size * 0.72;
-        if (settings.halo) page.drawCircle({ x: lp.x, y: lp.y, size: Math.max(w, capH) / 2 + 2, color: rgb(1, 1, 1), opacity: 0.88 });
-        const ox = -w / 2 * Math.cos(r) + capH / 2 * Math.sin(r), oy = -w / 2 * Math.sin(r) - capH / 2 * Math.cos(r);
-        page.drawText(t, { x: lp.x + ox, y: lp.y + oy, size, font, color: col, rotate: degrees(rot) });
+    }
+    const O = PDFLib;
+    for (const e of letterInfo().values()) {
+      const page = doc.getPage(e.a.page), rot = ((page.getRotation().angle % 360) + 360) % 360, r = rot * Math.PI / 180;
+      const t = e.text, lp = lpos(e.a, e.i), size = settings.fontSize, w = font.widthOfTextAtSize(t, size), capH = size * 0.72, n = e.colors.length;
+      if (settings.halo) page.drawCircle({ x: lp.x, y: lp.y, size: Math.max(w, capH) / 2 + 2, color: rgb(1, 1, 1), opacity: 0.88 });
+      const c = Math.cos(r), sn = Math.sin(r), P = (u, v) => [lp.x + u * c - v * sn, lp.y + u * sn + v * c];
+      const ox = -w / 2 * c + capH / 2 * sn, oy = -w / 2 * sn - capH / 2 * c;
+      e.colors.forEach((hex, k) => {
+        if (n > 1) {
+          const u0 = -w / 2 + k * w / n - (k === 0 ? 20 : 0), u1 = -w / 2 + (k + 1) * w / n + (k === n - 1 ? 20 : 0), big = size * 2;
+          const pts = [P(u0, -big), P(u1, -big), P(u1, big), P(u0, big)];
+          page.pushOperators(O.pushGraphicsState(), O.moveTo(pts[0][0], pts[0][1]), O.lineTo(pts[1][0], pts[1][1]), O.lineTo(pts[2][0], pts[2][1]), O.lineTo(pts[3][0], pts[3][1]), O.closePath(), O.clip(), O.endPath());
+        }
+        page.drawText(t, { x: lp.x + ox, y: lp.y + oy, size, font, color: hexRgb(hex), rotate: degrees(rot) });
+        if (n > 1) page.pushOperators(O.popGraphicsState());
       });
     }
     // Original und Bearbeitung unsichtbar anhängen – so lässt sich die PDF später im Werkzeug weiterbearbeiten
