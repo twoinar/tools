@@ -155,7 +155,8 @@
           <label class="check"><input id="fill" type="checkbox"> Fläche zusätzlich leicht einfärben</label>
           <label class="check"><input id="showArea" type="checkbox"> Flächengröße anzeigen (m²)</label>
         </div>
-        <div id="nurMassHinweis" class="pill" style="margin:4px 0 6px">Beschriftung leer lassen = gemessene Länge wird angezeigt. Für einen festen Wert z. B. „4,00 m“ eintragen.</div>
+        <div id="nurMassHinweis" class="pill" style="margin:4px 0 6px">Beschriftung leer lassen = gemessene Länge wird angezeigt. Für einen festen Wert z. B. „4,00 m“ eintragen.
+          <button id="kalibMass" class="full" style="margin-top:6px">Stimmt nicht? Wahre Länge eingeben – alle Maße danach richten …</button></div>
         <label class="check" id="showLenBox"><input id="showLen" type="checkbox"> Seitenlängen anzeigen (m)</label>
         <div id="nurLinie">
           <label class="field">Linienart
@@ -172,7 +173,7 @@
       </div>
 
       <h2>Maßstab</h2>
-      <label class="field">Maßstab 1 : <input id="massstab" type="number" min="1" max="100000" step="1" placeholder="z. B. 500"></label>
+      <label class="field">Maßstab 1 : <input id="massstab" type="text" inputmode="numeric" autocomplete="off" placeholder="z. B. 500" style="font:inherit;padding:5px 6px;border:1px solid var(--line);border-radius:6px;width:100%"></label>
       <div class="row"><button id="kalib" disabled title="Zwei Punkte mit bekanntem Abstand anklicken">Mit bekannter Strecke einmessen …</button></div>
       <div class="pill" id="massInfo" style="margin-top:6px">Für Maße bitte Maßstab eintragen oder einmessen.</div>
       <label class="check"><input id="ca" type="checkbox" checked> Maße mit „ca.“ (aus der Zeichnung gemessen)</label>
@@ -205,7 +206,7 @@
       <button id="saveAs" class="full" disabled>Speichern unter …</button>
       <div class="pill" id="ablageInfo"></div>
       <div class="status" id="status"></div>
-      <div class="ver">Lageplan-Schraffur · Version 1.5 · Stand 16.11.2026</div>
+      <div class="ver">Lageplan-Schraffur · Version 1.6 · Stand 16.11.2026</div>
     </footer>
   </aside>
 
@@ -937,9 +938,17 @@
   function massInfo(quelle) {
     const f = mPerPt();
     $("massInfo").textContent = !f ? "Für Maße bitte Maßstab eintragen oder einmessen."
-      : (settings.kalib ? "Eingemessen: " : (quelle || "Maßstab: ")) + "1 cm im Plan = " + (f * 72 / 2.54).toLocaleString("de-DE", { maximumFractionDigits: 2 }) + " m";
+      : (settings.kalib ? "Eingemessen: " : (quelle || "Maßstab: ")) + "1 cm in der PDF = " + (f * 72 / 2.54).toLocaleString("de-DE", { maximumFractionDigits: 2 }) + " m"
+        + (settings.kalib ? " (wirkt wie 1 : " + Math.round(settings.kalib * 1000 * 72 / 25.4).toLocaleString("de-DE") + (settings.massstab ? "; die PDF ist also gegenüber 1 : " + settings.massstab.toLocaleString("de-DE") + " verkleinert oder vergrößert" : "") + ")" : "")
+        + (settings.kalib ? "" : ". Stimmt eine Länge nicht, ist die PDF nicht in Originalgröße – dann einmessen.");
   }
-  $("massstab").addEventListener("input", () => { settings.massstab = parseFloat($("massstab").value) || 0; settings.kalib = 0; massInfo(); refreshUI(); });
+  function massstabLesen() {
+    const m = $("massstab").value.replace(/\s/g, "").replace(/^1:/, "").replace(/\./g, "").replace(",", ".");
+    settings.massstab = parseFloat(m) > 0 ? parseFloat(m) : 0; settings.kalib = 0; massInfo(); refreshUI();
+  }
+  $("massstab").addEventListener("input", massstabLesen);
+  $("massstab").addEventListener("change", massstabLesen);
+  $("kalibMass").onclick = () => { const a = active(); if (!a || a.pts.length < 2) { status("Erst beide Punkte des Maßes setzen."); return; } kalibModus = true; kalibPts = [a.pts[0], a.pts[1]]; kalibFragen(); };
   $("ca").addEventListener("change", () => { settings.ca = $("ca").checked; refreshUI(); });
   $("kalib").onclick = () => { kalibModus = true; kalibPts = []; status("Einmessen: Anfang und Ende einer Strecke mit bekannter Länge anklicken (z. B. eine bemaßte Grenze)."); draw(); };
   function kalibFragen() {
@@ -948,7 +957,7 @@
       $("dlg2").classList.add("hidden");
       if (ok) {
         const m = parseFloat($("kalibM").value.replace(/\./g, "").replace(",", ".")), d = dist(kalibPts[0], kalibPts[1]);
-        if (m > 0 && d > 0) { settings.kalib = m / d; settings.massstab = Math.round(settings.kalib * 1000 * 72 / 25.4); $("massstab").value = settings.massstab; massInfo(); status("Eingemessen – Maßstab ca. 1 : " + settings.massstab + "."); }
+        if (m > 0 && d > 0) { settings.kalib = m / d; massInfo(); status("Eingemessen – alle Maße sind angepasst."); }
         else status("Keine gültige Länge – nicht eingemessen.");
       } else status("Einmessen abgebrochen.");
       kalibModus = false; kalibPts = []; refreshUI();
