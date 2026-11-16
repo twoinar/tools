@@ -196,6 +196,7 @@
         <li><b>Doppelklick</b> auf Buchstabe/Beschriftung: Position zurücksetzen</li>
         <li>Mehrere Flächen dürfen sich überlagern – so liegt z. B. ein Wegerecht über der Teilfläche.</li>
         <li><b>Strg+Z</b>: rückgängig</li>
+        <li><b>Weiterbearbeiten</b>: eine hier gespeicherte PDF einfach wieder öffnen – Flächen, Linien, Maße und Zuschnitt sind wieder bearbeitbar.</li>
         <li><b>✂ Zuschneiden</b> (oben): Rahmen ziehen – die PDF enthält dann nur den Ausschnitt.</li>
       </ul>
     </div>
@@ -206,7 +207,7 @@
       <button id="saveAs" class="full" disabled>Speichern unter …</button>
       <div class="pill" id="ablageInfo"></div>
       <div class="status" id="status"></div>
-      <div class="ver">Lageplan-Schraffur · Version 1.6 · Stand 16.11.2026</div>
+      <div class="ver">Lageplan-Schraffur · Version 1.7 · Stand 16.11.2026</div>
     </footer>
   </aside>
 
@@ -271,6 +272,21 @@
   const history = [];
   const settings = { spacing: 2.5, lineW: 0.6, outlineW: 1.5, fontSize: 12, textSize: 9, halo: true, restart: false, massstab: 0, kalib: 0, ca: true };
   let kalibModus = false, kalibPts = [];
+  const PROJEKT_DATEI = "lageplan-bearbeitung.json", ORIGINAL_DATEI = "lageplan-original.pdf";
+  function projektDaten() {
+    return { programm: "Lageplan schraffieren", format: 1, gespeichert: new Date().toLocaleString("de-DE"), originalName: fileName,
+      nr: $("nr").value, areas, nextId, crops, settings: { ...settings } };
+  }
+  function projektLaden(pj) {
+    areas = Array.isArray(pj.areas) ? pj.areas : []; nextId = pj.nextId || (Math.max(0, ...areas.map(a => a.id)) + 1);
+    crops = pj.crops || {}; activeId = null; history.length = 0; $("undo").disabled = true;
+    Object.assign(settings, pj.settings || {});
+    for (const k of ["spacing", "lineW", "outlineW", "fontSize", "textSize"]) $(k).value = settings[k];
+    $("halo").checked = settings.halo; $("restart").checked = settings.restart; $("ca").checked = settings.ca;
+    $("massstab").value = settings.massstab || "";
+    if (pj.nr && !nummer($("nr").value)) { $("nr").value = pj.nr; nameAktualisieren(); }
+    massInfo(); cropKnoepfe(); refreshUI();
+  }
   let cropModus = false, cropDrag = null, crops = {};   // Zuschnitt je Seite in PDF-Koordinaten {x, y, w, h}
   const VORLAGEN = { "Weg": "#8a5a00", "Straße": "#555555", "Leitung": "#000000", "Stromleitung": "#d00000", "Wasserleitung": "#0055cc",
     "Abwasserleitung": "#7a4a1e", "Telekomleitung": "#c000a0", "Medienleitung": "#6a2fa0", "Gasleitung": "#d49a00" };
@@ -426,16 +442,32 @@
       const buf = await f.arrayBuffer();
       pdfBytes = new Uint8Array(buf);
       pdfDoc = await pdfjsLib.getDocument({ data: pdfBytes.slice() }).promise;
-      fileName = f.name; pageIdx = 0;
+      // Mit diesem Werkzeug gespeicherte PDF? Dann Original und Bearbeitung aus den Anhängen holen.
+      let projekt = null;
+      try {
+        const an = await pdfDoc.getAttachments();
+        if (an && an[PROJEKT_DATEI] && an[ORIGINAL_DATEI]) {
+          projekt = JSON.parse(new TextDecoder().decode(an[PROJEKT_DATEI].content));
+          pdfBytes = new Uint8Array(an[ORIGINAL_DATEI].content);
+          pdfDoc = await pdfjsLib.getDocument({ data: pdfBytes.slice() }).promise;
+        }
+      } catch (e) { console.warn("Keine Bearbeitungsdaten lesbar", e); projekt = null; }
+      fileName = projekt && projekt.originalName ? projekt.originalName : f.name; pageIdx = 0;
       if (!nummer($("nr").value)) { const m = f.name.match(/^(\d{1,9})(?=[\s_.-])/); if (m) { $("nr").value = m[1]; nameAktualisieren(); } } areas = []; activeId = null; nextId = 1; history.length = 0;
       $("fileLbl").textContent = f.name + " · " + pdfDoc.numPages + (pdfDoc.numPages === 1 ? " Seite" : " Seiten");
       $("drop").classList.add("hidden"); $("sheet").classList.remove("hidden");
       ["zoomOut", "zoomIn", "zoomFit", "newArea", "newLine", "newMass", "kalib", "crop", "save", "saveAs"].forEach(id => $(id).disabled = false);
       $("undo").disabled = true;
       settings.kalib = 0; settings.massstab = 0; $("massstab").value = ""; kalibModus = false; crops = {}; cropModus = false; cropKnoepfe();
-      await fitWidth();
-      massstabErkennen();
-      status("Klicken Sie die Eckpunkte der Teilfläche nacheinander an.");
+      if (projekt) {
+        projektLaden(projekt);
+        await fitWidth();
+        status("Bearbeitung wiederhergestellt (gespeichert " + (projekt.gespeichert || "") + ") – Sie können weiterarbeiten.");
+      } else {
+        await fitWidth();
+        massstabErkennen();
+        status("Klicken Sie die Eckpunkte der Teilfläche nacheinander an.");
+      }
     } catch (e) { console.error(e); status("Die PDF konnte nicht geöffnet werden: " + (e.message || e)); }
   }
   async function fitWidth() {
@@ -756,6 +788,9 @@
         page.drawText(t, { x: lp.x + ox, y: lp.y + oy, size, font, color: col, rotate: degrees(rot) });
       });
     }
+    // Original und Bearbeitung unsichtbar anhängen – so lässt sich die PDF später im Werkzeug weiterbearbeiten
+    await doc.attach(pdfBytes, ORIGINAL_DATEI, { mimeType: "application/pdf", description: "Original-Lageplan (für Lageplan schraffieren)" });
+    await doc.attach(new TextEncoder().encode(JSON.stringify(projektDaten())), PROJEKT_DATEI, { mimeType: "application/json", description: "Bearbeitungsdaten (für Lageplan schraffieren)" });
     for (const [i, r] of Object.entries(crops)) {
       const page = doc.getPage(+i);
       page.setMediaBox(r.x, r.y, r.w, r.h); page.setCropBox(r.x, r.y, r.w, r.h);

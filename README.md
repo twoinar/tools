@@ -29,7 +29,9 @@ Jedes Tool liegt in einem eigenen Unterordner und läuft vollständig im Browser
   zeichnen (Linienart, Stärke, Farbe), Beschriftung aus Vorlagen (Weg, Straße, Leitung, Strom-, Wasser-, Abwasser-,
   Telekom-, Medien-, Gasleitung) oder frei; Eckpunkte mit A, B, C …. Bemaßung: Maßlinien mit Pfeilen, Seitenlängen und
   Flächengröße (m²); Maßstab wird aus dem PDF-Text („1:500“) erkannt, eingetragen oder über eine bekannte Strecke
-  eingemessen. „✂ Zuschneiden“ setzt Media-/CropBox der Seite auf den gezogenen Rahmen. Speichern „In Vorgang“ nach
+  eingemessen. „✂ Zuschneiden“ setzt Media-/CropBox der Seite auf den gezogenen Rahmen. Weiterbearbeiten: Die gespeicherte PDF trägt
+  das unveränderte Original (`lageplan-original.pdf`) und die Bearbeitung (`lageplan-bearbeitung.json`) als
+  PDF-Anhänge; wird sie wieder geöffnet, ist alles wieder bearbeitbar. Speichern „In Vorgang“ nach
   `<Vorgänge-Ordner>\<Nr …>\<Nr> Lageplan schraffiert.pdf` (Ordner einmal wählen, File System Access API; die
   Vorgangsnummer steht immer vorn im Dateinamen und kommt aus `#vorgang=` – das Claude-Fenster übergibt sie –,
   aus dem Dateinamen der geladenen PDF oder von Hand), sonst „Speichern unter …“. Eine einzige HTML-Datei mit
