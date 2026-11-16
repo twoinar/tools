@@ -549,7 +549,7 @@ async function internLaden() {
       gesehen.add('p:' + pfad + new URL(kachel.url).search); gesehen.add('t:' + name);
       const bogen = BOEGEN[pfad.split('/').pop()];
       if (/^boegen\//.test(pfad) && bogen) { if (bogen.titel) kachel.titel = bogen.titel; if (!kachel.icon) kachel.icon = bogen.icon; }
-      if (/^boegen\/vorgespraech(-maske)?\.html$/.test(pfad)) kachel.mitNr = true;
+      if (/^boegen\/vorgespraech(-maske)?\.html$/.test(pfad) || /^lageplan\//.test(pfad)) kachel.mitNr = true;
       if (!kachel.icon) kachel.icon = ORDNER_ICONS[pfad.split('/')[0]] || '🧰';
       gruppe.kacheln.push(kachel);
     };
