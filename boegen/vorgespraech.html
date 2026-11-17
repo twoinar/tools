@@ -2396,7 +2396,50 @@ function kostenAusPdf(doc){
   if (nur==="bewertung"){ gwKasten.checked = true; gwKasten.dispatchEvent(new Event("change")); weg(gwKasten.closest("label")); bewertungAn(); }
   if (nur==="kosten"){ krKasten.checked = true; krKasten.dispatchEvent(new Event("change")); weg(krKasten.closest("label")); }
 })();
+
+/* ---------- Ordnerzugriff dauerhaft erlauben (Wunsch Thomas 17.11.2026) ----------
+   Die gewählten Ordner bleiben im Browser gespeichert (IndexedDB). Chrome gibt sie nach dem Schließen des
+   Browsers aber erst nach einer Rückfrage wieder frei. Diese Leiste fragt einmal für alle gespeicherten
+   Ordner nach; in der Chrome-Abfrage „Bei jedem Besuch zulassen“ wählen, dann bleibt der Zugriff dauerhaft
+   und die Leiste erscheint nicht mehr. Ändern geht weiter über die Knöpfe „… wählen“.                    */
+function zugriffLeisteEinrichten(holeOrdner){
+  if (!dateisystemOk) return;
+  try{ if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){}
+  const leiste = document.createElement("div");
+  leiste.hidden = true;
+  leiste.style.cssText = "max-width:880px;margin:10px auto 0;padding:0 16px";
+  leiste.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;border-radius:4px;font-size:13px;background:#fef7e0;color:#7a4f01;border:1px solid #f9d77e">'
+    + '<span class="zl-text" style="flex:1 1 320px"></span><button type="button" class="zl-knopf">Ordnerzugriff erlauben</button></div>';
+  const msg = document.getElementById("msg");
+  msg.parentNode.insertBefore(leiste, msg);
+  const esc = s => String(s).replace(/[<>&]/g, "");
+  async function fehlende(){
+    const aus = [];
+    for (const [o, modus] of await holeOrdner()){
+      if (!o || aus.some(([x]) => x === o)) continue;
+      try{ if (await o.queryPermission({mode: modus}) !== "granted") aus.push([o, modus]); }catch(e){}
+    }
+    return aus;
+  }
+  async function pruefen(){
+    const f = await fehlende();
+    leiste.hidden = !f.length;
+    if (f.length) leiste.querySelector(".zl-text").innerHTML =
+      `Chrome hat den Zugriff auf ${f.length === 1 ? "den gespeicherten Ordner" : "die gespeicherten Ordner"} ${f.map(([o]) => `<b>${esc(o.name)}</b>`).join(" und ")} noch nicht wieder freigegeben. `
+      + `Bitte einmal auf den Knopf klicken und in der Abfrage <b>„Bei jedem Besuch zulassen“</b> wählen – dann fragt Chrome künftig nicht mehr.`;
+    return f.length === 0;
+  }
+  leiste.querySelector(".zl-knopf").onclick = async () => {
+    for (const [o, modus] of await fehlende()){ try{ await o.requestPermission({mode: modus}); }catch(e){} }
+    if (await pruefen()) meldung("Ordnerzugriff erlaubt.");
+    else meldung("Der Zugriff wurde nicht erlaubt. Bitte erneut auf „Ordnerzugriff erlauben“ klicken oder den Ordner neu wählen.", "err");
+  };
+  setTimeout(pruefen, 900);
+  window.addEventListener("focus", () => { pruefen().catch(()=>{}); });
+  document.addEventListener("click", () => { setTimeout(() => pruefen().catch(()=>{}), 1500); }, true);
+}
+zugriffLeisteEinrichten(async () => [[ordner, "readwrite"], [ordner2, "readwrite"]]);
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.49 · Stand 13.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.50 · Stand 17.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
