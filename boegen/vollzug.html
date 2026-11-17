@@ -121,6 +121,14 @@ td input.bez{min-width:0;width:118px;font-weight:bold;background:transparent;box
 td input.bez:focus{background:var(--field-focus)}
 .fussnote{font-size:11px;color:var(--muted);margin-top:6px}
 .sub.senk{flex-direction:column;gap:0}
+/* eigene Genehmigungen (dauerhaft in der Liste) */
+.gen-eigen{display:flex;align-items:center;gap:6px}
+.gen-eigen .gen-weg{background:transparent;color:var(--muted);padding:0 6px;font-size:15px;line-height:1}
+.gen-eigen .gen-weg:hover{color:var(--red)}
+.gen-plus{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:2px 0 4px}
+.gen-plus > button{background:transparent;color:var(--blue);border:1px dashed var(--line);padding:3px 10px;font-size:12.5px}
+.gen-plus input{flex:1 1 220px;min-width:0}
+.gen-plus [hidden]{display:none}
 /* Editor für eigene Vollzugsschritte */
 dialog.mail#schrittDialog{width:min(680px,calc(100vw - 32px))}
 .sliste{display:grid;gap:4px;max-height:52vh;overflow:auto;border:1px solid var(--line);border-radius:4px;padding:6px}
@@ -377,6 +385,9 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
           <label class="cb" data-arten="kauf uebertragung grundschuld scheidung"><input type="checkbox" data-f="gen_betreuungsgericht"><span>Genehmigung Betreuungsgericht</span></label>
           <label class="cb" data-arten="kauf uebertragung grundschuld"><input type="checkbox" data-f="gen_nachlassgericht"><span>Genehmigung Nachlassgericht</span></label>
           <label class="cb" data-arten="kauf uebertragung grundschuld scheidung ehevertrag"><input type="checkbox" data-f="gen_familiengericht"><span>Genehmigung Familiengericht</span></label>
+          <div class="gen-plus nodruck" id="genPlus"><button type="button" id="genPlusKnopf">+ weitere Genehmigung</button>
+            <input type="text" id="genNeuName" hidden autocomplete="off" placeholder="z. B. Erklärung nach der Genehmigungsfreistellungsverordnung" aria-label="Bezeichnung der Genehmigung">
+            <button type="button" id="genNeuOk" hidden>Dauerhaft aufnehmen</button><button type="button" id="genNeuAb" hidden>Abbrechen</button></div>
         </div>
       </div>
       <div>
@@ -770,6 +781,11 @@ async function eigenLaden(){
       const d = JSON.parse(await (await (await ordner.getFileHandle(EIGEN_DATEI)).getFile()).text());
       const weg = new Set((d.entfernt||[]));
       liste = [...new Set([...(d.urkundsarten||[]), ...liste])].filter(w=>eigenAusWert(w) && !weg.has(w));
+      if (Array.isArray(d.genehmigungen) || Array.isArray(d.genehmigungenEntfernt)){   // eigene Genehmigungen der Kollegen
+        const weg = new Set(d.genehmigungenEntfernt||[]), ids = new Set();
+        const gl = genGueltig([...genGueltig(d.genehmigungen), ...genListe()]).filter(g=>!weg.has(g.id) && !ids.has(g.id) && ids.add(g.id));
+        try{ localStorage.setItem(GEN_LS, JSON.stringify(gl)); }catch{}
+      }
       if (d.schritte && typeof d.schritte==="object"){   // Schritt-Vorlagen der Kollegen (Datei geht vor)
         try{ localStorage.setItem(SCHRITT_LS, JSON.stringify({...vorlagenAlle(), ...d.schritte})); }catch{}
       }
@@ -777,6 +793,7 @@ async function eigenLaden(){
   }catch{}
   liste.forEach(eigenOption);
   try{ localStorage.setItem("vollzug_urkundsarten", JSON.stringify(liste)); }catch{}
+  genAufbauen(genListe());
 }
 function eigenAnzeigen(){ document.getElementById("artEigen").hidden = !(ARTEN[artWahl().value]||{}).eigen; }
 function gruppenSetzen(){
@@ -919,6 +936,77 @@ async function vorlageSpeichern(w, v){
   try{ localStorage.setItem(SCHRITT_LS, JSON.stringify(alle)); }catch{}
   try{ return await urkundsartenDatei(d=>{ d.schritte = {...(d.schritte||{}), [w]:v}; }); }catch{ return false; }
 }
+
+/* ---------- Eigene Genehmigungen / Zustimmungen ----------
+   z. B. „Erklärung nach der Genehmigungsfreistellungsverordnung“ oder „Kommunalaufsichtliche Genehmigung“.
+   Sie stehen dauerhaft unter „Genehmigungen / Zustimmungen“ (alle Urkundsarten), liegen im Browser und in
+   „Urkundsarten.json“ (Schlüssel „genehmigungen“, für alle Kollegen) und werden in jedem Bogen mitgespeichert. */
+const GEN_LS = "vollzug_genehmigungen";
+function genGueltig(l){
+  if (!Array.isArray(l)) return [];
+  const ids = new Set();
+  return l.filter(g=>g && /^eg_[a-z0-9]+$/.test(g.id||"") && String(g.t||"").trim() && !ids.has(g.id) && ids.add(g.id))
+          .map(g=>({id:g.id, t:String(g.t).replace(/\s+/g," ").trim()}));
+}
+function genListe(){ try{ return genGueltig(JSON.parse(localStorage.getItem(GEN_LS)||"[]")); }catch{ return []; } }
+const genSub = () => document.getElementById("genPlus").parentElement;
+const genImBogen = () => [...genSub().querySelectorAll(".gen-eigen")].map(d=>({id:d.querySelector("input").dataset.f, t:d.querySelector("span").textContent}));
+// Liste anzeigen: vorhandene Kästchen (samt Haken) bleiben, fehlende kommen dazu (vor „+ weitere Genehmigung“)
+function genAufbauen(liste, nurDiese){
+  const vorh = new Map([...genSub().querySelectorAll(".gen-eigen")].map(d=>[d.querySelector("input").dataset.f, d]));
+  for (const g of liste){
+    let d = vorh.get(g.id);
+    if (!d){
+      d = document.createElement("div"); d.className = "gen-eigen";
+      d.innerHTML = '<label class="cb"><input type="checkbox"><span></span></label><button type="button" class="gen-weg nodruck" title="Aus der Liste entfernen" aria-label="Aus der Liste entfernen">×</button>';
+      d.querySelector("input").dataset.f = g.id;
+    }
+    d.querySelector("span").textContent = g.t; vorh.delete(g.id);
+    genSub().insertBefore(d, document.getElementById("genPlus"));
+  }
+  if (nurDiese) vorh.forEach(d=>d.remove());
+}
+async function genSpeichern(liste, entfernt){
+  try{ localStorage.setItem(GEN_LS, JSON.stringify(liste)); }catch{}
+  try{ return await urkundsartenDatei(d=>{
+    const weg = new Set([...(d.genehmigungenEntfernt||[]), ...(entfernt||[])]);
+    liste.forEach(g=>weg.delete(g.id));
+    d.genehmigungen = liste; d.genehmigungenEntfernt = [...weg];
+  }); }catch{ return false; }
+}
+function genNeuZeigen(an){
+  ["genNeuName","genNeuOk","genNeuAb"].forEach(id=>{ document.getElementById(id).hidden = !an; });
+  document.getElementById("genPlusKnopf").hidden = an;
+  if (an){ document.getElementById("genNeuName").value = ""; document.getElementById("genNeuName").focus(); }
+}
+document.getElementById("genPlusKnopf").onclick = ()=>genNeuZeigen(true);
+document.getElementById("genNeuAb").onclick = ()=>genNeuZeigen(false);
+document.getElementById("genNeuName").addEventListener("keydown", e=>{
+  if (e.key==="Enter"){ e.preventDefault(); document.getElementById("genNeuOk").click(); }
+  if (e.key==="Escape"){ e.preventDefault(); genNeuZeigen(false); }
+});
+document.getElementById("genNeuOk").onclick = async ()=>{
+  const t = document.getElementById("genNeuName").value.replace(/\s+/g," ").trim();
+  if (!t){ document.getElementById("genNeuName").focus(); return; }
+  const gleich = [...genSub().querySelectorAll("label.cb")].find(l=>l.textContent.trim().toLowerCase()===t.toLowerCase());
+  genNeuZeigen(false);
+  if (gleich){ gleich.querySelector("input").checked = true; geaendert = true; meldung(`„${t}“ steht schon in der Liste und ist jetzt angekreuzt.`); return; }
+  const g = {id:"eg_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6), t};
+  const liste = [...genListe(), g];
+  genAufbauen([g]);
+  genSub().querySelector(`[data-f="${g.id}"]`).checked = true; geaendert = true;
+  const geteilt = await genSpeichern(liste);
+  meldung(`„${t}“ steht jetzt dauerhaft unter „Genehmigungen / Zustimmungen“` + (geteilt ? " (auch für die Kollegen im Ablageordner)." : ". Für die Kollegen erscheint sie, sobald der Ablageordner freigegeben ist."));
+};
+genSub().addEventListener("click", async e=>{
+  const b = e.target.closest(".gen-weg"); if (!b) return;
+  const d = b.closest(".gen-eigen"), id = d.querySelector("input").dataset.f, t = d.querySelector("span").textContent;
+  if (!confirm(`„${t}“ aus der Liste der Genehmigungen entfernen?\n\nBereits abgelegte Bögen behalten ihren Eintrag.`)) return;
+  if (d.querySelector("input").checked) geaendert = true;
+  d.remove();
+  await genSpeichern(genListe().filter(g=>g.id!==id), [id]);
+  meldung(`„${t}“ wird nicht mehr angeboten.`);
+});
 function schritteVerteilen(){
   const [s1, s2] = schrittSpalten(), sonst = s2.querySelector(".sonst");
   const einheiten = [];   // Grunderwerbsteuer und „mit/ohne UB“ bleiben zusammen
@@ -1340,7 +1428,10 @@ const nachIso = de => { const m=/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(de.trim()
 const DATENSCHLUESSEL = "WoinarVollzugsbogen";
 function datenSammeln(){
   const f={}; felder().forEach(el=>{ f[el.dataset.f] = el.type==="checkbox" ? el.checked : el.value; });
-  return aktVorlage ? { version:2, f, schritte:aktVorlage } : { version:2, f };
+  const d = { version:2, f }, gl = genImBogen();
+  if (aktVorlage) d.schritte = aktVorlage;
+  if (gl.length) d.genehmigungen = gl;
+  return d;
 }
 async function pdfErzeugen(){
   const { PDFDocument, StandardFonts, rgb, PDFName, PDFHexString } = PDFLib;
@@ -1774,6 +1865,8 @@ async function bogenLaden(bytes, name){
     if (f.urkundsart) eigenOption(f.urkundsart);
     const vorlage = vorlageGueltig(d.schritte);   // so wie abgelegt (ohne mitgespeicherte Vorlage: Schritte des Aufbaus)
     schritteAufbauen(vorlage);
+    { const ids = new Set(), gl = genGueltig([...genListe(), ...genGueltig(d.genehmigungen)]).filter(g=>!ids.has(g.id) && ids.add(g.id));
+      genAufbauen(gl, true); }
     for (const el of felder()){ const w=f[el.dataset.f]; if (el.type==="checkbox") el.checked=!!w; else el.value = w===undefined ? "" : w; }
     if (!ARTEN[artWahl().value]) artWahl().value = "kauf";
     artAnwenden(false, vorlage); artVorher = artWahl().value; eigenAnzeigen();
@@ -1812,6 +1905,7 @@ async function oeffnen(){
 }
 function neu(){
   if (geaendert && !confirm("Alle Eingaben leeren und einen neuen Bogen beginnen?")) return;
+  genAufbauen(genListe(), true);   // Genehmigungen aus einem zuvor geöffneten Bogen, die nicht mehr in der Liste stehen
   for (const el of felder()){ if (el.type==="checkbox") el.checked=false; else el.value=""; }
   artWahl().value = "kauf"; artAnwenden(false); artVorher = "kauf"; eigenAnzeigen();
   beteiligteZuruecksetzen(false); loeschZuruecksetzen(false); wuZuruecksetzen(false); dynamik(); textfelderAnpassen(); geaendert=false; document.getElementById("msg").innerHTML=""; window.scrollTo(0,0);
@@ -2350,6 +2444,6 @@ function zugriffLeisteEinrichten(holeOrdner){
 }
 zugriffLeisteEinrichten(async () => { if (!signiertOrdner) signiertOrdner = (await idbGet("signiert")) || null; return [[ordner, "readwrite"], [signiertOrdner, "read"]]; });
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.40 · Stand 17.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.41 · Stand 17.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
