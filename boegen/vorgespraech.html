@@ -2346,7 +2346,10 @@ function kostenAusPdf(doc){
   if (!MOD) return;
   document.documentElement.dataset.titel = MOD.t; document.title = MOD.t + (notarFuss() ? " – " + notarFuss() : "");
   const st = document.createElement("style");
-  st.textContent = ".nur-weg{display:none!important}";
+  st.textContent = ".nur-weg{display:none!important}"
+    /* Ausdruck des einzelnen Moduls: kein Seitenumbruch vor den Bereichen (sonst bleibt Seite 1 bis auf den Kopf leer
+       und vor der Kostenberechnung entsteht eine fast leere Seite; Meldung Thomas 17.11.2026) */
+    + "@media print{main.sheet > section.gw-bereich, main.sheet > section.kr-bereich, main.sheet > section{break-before:auto!important;page-break-before:auto!important}}";
   document.head.appendChild(st);
   const weg = el => el && el.classList.add("nur-weg");
   const sheet = document.querySelector("main.sheet");
