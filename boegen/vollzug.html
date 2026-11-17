@@ -105,6 +105,8 @@ th{font-size:11px;color:var(--muted);font-weight:bold;text-align:center;padding:
 th.grp{color:var(--blue);border-bottom:1px solid var(--line)}
 th.l{text-align:left}
 th small{display:block;font-weight:normal;font-size:10px}
+th.gew,td.gew{background:#eaf3fc}
+@media (prefers-color-scheme:dark){th.gew,td.gew{background:rgba(120,170,230,.12)}}
 td{border-bottom:1px solid var(--line);padding:4px;text-align:center}
 td.l{text-align:left;white-space:nowrap}
 td input[type=number]{width:54px}
@@ -309,9 +311,9 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
     <h2><span>3</span><span>Beteiligte, Kopien und Versand</span></h2>
     <div class="tab-wrap"><table>
       <thead>
-        <tr><th></th><th></th><th class="grp" colspan="4">Kopien</th><th class="grp vz" colspan="2">Vollzugsschreiben</th><th class="grp" colspan="2">Kostenberechnung</th><th class="nodruck"></th></tr>
-        <tr><th class="l">Beteiligter</th><th class="l">Name</th><th>erteilt<small>(Anzahl)</small></th><th>gewünscht<small>(Anzahl)</small></th>
-          <th>Post</th><th>E-Mail</th><th class="vz">Post</th><th class="vz">E-Mail</th><th>Post</th><th>E-Mail</th><th class="nodruck"></th></tr>
+        <tr><th></th><th></th><th class="grp" colspan="3">Kopien erteilt</th><th class="grp gew" colspan="3">Kopien gewünscht</th><th class="grp vz" colspan="2">Vollzugsschreiben</th><th class="grp" colspan="2">Kostenberechnung</th><th class="nodruck"></th></tr>
+        <tr><th class="l">Beteiligter</th><th class="l">Name</th><th>E-Mail<small>begl.</small></th><th>E-Mail<small>einfach</small></th><th>Aus&shy;druck</th><th class="gew">E-Mail<small>begl.</small></th><th class="gew">E-Mail<small>einfach</small></th><th class="gew">Post</th>
+          <th class="vz">Post</th><th class="vz">E-Mail</th><th>Post</th><th>E-Mail</th><th class="nodruck"></th></tr>
       </thead>
       <tbody id="beteiligte"></tbody>
     </table></div>
@@ -416,9 +418,9 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
         </div>
         <div class="tab-wrap kgs-tab"><table>
           <thead>
-            <tr><th></th><th class="grp" colspan="4">Kopien der Grundschuld</th><th class="grp" colspan="2">Vollzugsschreiben</th><th class="grp" colspan="2">Kostenberechnung</th></tr>
-            <tr><th class="l">Beteiligter</th><th>erteilt<small>(Anzahl)</small></th><th>gewünscht<small>(Anzahl)</small></th>
-              <th>Post</th><th>E-Mail</th><th>Post</th><th>E-Mail</th><th>Post</th><th>E-Mail</th></tr>
+            <tr><th></th><th class="grp" colspan="3">Kopien der Grundschuld erteilt</th><th class="grp gew" colspan="3">gewünscht</th><th class="grp" colspan="2">Vollzugsschreiben</th><th class="grp" colspan="2">Kostenberechnung</th></tr>
+            <tr><th class="l">Beteiligter</th><th>E-Mail<small>begl.</small></th><th>E-Mail<small>einfach</small></th><th>Aus&shy;druck</th><th class="gew">E-Mail<small>begl.</small></th><th class="gew">E-Mail<small>einfach</small></th><th class="gew">Post</th>
+              <th>Post</th><th>E-Mail</th><th>Post</th><th>E-Mail</th></tr>
           </thead>
           <tbody id="kgsBeteiligte"></tbody>
         </table></div>
@@ -537,13 +539,16 @@ const ROLLEN = [["Veräußerer 1","v1"],["Veräußerer 2","v2"],["Veräußerer 3
   ["Erwerber 1","e1"],["Erwerber 2","e2"],["Erwerber 3","e3"],["Makler","makler"],
   ["Sonstiger 1","sonst"],["Sonstiger 2","sonst2"],["Sonstiger 3","sonst3"],["Sonstiger 4","sonst4"],["Sonstiger 5","sonst5"]];
 const tb = document.getElementById("beteiligte");
+/* Kopien je Beteiligtem (Wunsch Thomas 17.11.2026): erteilt = was tatsächlich hinausging (setzt der Versand aus dem
+   Verteilerzettel), gewünscht = was der Beteiligte haben möchte; jeweils E-Mail beglaubigt / E-Mail einfach / Papier */
+const KOPIEN = [["erteilt_begl","beglaubigte Abschrift per E-Mail erteilt"],["erteilt_einfach","einfache Abschrift per E-Mail erteilt"],["erteilt_ausdruck","Ausdruck erteilt"],
+  ["gew_begl","beglaubigte Abschrift per E-Mail gewünscht"],["gew_einfach","einfache Abschrift per E-Mail gewünscht"],["gew_post","Kopie per Post gewünscht"]];
+const kopienZellen = (praefix, lab) => KOPIEN.map(([f,t])=>`<td${f.startsWith("gew_")?' class="gew"':""}><input type="checkbox" data-f="${praefix}_${f}" aria-label="${lab}: ${t}"></td>`).join("");
 for (const [lab,k] of ROLLEN){
   const cb = (f,t)=>`<td${f.startsWith("vollzug_") ? ' class="vz"' : ""}><input type="checkbox" data-f="${k}_${f}" aria-label="${lab}: ${t}"></td>`;
   tb.insertAdjacentHTML("beforeend",`<tr><td class="l"><input type="text" class="bez" data-f="${k}_bez" aria-label="${lab}: Bezeichnung" title="Bezeichnung frei änderbar, z. B. Berechtigte"></td>
     <td><input type="text" data-f="${k}_name" aria-label="${lab}: Name"></td>
-    <td><input type="number" min="0" step="1" data-f="${k}_kopien_erteilt" aria-label="${lab}: Kopien erteilt"></td>
-    <td><input type="number" min="0" step="1" data-f="${k}_kopien_gewuenscht" aria-label="${lab}: Kopien gewünscht"></td>
-    ${cb("kopie_post","Kopie per Post")}${cb("kopie_email","Kopie per E-Mail")}
+    ${kopienZellen(k, lab)}
     ${cb("vollzug_post","Vollzugsschreiben per Post")}${cb("vollzug_email","Vollzugsschreiben per E-Mail")}
     ${cb("kostenberechnung_post","Kostenberechnung per Post")}${cb("kostenberechnung_email","Kostenberechnung per E-Mail")}
     <td class="nodruck">${k==="v1"||k==="e1" ? "" : `<button type="button" class="weg" data-weg="${k}" title="${lab} entfernen" aria-label="${lab} entfernen">×</button>`}</td></tr>`);
@@ -564,9 +569,7 @@ const kgsTb = document.getElementById("kgsBeteiligte");
 for (const k of KGS_ROLLEN){
   const cb = (f,t)=>`<td><input type="checkbox" data-f="kgs_${k}_${f}" aria-label="Grundschuld: ${t}"></td>`;
   kgsTb.insertAdjacentHTML("beforeend",`<tr data-rolle="${k}"><td class="l">${k==="gl" ? "Gläubiger" : ""}</td>
-    <td><input type="number" min="0" step="1" data-f="kgs_${k}_kopien_erteilt" aria-label="Grundschuld: Kopien erteilt"></td>
-    <td><input type="number" min="0" step="1" data-f="kgs_${k}_kopien_gewuenscht" aria-label="Grundschuld: Kopien gewünscht"></td>
-    ${cb("kopie_post","Kopie per Post")}${cb("kopie_email","Kopie per E-Mail")}${cb("vollzug_post","Vollzugsschreiben per Post")}${cb("vollzug_email","Vollzugsschreiben per E-Mail")}
+    ${kopienZellen("kgs_"+k, "Grundschuld")}${cb("vollzug_post","Vollzugsschreiben per Post")}${cb("vollzug_email","Vollzugsschreiben per E-Mail")}
     ${cb("kostenberechnung_post","Kostenberechnung per Post")}${cb("kostenberechnung_email","Kostenberechnung per E-Mail")}</tr>`);
 }
 const kgsZeile = k => kgsTb.querySelector(`tr[data-rolle="${k}"]`);
@@ -1462,13 +1465,13 @@ async function pdfErzeugen(){
   // 3 Beteiligte
   ueberschrift(nr(),"Beteiligte, Kopien und Versand");
   { const ohneVz = !!ARTEN[art()].ohneVz;   // z. B. Nachlassverzeichnis: kein Vollzug, keine Vollzugsschreiben
-    const sp=[{t:"Beteiligter",w:ohneVz?128:88,l:1},{t:"Name",w:ohneVz?157:125,l:1},{t:"erteilt",w:34},{t:"gewünscht",w:44},{t:"Post",w:30},{t:"E-Mail",w:32},{t:ohneVz?"":"Post",w:ohneVz?0:36},{t:ohneVz?"":"E-Mail",w:ohneVz?0:36},{t:"Post",w:36},{t:"E-Mail",w:38}];
+    const sp=[{t:"Beteiligter",w:ohneVz?100:78,l:1},{t:"Name",w:ohneVz?153:105,l:1},{t:"E-Mail",u:"begl.",w:29},{t:"E-Mail",u:"einf.",w:29},{t:"Ausdruck",w:34},{t:"E-Mail",u:"begl.",w:29,g:1},{t:"E-Mail",u:"einf.",w:29,g:1},{t:"Post",w:26,g:1},{t:ohneVz?"":"Post",w:ohneVz?0:34},{t:ohneVz?"":"E-Mail",w:ohneVz?0:36},{t:"Post",w:34},{t:"E-Mail",w:36}];
     const xs=[]; let x=ML; for (const c of sp){ xs.push(x); x+=c.w; }
     platz(40);
     const grp=(t,a,b)=>{ const x0=xs[a], x1=xs[b]+sp[b].w; page.drawText(pdfText(t),{x:(x0+x1)/2-tw(t,fB,7)/2,y:y-8,size:7,font:fB,color:BLAU}); page.drawLine({start:{x:x0+2,y:y-11},end:{x:x1-2,y:y-11},thickness:.5,color:LINIE}); };
-    grp("Kopien",2,5); if (!ohneVz) grp("Vollzugsschreiben",6,7); grp("Kostenberechnung",8,9); y-=14;
-    sp.forEach((c,i)=>{ const tx=pdfText(c.t); if (!tx) return; page.drawText(tx,{x: c.l ? xs[i]+2 : xs[i]+(c.w-tw(tx,fB,7))/2, y:y-8, size:7, font:fB, color:GRAU}); });
-    page.drawText("(Anzahl)",{x:xs[2]+(sp[2].w+sp[3].w-tw("(Anzahl)",fN,6))/2,y:y-15,size:6,font:fN,color:GRAU});
+    grp("Kopien erteilt",2,4); grp("Kopien gewünscht",5,7); if (!ohneVz) grp("Vollzugsschreiben",8,9); grp("Kostenberechnung",10,11); y-=14;
+    sp.forEach((c,i)=>{ const tx=pdfText(c.t); if (!tx) return; page.drawText(tx,{x: c.l ? xs[i]+2 : xs[i]+(c.w-tw(tx,fB,7))/2, y:y-8, size:7, font:fB, color:GRAU});
+      if (c.u) page.drawText(c.u,{x:xs[i]+(c.w-tw(c.u,fN,6.5))/2,y:y-15,size:6.5,font:fN,color:GRAU}); });
     y-=19; page.drawLine({start:{x:ML,y},end:{x:W-MR,y},thickness:.6,color:LINIE});
     const zeilen = Array.from(tb.rows).filter(r=>!r.hidden);
     for (const r of zeilen){
@@ -1478,8 +1481,7 @@ async function pdfErzeugen(){
       platz(h);
       bez.forEach((z,i)=>page.drawText(z,{x:xs[0]+2,y:y-12-i*11,size:8.5,font:fB,color:TEXT}));
       nam.forEach((z,i)=>page.drawText(z,{x:xs[1]+2,y:y-12-i*11,size:8.5,font:fN,color:TEXT}));
-      [["kopien_erteilt",2],["kopien_gewuenscht",3]].forEach(([f,i])=>{ const t=pdfText(g(f)); if (t) page.drawText(t,{x:xs[i]+(sp[i].w-tw(t,fN,9))/2,y:y-12,size:9,font:fN,color:TEXT}); });
-      [["kopie_post",4],["kopie_email",5],["vollzug_post",6],["vollzug_email",7],["kostenberechnung_post",8],["kostenberechnung_email",9]]
+      [...KOPIEN.map(([f],i)=>[f,i+2]),["vollzug_post",8],["vollzug_email",9],["kostenberechnung_post",10],["kostenberechnung_email",11]]
         .filter(([,i])=>sp[i].w>0).forEach(([f,i])=>kaestchen(xs[i]+(sp[i].w-9)/2, y-13, g(f)));
       y-=h; page.drawLine({start:{x:ML,y},end:{x:W-MR,y},thickness:.5,color:LINIE});
     }
@@ -1551,19 +1553,19 @@ async function pdfErzeugen(){
         if (v("kgs_gen")) [["kgs_zust_eigentuemer","Zustimmung des Grundstückseigentümers"],["kgs_zust_verwalter","Zustimmung des Verwalters"],["kgs_gen_sanierung","Sanierungsrechtliche Genehmigung"],["kgs_gen_entwicklung","Entwicklungsrechtliche Genehmigung"],["kgs_gen_betreuungsgericht","Genehmigung Betreuungsgericht"],["kgs_gen_nachlassgericht","Genehmigung Nachlassgericht"],["kgs_gen_familiengericht","Genehmigung Familiengericht"]].forEach(([f,t])=>cbZeile(v(f), t, ML+32, BW-32));
         y-=5;
         // Kopien/Versand zur Grundschuld
-        const sp=[{t:"Beteiligter",w:197,l:1},{t:"erteilt",w:34},{t:"gewünscht",w:44},{t:"Post",w:30},{t:"E-Mail",w:32},{t:"Post",w:36},{t:"E-Mail",w:36},{t:"Post",w:36},{t:"E-Mail",w:38}];
+        const sp=[{t:"Beteiligter",w:161,l:1},{t:"E-Mail",u:"begl.",w:30},{t:"E-Mail",u:"einf.",w:30},{t:"Ausdruck",w:35},{t:"E-Mail",u:"begl.",w:30},{t:"E-Mail",u:"einf.",w:30},{t:"Post",w:27},{t:"Post",w:34},{t:"E-Mail",w:36},{t:"Post",w:34},{t:"E-Mail",w:36}];
         const xs=[]; let x=ML+16; for (const c of sp){ xs.push(x); x+=c.w-2; }
         platz(60);
         const grp=(t,a,b)=>{ const x0=xs[a], x1=xs[b]+sp[b].w-2; page.drawText(pdfText(t),{x:(x0+x1)/2-tw(t,fB,7)/2,y:y-8,size:7,font:fB,color:BLAU}); page.drawLine({start:{x:x0+2,y:y-11},end:{x:x1-2,y:y-11},thickness:.5,color:LINIE}); };
-        grp("Kopien der Grundschuld",1,4); grp("Vollzugsschreiben",5,6); grp("Kostenberechnung",7,8); y-=14;
-        sp.forEach((c,i)=>{ const tx=pdfText(c.t); page.drawText(tx,{x: c.l ? xs[i]+2 : xs[i]+(c.w-2-tw(tx,fB,7))/2, y:y-8, size:7, font:fB, color:GRAU}); });
-        y-=13; page.drawLine({start:{x:ML+16,y},end:{x:W-MR,y},thickness:.6,color:LINIE});
+        grp("Kopien erteilt",1,3); grp("gewünscht",4,6); grp("Vollzugsschreiben",7,8); grp("Kostenberechnung",9,10); y-=14;
+        sp.forEach((c,i)=>{ const tx=pdfText(c.t); page.drawText(tx,{x: c.l ? xs[i]+2 : xs[i]+(c.w-2-tw(tx,fB,7))/2, y:y-8, size:7, font:fB, color:GRAU});
+          if (c.u) page.drawText(c.u,{x:xs[i]+(c.w-2-tw(c.u,fN,6.5))/2,y:y-15,size:6.5,font:fN,color:GRAU}); });
+        y-=19; page.drawLine({start:{x:ML+16,y},end:{x:W-MR,y},thickness:.6,color:LINIE});
         for (const r of Array.from(kgsTb.rows).filter(r=>!r.hidden)){
           const k=r.dataset.rolle, g=n=>v(`kgs_${k}_${n}`), bez=umbrechen(r.cells[0].textContent.trim(),fB,8.5,sp[0].w-6), h=bez.length*11+8;
           platz(h);
           bez.forEach((z,i)=>page.drawText(z,{x:xs[0]+2,y:y-12-i*11,size:8.5,font:fB,color:TEXT}));
-          [["kopien_erteilt",1],["kopien_gewuenscht",2]].forEach(([f,i])=>{ const t=pdfText(g(f)); if (t) page.drawText(t,{x:xs[i]+(sp[i].w-2-tw(t,fN,9))/2,y:y-12,size:9,font:fN,color:TEXT}); });
-          [["kopie_post",3],["kopie_email",4],["vollzug_post",5],["vollzug_email",6],["kostenberechnung_post",7],["kostenberechnung_email",8]]
+          [...KOPIEN.map(([f],i)=>[f,i+1]),["vollzug_post",7],["vollzug_email",8],["kostenberechnung_post",9],["kostenberechnung_email",10]]
             .forEach(([f,i])=>kaestchen(xs[i]+(sp[i].w-2-9)/2, y-13, g(f)));
           y-=h; page.drawLine({start:{x:ML+16,y},end:{x:W-MR,y},thickness:.5,color:LINIE});
         }
@@ -1729,7 +1731,7 @@ async function wuEinzelnAblegen(){
       for (const [f,,,ziel] of WU_PUNKTE) if (ziel && d[f] && q(ziel)) q(ziel).checked = true;
       q("nachgen_erforderlich").checked = !!d.ng; q("nachgen_durch").value = d.ng ? d.ng_durch : "";
       q("nachgen_bereits_eingeholt").checked = !!(d.ng && d.ng_ein); q("nachgen_eingeholt_am").value = d.ng ? d.ng_am : ""; q("nachgen_hinweis").value = "";
-      tb.querySelectorAll('[data-f$="_kopien_erteilt"], [data-f$="_kopie_email"], [data-f$="_kopie_post"]').forEach(el=>{ if (el.type==="checkbox") el.checked=false; else el.value=""; });
+      tb.querySelectorAll('[data-f*="_erteilt_"]').forEach(el=>{ if (el.type==="checkbox") el.checked=false; else el.value=""; });
       q("bemerkungen").value = [`Aus dem Sammelbogen „${hauptName}“.`, d.versand && "Kopien / Versand:\n"+d.versand, d.sonst].filter(Boolean).join("\n");
       leeren(document.getElementById("wuBereich"));
       beteiligteZuruecksetzen(true); loeschZuruecksetzen(true); wuZuruecksetzen(false); dynamik(); textfelderAnpassen();
@@ -1749,6 +1751,17 @@ async function wuEinzelnAblegen(){
 document.getElementById("wuEinzeln").onclick = ()=>wuEinzelnAblegen().catch(fehler);
 
 /* ---------- Vorhandenen Bogen öffnen ---------- */
+/* Bögen bis Version 1.38: „Kopien erteilt/gewünscht (Anzahl)“ und „Kopien Post/E-Mail“. Waren Kopien erteilt, gilt der
+   Versandweg als erteilt (E-Mail = einfache Abschrift), sonst als gewünscht. Die Anzahl bleibt in den Daten erhalten.  */
+function kopienAltUmsetzen(f){
+  const alt = Object.keys(f).map(k=>/^(.*)_kopie_(post|email)$/.exec(k)).filter(m=>m && f[m[0]])
+    .filter(m=>!KOPIEN.some(([n])=>f[`${m[1]}_${n}`]));   // schon im neuen Aufbau gespeichert: nichts umsetzen
+  for (const [, p, weg] of alt){
+    const erteilt = (parseInt(f[`${p}_kopien_erteilt`],10)||0) > 0;
+    if (weg==="email") f[`${p}_${erteilt?"erteilt_einfach":"gew_einfach"}`] = true;
+    else f[`${p}_${erteilt?"erteilt_ausdruck":"gew_post"}`] = true;
+  }
+}
 async function bogenLaden(bytes, name){
   const doc = await PDFLib.PDFDocument.load(bytes, { updateMetadata:false });
   const roh = doc.getInfoDict().lookup(PDFLib.PDFName.of(DATENSCHLUESSEL));
@@ -1757,6 +1770,7 @@ async function bogenLaden(bytes, name){
     const ALT = {sg_genehmigung:"gen_sammel", sg_grdstvg:"gen_grdstvg", sg_zust_eigentuemer:"zust_eigentuemer", sg_zust_verwalter:"zust_verwalter", sg_betreuungsgericht:"gen_betreuungsgericht", sg_familiengericht:"gen_familiengericht"};
     for (const [a,n] of Object.entries(ALT)) if (f[a]) f[n] = true;
     if (["gen_grdstvg","zust_eigentuemer","zust_verwalter","gen_sanierung","gen_entwicklung","gen_betreuungsgericht","gen_nachlassgericht","gen_familiengericht"].some(n=>f[n])) f.gen_sammel = true;
+    kopienAltUmsetzen(f);
     if (f.urkundsart) eigenOption(f.urkundsart);
     const vorlage = vorlageGueltig(d.schritte);   // so wie abgelegt (ohne mitgespeicherte Vorlage: Schritte des Aufbaus)
     schritteAufbauen(vorlage);
@@ -1900,9 +1914,7 @@ function grundschuldVersand(d, protokoll){
     const was = [!post&&e.eabschrift&&"eAbschrift per E-Mail", !post&&e.einfach&&"einfache Abschrift per E-Mail", e.genehmigung&&(post?"Genehmigungserklärung für die Post ausgedruckt":"Genehmigungserklärung per E-Mail"), e.papier&&"Kopie auf Papier", e.ben&&"eAbschrift für beN abgelegt (in XNP versenden)"].filter(Boolean);
     protokoll.push(`Grundschuld ${e.name}${k==="gl"&&!tr?" (als Gläubiger)":""}: ${was.join(", ")}`);
     const n = (e.eabschrift?1:0) + (e.einfach?1:0) + (e.papier?1:0);
-    if (n) q(`kgs_${k}_kopien_erteilt`).value = (parseInt(q(`kgs_${k}_kopien_erteilt`).value,10)||0) + n;
-    if (!post && (e.eabschrift || e.einfach)) q(`kgs_${k}_kopie_email`).checked = true;
-    if (e.papier) q(`kgs_${k}_kopie_post`).checked = true;
+    kopienErteilt(f=>q(`kgs_${k}_${f}`), e, post);
     if (e.genehmigung){
       q("kgs_ng").checked = true;
       if (!q("kgs_ng_durch").value.includes(e.name)) q("kgs_ng_durch").value = [q("kgs_ng_durch").value, e.name].filter(Boolean).join(", ");
@@ -1931,6 +1943,12 @@ function wuVersand(i, d, protokoll){
   }
   if (zeilen.length) wuF(i,"versand").value = [wuF(i,"versand").value, `${tag}: ` + zeilen.join("; ")].filter(Boolean).join("\n");
   wuAnzeigen();
+}
+// Versand aus dem Verteilerzettel in die Spalten „Kopien erteilt“; ohne Mail-Adresse (perPost) wurde ausgedruckt
+function kopienErteilt(el, e, post){
+  if (!post && e.eabschrift) el("erteilt_begl").checked = true;
+  if (!post && e.einfach) el("erteilt_einfach").checked = true;
+  if (e.papier || (post && (e.eabschrift || e.einfach))) el("erteilt_ausdruck").checked = true;
 }
 const deDatum = iso => { const [j,m,t] = iso.slice(0,10).split("-"); return `${t}.${m}.${j}`; };
 async function versandUebernehmen(still){
@@ -1971,10 +1989,7 @@ async function versandUebernehmen(still){
       protokoll.push(`${e.name}: ${was.join(", ")}`);
       if (tr){
         const k = tr.dataset.rolle, el = f => document.querySelector(`[data-f="${k}_${f}"]`);
-        const n = (e.eabschrift?1:0) + (e.einfach?1:0) + (e.papier?1:0);
-        if (n) el("kopien_erteilt").value = (parseInt(el("kopien_erteilt").value,10)||0) + n;
-        if (!post && (e.eabschrift || e.einfach)) el("kopie_email").checked = true;
-        if (e.papier) el("kopie_post").checked = true;
+        kopienErteilt(el, e, post);
       }
       if (e.genehmigung){
         const q = s => document.querySelector(`[data-f="${s}"]`);
@@ -2292,6 +2307,6 @@ window.addEventListener("beforeprint", textfelderAnpassen);
 document.addEventListener("input", e=>{ if (e.target.matches('textarea[data-f="sonstiges_vollzug_text"]')){ e.target.style.height="auto"; e.target.style.height=(e.target.scrollHeight+2)+"px"; } });
 document.getElementById("btnDrucken").onclick = ()=>{ textfelderAnpassen(); window.print(); };
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.38 · Stand 16.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.39 · Stand 17.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
