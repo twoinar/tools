@@ -7,6 +7,12 @@ Login. Der Server holt sich alle 15 Minuten den Stand von `main`, an jedem PC is
 Seiten, die Claude brauchen, rufen `/api/claude/v1/messages` auf. Der API-Schlüssel liegt nur auf dem Server
 (`/opt/tools/konfig/.env`) und wird beim Weiterleiten an Anthropic eingesetzt; kein PC braucht einen eigenen.
 
+**Angemeldet bleiben:** Nach der ersten Anmeldung in einem Browser setzt der Server das Cookie `tools_login`
+(400 Tage, nur HTTPS, HttpOnly). Damit fragt der Browser nicht mehr nach dem Passwort, auch nach einem Neustart
+(z. B. wenn das Word-Makro den Vollzugsbogen öffnet). Der Wert ist der Zufallsschlüssel `TOOLS_COOKIE` in `.env`,
+den `aktualisieren.sh` selbst anlegt. Alle Browser abmelden: `--einrichten` erneut ausführen (neuer Schlüssel) oder die
+Zeile `TOOLS_COOKIE=` aus `.env` löschen. Einen Browser abmelden: https://tools.notariat-woinar.de/abmelden
+
 ## Aufbau
 
 - `/opt/tools/web/<repo>/` – die Webseiten, von `aktualisieren.sh` ausgepackt
