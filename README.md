@@ -39,6 +39,9 @@ Jedes Tool liegt in einem eigenen Unterordner und läuft vollständig im Browser
   Versionszeile steht in der Seitenleiste. Wird über die Aktion „Tools intern: öffentliche Tools übernehmen“
   (`werkzeuge/intern-tools.py`, Liste `werkzeuge/intern-tools.json`) unverändert auch nach Tools intern übernommen
   und erscheint so auch als Kachel im Claude-Fenster.
+- Grundbucheinsicht Brandenburg: nur ein Link auf die Anmeldeseite (Karte in Tools intern über den
+  `url`-Eintrag in `werkzeuge/intern-tools.json`, Kachel im Claude-Fenster fest in `claude-starter/web/claude.js`).
+  Den Grundbuchabruf nie automatisieren, keine Anmeldedaten speichern (Nutzungsbedingungen der OLGe).
 - `apps/` – Handy-Apps mit QR-Code und Anleitung: Handy-Scan, Sprachnachricht (APK aus
   `twoinar/sprachnachricht`, Release „neueste“).
 
