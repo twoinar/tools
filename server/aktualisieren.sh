@@ -87,12 +87,23 @@ if [ "${1:-}" = "--einrichten" ]; then
     set -- --jetzt
 fi
 [ -s "$KONFIG/.env" ] || { melde "Keine Zugangsdaten: zuerst bash aktualisieren.sh --einrichten"; exit 1; }
-
 mkdir "$BASIS/sperre" 2>/dev/null || {
     # Sperre älter als eine Stunde: hängengebliebener Lauf
     [ -n "$(find "$BASIS/sperre" -maxdepth 0 -mmin +60 2>/dev/null)" ] || exit 0
 }
 trap 'rm -rf "$BASIS/sperre" "$BASIS/neu"' EXIT
+
+# Schlüssel für das Cookie „angemeldet bleiben“ (Caddyfile, tools_login): fehlt er, einmal zufällig erzeugen.
+# --einrichten schreibt .env neu ohne ihn, dann entsteht ein neuer und alle Browser melden sich einmal neu an.
+neu_env=0
+if ! grep -qE '^TOOLS_COOKIE=[0-9a-f]{64}$' "$KONFIG/.env"; then
+    zufall=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
+    if printf '%s' "$zufall" | grep -qE '^[0-9a-f]{64}$'; then
+        grep -v '^TOOLS_COOKIE=' "$KONFIG/.env" > "$KONFIG/.env.neu"
+        printf 'TOOLS_COOKIE=%s\n' "$zufall" >> "$KONFIG/.env.neu"
+        chmod 600 "$KONFIG/.env.neu" && mv "$KONFIG/.env.neu" "$KONFIG/.env" && neu_env=1 && melde "Cookie-Schlüssel (angemeldet bleiben) angelegt"
+    fi
+fi
 
 for name in $REPOS; do
     sha=$(curl -fsS --max-time 30 -H "Accept: application/vnd.github.sha" \
@@ -154,7 +165,8 @@ fi
 
 [ -f "$KONFIG/Caddyfile" ] || { melde "Noch kein gültiges Caddyfile, Container nicht gestartet (siehe $PROTOKOLL)"; exit 1; }
 cd "$KONFIG" || exit 1
-if [ $neu_compose = 1 ] || [ "${1:-}" = "--jetzt" ] || [ -z "$("$DOCKER" compose ps -q tools-web 2>/dev/null)" ]; then
+# Neue Werte in .env kommen nur beim Neuanlegen der Container an (nicht per reload)
+if [ $neu_compose = 1 ] || [ $neu_env = 1 ] || [ "${1:-}" = "--jetzt" ] || [ -z "$("$DOCKER" compose ps -q tools-web 2>/dev/null)" ]; then
     "$DOCKER" compose up -d --force-recreate >> "$PROTOKOLL" 2>&1 && melde "Container tools-web gestartet" \
         || melde "Container tools-web konnte nicht starten (läuft die Buchhaltung mit dem Netz „werkzeuge“?)"
 else

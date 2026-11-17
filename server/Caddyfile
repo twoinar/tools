@@ -24,9 +24,21 @@
 	# (http://localhost:8766), das den Login nicht mitschicken kann.
 	@verschluesselt path /tools/intern/daten/* /tools/intern/schluessel.json
 	header @verschluesselt Access-Control-Allow-Origin *
-	@geschuetzt expression `!path('/', '/tools', '/tools/*', '/kostenrechner', '/kostenrechner/*') || (path('/tools/intern', '/tools/intern/*', '/tools/claude-starter', '/tools/claude-starter/*') && !path('/tools/intern/daten/*', '/tools/intern/schluessel.json'))`
+	#
+	# Angemeldet bleiben (Wunsch Thomas 17.11.2026, sonst fragte z. B. der Vollzugsbogen nach dem Verteilerzettel
+	# jedes Mal nach dem Passwort): Nach der Anmeldung setzt der Server das Cookie „tools_login“ (400 Tage, nur
+	# über HTTPS, für Skripte der Seiten unlesbar). Wer es mitschickt, braucht kein Passwort mehr. Sein Wert ist
+	# der Zufallsschlüssel TOOLS_COOKIE aus .env (legt aktualisieren.sh selbst an, neu bei --einrichten, dann
+	# müssen sich alle Browser einmal neu anmelden). Ist der Schlüssel kürzer als 32 Zeichen oder fehlt er,
+	# zählt das Cookie nicht: dann gilt wie bisher nur das Passwort. /abmelden löscht das Cookie in diesem Browser.
+	@geschuetzt expression `(!path('/', '/tools', '/tools/*', '/kostenrechner', '/kostenrechner/*') || (path('/tools/intern', '/tools/intern/*', '/tools/claude-starter', '/tools/claude-starter/*') && !path('/tools/intern/daten/*', '/tools/intern/schluessel.json'))) && !(size({env.TOOLS_COOKIE}) >= 32 && {http.request.cookie.tools_login} == {env.TOOLS_COOKIE})`
 	basic_auth @geschuetzt {
 		{$TOOLS_BENUTZER} {$TOOLS_PASSWORT_HASH}
+	}
+	handle /abmelden {
+		header Set-Cookie "tools_login=; Max-Age=0; Path=/; Secure; HttpOnly; SameSite=Lax"
+		header Content-Type "text/html; charset=utf-8"
+		respond "<!doctype html><meta charset=utf-8><title>Abgemeldet</title><p style='font:16px system-ui;margin:40px'>In diesem Browser abgemeldet. Beim nächsten Aufruf fragt der Server wieder nach dem Passwort.</p>"
 	}
 
 	# Claude: die Seiten rufen /api/claude/v1/messages auf. Der Schlüssel liegt nur hier auf dem Server
@@ -114,6 +126,9 @@
 	redir /claude /tools/claude-starter/web/claude.html 302
 	redir /claude/ /tools/claude-starter/web/claude.html 302
 	handle {
+		# Cookie „tools_login“ setzen: steht bewusst hier drin, denn basic_auth (oben) läuft vor jedem handle –
+		# die Zeile wird also nur erreicht, wenn das Passwort stimmte, und nie in einer 401-Antwort.
+		header @geschuetzt Set-Cookie "tools_login={env.TOOLS_COOKIE}; Max-Age=34560000; Path=/; Secure; HttpOnly; SameSite=Lax"
 		root * /srv/web
 		file_server
 	}
