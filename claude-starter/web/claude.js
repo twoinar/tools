@@ -67,6 +67,7 @@ let chatName = '';      // Dateiname dieses Chats im Vorgang (ohne Nummer), wird
 let nachrichten = [];   // für die API: Rollen und Inhalte genau so, wie Claude sie geliefert hat
 let runden = [];        // für Anzeige und PDF: { frage, antwort, quellen }
 let laeuft = false;
+const GRUNDBUCH_BB = 'https://grundbuch.brandenburg.de/solumstar/anmeldung.htm';
 let karte = 'https://bb-viewer.geobasis-bb.de/';
 let rechner = '';   // Grundstückswert-Rechner: aus Tools intern, sonst Einstellung „Wertrechner“
 let einwilligung = '';   // Zeitpunkt, zu dem das Einverständnis der Beteiligten bestätigt wurde
@@ -626,6 +627,8 @@ function gruppen() {
     // Registerabruf: am PC über Claude-Server.ps1, im Browser über den Dienst tools-register des Servers
     { icon: '🏛️', titel: 'Registerabruf', text: 'Auszüge, Gesellschaftsvertrag, Gesellschafterliste in den Vorgang', art: 'web', aktion: () => hrOeffnen() },
     { icon: '🏢', titel: 'Bilanzen und Firmendaten', text: '', art: 'web', firma: true },
+    // Nur ein Link zur Anmeldeseite: Grundbuchabruf nie automatisieren (Nutzungsbedingungen der OLGe)
+    { icon: '📖', titel: 'Grundbucheinsicht Brandenburg', text: 'Anmeldung zum Grundbuchabruf (SolumSTAR)', art: 'web', url: GRUNDBUCH_BB },
     { icon: '📜', titel: 'Gesetze im Internet', text: 'Bundesrecht', art: 'web', url: 'https://www.gesetze-im-internet.de/' },
   ] });
   return liste;

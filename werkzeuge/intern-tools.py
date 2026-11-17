@@ -11,6 +11,9 @@ Welche Tools, steht in werkzeuge/intern-tools.json:
   text    Unterzeile der Karte
   nach    die Karte wird hinter dem Link eingefügt, dessen href diesen Text enthält
           (sonst vor </main> bzw. </body>)
+  url     statt ordner: reiner Link auf eine fremde Seite (öffnet im neuen Tab), z. B. die
+          Grundbucheinsicht. Nur ein Link – keine Anmeldedaten, kein automatischer Abruf.
+          Das Claude-Fenster übernimmt fremde Links nicht als Kachel (dort fest in claude.js).
 Entschlüsselt intern/daten/* in einen temporären Ordner, ersetzt dort <ordner>/ durch den
 öffentlichen Stand, ergänzt die Karte (nur wenn noch kein Link auf <ordner>/ da ist) und baut
 mit intern-bauen.py und demselben Passwort neu. Ohne Änderung bleibt intern/ unverändert.
@@ -58,6 +61,14 @@ def main():
         geaendert = []
         index = tmp / "index.html"
         for t in liste:
+            if t.get("url"):
+                # reiner Link auf eine fremde Seite (öffnet im neuen Tab), nichts zu kopieren
+                if index.exists():
+                    s = index.read_text(encoding="utf-8")
+                    if f'href="{html.escape(t["url"])}"' not in s:
+                        index.write_text(_karte_einfuegen(s, t["url"], t, extern=True), encoding="utf-8")
+                        geaendert.append("Link " + t["titel"])
+                continue
             ordner = t["ordner"].strip("/")
             quelle = REPO / ordner
             if not quelle.is_dir():
@@ -91,7 +102,7 @@ def _abweichend(a: Path, b: Path) -> bool:
     return any((a / r).read_bytes() != (b / r).read_bytes() for r in fa)
 
 
-def _karte_einfuegen(s: str, ordner: str, t: dict) -> str:
+def _karte_einfuegen(s: str, ordner: str, t: dict, extern: bool = False) -> str:
     klasse = "karte"
     pos = -1
     if t.get("nach"):
@@ -108,7 +119,9 @@ def _karte_einfuegen(s: str, ordner: str, t: dict) -> str:
         pos = s.rfind("</main>")
         if pos < 0:
             pos = s.rfind("</body>")
-    karte = (f'\n  <a class="{html.escape(klasse)}" href="{ordner}/">{html.escape(t["titel"])}'
+    ziel = (f'href="{html.escape(ordner)}" target="_blank" rel="noopener noreferrer"' if extern
+            else f'href="{ordner}/"')
+    karte = (f'\n  <a class="{html.escape(klasse)}" {ziel}>{html.escape(t["titel"])}'
              f'<small>{html.escape(t.get("text", ""))}</small></a>')
     return s[:pos] + karte + s[pos:]
 
