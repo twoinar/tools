@@ -319,8 +319,8 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
     <h2><span>3</span><span>Beteiligte, Kopien und Versand</span></h2>
     <div class="tab-wrap"><table>
       <thead>
-        <tr><th></th><th></th><th class="grp" colspan="3">Kopien erteilt</th><th class="grp gew" colspan="3">Kopien gewünscht</th><th class="grp vz" colspan="2">Vollzugsschreiben</th><th class="grp" colspan="2">Kostenberechnung</th><th class="nodruck"></th></tr>
-        <tr><th class="l">Beteiligter</th><th class="l">Name</th><th>E-Mail<small>begl.</small></th><th>E-Mail<small>einfach</small></th><th>Aus&shy;druck</th><th class="gew">E-Mail<small>begl.</small></th><th class="gew">E-Mail<small>einfach</small></th><th class="gew">Post</th>
+        <tr><th></th><th></th><th class="grp" colspan="3">Kopien erteilt</th><th class="grp gew" colspan="4">Kopien gewünscht</th><th class="grp vz" colspan="2">Vollzugsschreiben</th><th class="grp" colspan="2">Kostenberechnung</th><th class="nodruck"></th></tr>
+        <tr><th class="l">Beteiligter</th><th class="l">Name</th><th>E-Mail<small>begl.</small></th><th>E-Mail<small>einfach</small></th><th>Aus&shy;druck</th><th class="gew">E-Mail<small>begl.</small></th><th class="gew">E-Mail<small>einfach</small></th><th class="gew">Post</th><th class="gew">Aus&shy;fer&shy;tigung</th>
           <th class="vz">Post</th><th class="vz">E-Mail</th><th>Post</th><th>E-Mail</th><th class="nodruck"></th></tr>
       </thead>
       <tbody id="beteiligte"></tbody>
@@ -429,8 +429,8 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
         </div>
         <div class="tab-wrap kgs-tab"><table>
           <thead>
-            <tr><th></th><th class="grp" colspan="3">Kopien der Grundschuld erteilt</th><th class="grp gew" colspan="3">gewünscht</th><th class="grp" colspan="2">Vollzugsschreiben</th><th class="grp" colspan="2">Kostenberechnung</th></tr>
-            <tr><th class="l">Beteiligter</th><th>E-Mail<small>begl.</small></th><th>E-Mail<small>einfach</small></th><th>Aus&shy;druck</th><th class="gew">E-Mail<small>begl.</small></th><th class="gew">E-Mail<small>einfach</small></th><th class="gew">Post</th>
+            <tr><th></th><th class="grp" colspan="3">Kopien der Grundschuld erteilt</th><th class="grp gew" colspan="4">gewünscht</th><th class="grp" colspan="2">Vollzugsschreiben</th><th class="grp" colspan="2">Kostenberechnung</th></tr>
+            <tr><th class="l">Beteiligter</th><th>E-Mail<small>begl.</small></th><th>E-Mail<small>einfach</small></th><th>Aus&shy;druck</th><th class="gew">E-Mail<small>begl.</small></th><th class="gew">E-Mail<small>einfach</small></th><th class="gew">Post</th><th class="gew">Aus&shy;fer&shy;tigung</th>
               <th>Post</th><th>E-Mail</th><th>Post</th><th>E-Mail</th></tr>
           </thead>
           <tbody id="kgsBeteiligte"></tbody>
@@ -551,9 +551,10 @@ const ROLLEN = [["Veräußerer 1","v1"],["Veräußerer 2","v2"],["Veräußerer 3
   ["Sonstiger 1","sonst"],["Sonstiger 2","sonst2"],["Sonstiger 3","sonst3"],["Sonstiger 4","sonst4"],["Sonstiger 5","sonst5"]];
 const tb = document.getElementById("beteiligte");
 /* Kopien je Beteiligtem (Wunsch Thomas 17.11.2026): erteilt = was tatsächlich hinausging (setzt der Versand aus dem
-   Verteilerzettel), gewünscht = was der Beteiligte haben möchte; jeweils E-Mail beglaubigt / E-Mail einfach / Papier */
+   Verteilerzettel), gewünscht = was der Beteiligte haben möchte; jeweils E-Mail beglaubigt / E-Mail einfach / Papier,
+   bei gewünscht zusätzlich Ausfertigung (Wunsch Thomas 24.11.2026, z. B. Vorsorgevollmacht) */
 const KOPIEN = [["erteilt_begl","beglaubigte Abschrift per E-Mail erteilt"],["erteilt_einfach","einfache Abschrift per E-Mail erteilt"],["erteilt_ausdruck","Ausdruck erteilt"],
-  ["gew_begl","beglaubigte Abschrift per E-Mail gewünscht"],["gew_einfach","einfache Abschrift per E-Mail gewünscht"],["gew_post","Kopie per Post gewünscht"]];
+  ["gew_begl","beglaubigte Abschrift per E-Mail gewünscht"],["gew_einfach","einfache Abschrift per E-Mail gewünscht"],["gew_post","Kopie per Post gewünscht"],["gew_ausf","Ausfertigung gewünscht"]];
 const kopienZellen = (praefix, lab) => KOPIEN.map(([f,t])=>`<td${f.startsWith("gew_")?' class="gew"':""}><input type="checkbox" data-f="${praefix}_${f}" aria-label="${lab}: ${t}"></td>`).join("");
 for (const [lab,k] of ROLLEN){
   const cb = (f,t)=>`<td${f.startsWith("vollzug_") ? ' class="vz"' : ""}><input type="checkbox" data-f="${k}_${f}" aria-label="${lab}: ${t}"></td>`;
@@ -630,6 +631,7 @@ loeschZuruecksetzen(false);
 /* ---------- Sammelbogen: weitere Urkunden im selben Termin (bis 6) ----------
    Jede Urkunde hat Art, UVZ-Nr., Vorgangs-Nr., die zur Art passenden Vollzugsschritte, eine eigene
    Nachgenehmigung und eine Versandzeile, die der Versand aus dem Verteilerzettel von selbst füllt.                       */
+const WU_OHNE_NG = ["vorsorge"];   // Arten ohne Nachgenehmigung
 const WU_ARTEN = [["testament","Testament / Erbvertrag"],["vorsorge","Vorsorgevollmacht"],["patient","Patientenverfügung"],
   ["uebertragung","Übertragungsvertrag"],["kauf","Kaufvertrag"],["grundschuld","Grundschuld"],["ehevertrag","Ehevertrag"],["sonst","Sonstige Urkunde"]];
 // [Feld, Text, Arten, Feld im Einzelbogen]
@@ -683,6 +685,9 @@ function wuAnzeigen(){
     k.querySelectorAll("[data-wu-arten]").forEach(l=>{ const an = !!a && l.dataset.wuArten.split(" ").includes(a);
       if (!an) l.querySelector("input").checked = false; l.hidden = !an; });
     k.querySelector(".wu-punkte").hidden = !a;
+    const ohneNg = WU_OHNE_NG.includes(a);   // Vorsorgevollmacht: keine Nachgenehmigung (wie ARTEN.vorsorge.ohneNg)
+    if (ohneNg) ["ng","ng_ein"].forEach(f=>{ wuF(i,f).checked = false; });
+    k.querySelector(".wu-ng").hidden = ohneNg;
     const ng = wuF(i,"ng").checked;
     k.querySelector("[data-wung-details]").hidden = !ng;
     k.querySelector(".wu-ng").classList.toggle("aktiv", ng && !wuF(i,"ng_ein").checked);
@@ -745,7 +750,8 @@ const ARTEN = {
   scheidung:    { name:"Scheidungsvereinbarung", v:["Ehegatte",2],   e:["Rechtsanwalt",0],      makler:null, loesch:true, gw:"Scheidung" },
   ehevertrag:   { name:"Ehevertrag",             v:["Ehegatte",2],   e:null,                    makler:null, loesch:false, gw:"Ehevertrag" },
   testament:    { name:"Testament / Erbvertrag", v:["Testator",1],  e:null,                    makler:null, loesch:false, gw:"Testament" },
-  vorsorge:     { name:"Vorsorgevollmacht",      v:["Vollmachtgeber",1], e:["Bevollmächtigter",1], makler:null, loesch:false, gw:"Vorsorgevollmacht" },
+  vorsorge:     { name:"Vorsorgevollmacht",      v:["Vollmachtgeber",1], e:["Bevollmächtigter",1], makler:null, loesch:false, gw:"Vorsorgevollmacht",
+                  ohneVz:true, ohneNg:true },   // Wunsch Thomas 24.11.2026: keine Nachgenehmigung, keine Vollzugsschreiben
   nachlass:     { name:"Nachlassverzeichnis",    v:["Erbe",1],       e:["Pflichtteilsberechtigter",1], makler:null, loesch:false, gw:"Nachlassverzeichnis", kr:"nachlass",
                   ohneVz:true, ohneNg:true, ohneSchritte:true, sonst:["Anwalt Erbe","Anwalt Pflichtteilsberechtigter"],
                   hinweis:"Dem Pflichtteilsberechtigten und seinem Anwalt wird die Urkunde nur mit Einwilligung des Erben bzw. des Anwalts des Erben übersandt." },
@@ -1558,11 +1564,11 @@ async function pdfErzeugen(){
   // 3 Beteiligte
   ueberschrift(nr(),"Beteiligte, Kopien und Versand");
   { const ohneVz = !!ARTEN[art()].ohneVz;   // z. B. Nachlassverzeichnis: kein Vollzug, keine Vollzugsschreiben
-    const sp=[{t:"Beteiligter",w:ohneVz?100:78,l:1},{t:"Name",w:ohneVz?153:105,l:1},{t:"E-Mail",u:"begl.",w:29},{t:"E-Mail",u:"einf.",w:29},{t:"Ausdruck",w:34},{t:"E-Mail",u:"begl.",w:29,g:1},{t:"E-Mail",u:"einf.",w:29,g:1},{t:"Post",w:26,g:1},{t:ohneVz?"":"Post",w:ohneVz?0:34},{t:ohneVz?"":"E-Mail",w:ohneVz?0:36},{t:"Post",w:34},{t:"E-Mail",w:36}];
+    const sp=[{t:"Beteiligter",w:ohneVz?92:72,l:1},{t:"Name",w:ohneVz?133:85,l:1},{t:"E-Mail",u:"begl.",w:29},{t:"E-Mail",u:"einf.",w:29},{t:"Ausdruck",w:34},{t:"E-Mail",u:"begl.",w:29,g:1},{t:"E-Mail",u:"einf.",w:29,g:1},{t:"Post",w:26,g:1},{t:"Ausf.",w:28,g:1},{t:ohneVz?"":"Post",w:ohneVz?0:34},{t:ohneVz?"":"E-Mail",w:ohneVz?0:36},{t:"Post",w:34},{t:"E-Mail",w:36}];
     const xs=[]; let x=ML; for (const c of sp){ xs.push(x); x+=c.w; }
     platz(40);
     const grp=(t,a,b)=>{ const x0=xs[a], x1=xs[b]+sp[b].w; page.drawText(pdfText(t),{x:(x0+x1)/2-tw(t,fB,7)/2,y:y-8,size:7,font:fB,color:BLAU}); page.drawLine({start:{x:x0+2,y:y-11},end:{x:x1-2,y:y-11},thickness:.5,color:LINIE}); };
-    grp("Kopien erteilt",2,4); grp("Kopien gewünscht",5,7); if (!ohneVz) grp("Vollzugsschreiben",8,9); grp("Kostenberechnung",10,11); y-=14;
+    grp("Kopien erteilt",2,4); grp("Kopien gewünscht",5,8); if (!ohneVz) grp("Vollzugsschreiben",9,10); grp("Kostenberechnung",11,12); y-=14;
     sp.forEach((c,i)=>{ const tx=pdfText(c.t); if (!tx) return; page.drawText(tx,{x: c.l ? xs[i]+2 : xs[i]+(c.w-tw(tx,fB,7))/2, y:y-8, size:7, font:fB, color:GRAU});
       if (c.u) page.drawText(c.u,{x:xs[i]+(c.w-tw(c.u,fN,6.5))/2,y:y-15,size:6.5,font:fN,color:GRAU}); });
     y-=19; page.drawLine({start:{x:ML,y},end:{x:W-MR,y},thickness:.6,color:LINIE});
@@ -1574,7 +1580,7 @@ async function pdfErzeugen(){
       platz(h);
       bez.forEach((z,i)=>page.drawText(z,{x:xs[0]+2,y:y-12-i*11,size:8.5,font:fB,color:TEXT}));
       nam.forEach((z,i)=>page.drawText(z,{x:xs[1]+2,y:y-12-i*11,size:8.5,font:fN,color:TEXT}));
-      [...KOPIEN.map(([f],i)=>[f,i+2]),["vollzug_post",8],["vollzug_email",9],["kostenberechnung_post",10],["kostenberechnung_email",11]]
+      [...KOPIEN.map(([f],i)=>[f,i+2]),["vollzug_post",9],["vollzug_email",10],["kostenberechnung_post",11],["kostenberechnung_email",12]]
         .filter(([,i])=>sp[i].w>0).forEach(([f,i])=>kaestchen(xs[i]+(sp[i].w-9)/2, y-13, g(f)));
       y-=h; page.drawLine({start:{x:ML,y},end:{x:W-MR,y},thickness:.5,color:LINIE});
     }
@@ -1646,11 +1652,11 @@ async function pdfErzeugen(){
         if (v("kgs_gen")) [["kgs_zust_eigentuemer","Zustimmung des Grundstückseigentümers"],["kgs_zust_verwalter","Zustimmung des Verwalters"],["kgs_gen_sanierung","Sanierungsrechtliche Genehmigung"],["kgs_gen_entwicklung","Entwicklungsrechtliche Genehmigung"],["kgs_gen_betreuungsgericht","Genehmigung Betreuungsgericht"],["kgs_gen_nachlassgericht","Genehmigung Nachlassgericht"],["kgs_gen_familiengericht","Genehmigung Familiengericht"]].forEach(([f,t])=>cbZeile(v(f), t, ML+32, BW-32));
         y-=5;
         // Kopien/Versand zur Grundschuld
-        const sp=[{t:"Beteiligter",w:161,l:1},{t:"E-Mail",u:"begl.",w:30},{t:"E-Mail",u:"einf.",w:30},{t:"Ausdruck",w:35},{t:"E-Mail",u:"begl.",w:30},{t:"E-Mail",u:"einf.",w:30},{t:"Post",w:27},{t:"Post",w:34},{t:"E-Mail",w:36},{t:"Post",w:34},{t:"E-Mail",w:36}];
+        const sp=[{t:"Beteiligter",w:131,l:1},{t:"E-Mail",u:"begl.",w:30},{t:"E-Mail",u:"einf.",w:30},{t:"Ausdruck",w:35},{t:"E-Mail",u:"begl.",w:30},{t:"E-Mail",u:"einf.",w:30},{t:"Post",w:27},{t:"Ausf.",w:30},{t:"Post",w:34},{t:"E-Mail",w:36},{t:"Post",w:34},{t:"E-Mail",w:36}];
         const xs=[]; let x=ML+16; for (const c of sp){ xs.push(x); x+=c.w-2; }
         platz(60);
         const grp=(t,a,b)=>{ const x0=xs[a], x1=xs[b]+sp[b].w-2; page.drawText(pdfText(t),{x:(x0+x1)/2-tw(t,fB,7)/2,y:y-8,size:7,font:fB,color:BLAU}); page.drawLine({start:{x:x0+2,y:y-11},end:{x:x1-2,y:y-11},thickness:.5,color:LINIE}); };
-        grp("Kopien erteilt",1,3); grp("gewünscht",4,6); grp("Vollzugsschreiben",7,8); grp("Kostenberechnung",9,10); y-=14;
+        grp("Kopien erteilt",1,3); grp("gewünscht",4,7); grp("Vollzugsschreiben",8,9); grp("Kostenberechnung",10,11); y-=14;
         sp.forEach((c,i)=>{ const tx=pdfText(c.t); page.drawText(tx,{x: c.l ? xs[i]+2 : xs[i]+(c.w-2-tw(tx,fB,7))/2, y:y-8, size:7, font:fB, color:GRAU});
           if (c.u) page.drawText(c.u,{x:xs[i]+(c.w-2-tw(c.u,fN,6.5))/2,y:y-15,size:6.5,font:fN,color:GRAU}); });
         y-=19; page.drawLine({start:{x:ML+16,y},end:{x:W-MR,y},thickness:.6,color:LINIE});
@@ -1658,7 +1664,7 @@ async function pdfErzeugen(){
           const k=r.dataset.rolle, g=n=>v(`kgs_${k}_${n}`), bez=umbrechen(r.cells[0].textContent.trim(),fB,8.5,sp[0].w-6), h=bez.length*11+8;
           platz(h);
           bez.forEach((z,i)=>page.drawText(z,{x:xs[0]+2,y:y-12-i*11,size:8.5,font:fB,color:TEXT}));
-          [...KOPIEN.map(([f],i)=>[f,i+1]),["vollzug_post",7],["vollzug_email",8],["kostenberechnung_post",9],["kostenberechnung_email",10]]
+          [...KOPIEN.map(([f],i)=>[f,i+1]),["vollzug_post",8],["vollzug_email",9],["kostenberechnung_post",10],["kostenberechnung_email",11]]
             .forEach(([f,i])=>kaestchen(xs[i]+(sp[i].w-2-9)/2, y-13, g(f)));
           y-=h; page.drawLine({start:{x:ML+16,y},end:{x:W-MR,y},thickness:.5,color:LINIE});
         }
@@ -2446,6 +2452,6 @@ function zugriffLeisteEinrichten(holeOrdner){
 }
 zugriffLeisteEinrichten(async () => { if (!signiertOrdner) signiertOrdner = (await idbGet("signiert")) || null; return [[ordner, "readwrite"], [signiertOrdner, "read"]]; });
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.42 · Stand 23.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.43 · Stand 24.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
