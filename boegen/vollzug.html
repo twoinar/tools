@@ -1281,7 +1281,7 @@ let ordner = null;
 function zeigeOrdner(){
   document.getElementById("ordnerAnzeige").innerHTML = !dateisystemOk
     ? "Direkte Ablage nur in Chrome oder Edge möglich – hier wird heruntergeladen."
-    : ordner ? `Ablageordner: <b>${ordner.name.replace(/[<>&]/g,"")}</b>` : "Ablageordner: <b>noch nicht gewählt</b>";
+    : ordner ? `Ablageordner: <b>${ordner.name.replace(/[<>&]/g,"")}</b>` : '<span style="color:#b3261e">Ablageordner: <b>noch nicht gewählt</b> – Versand aus dem Verteilerzettel wird erst nach „Ablageordner wählen“ eingetragen</span>';
 }
 async function ordnerWaehlen(){
   ordner = await window.showDirectoryPicker({id:"vollzugsbogen", mode:"readwrite"});
@@ -1406,7 +1406,9 @@ async function ausAufruf(){
     return versandUebernehmen(false).catch(fehler);
   }
   for (const [u,v] of aufrufWeitere) wuEintragen(u, v);
-  meldung(`UVZ-Nr. ${uvz} übernommen. Der Versand wird eingetragen, sobald der Ablageordner freigegeben ist (einmal in den Bogen klicken bzw. „Ablageordner wählen“).`);
+  // Neuer PC oder anderer Browser: dort ist noch kein Ablageordner gespeichert (Fall WKS013, 23.11.2026)
+  if (!ordner) meldung(`UVZ-Nr. ${uvz} übernommen. Der Versand kann NICHT eingetragen werden: In diesem Browser auf diesem PC ist noch kein Ablageordner gewählt. Bitte „Ablageordner wählen“ klicken, den Ordner wählen, in dem die Vollzugsbögen und die Versand-Dateien liegen, und „Bei jedem Besuch zulassen“ bestätigen – dann wird der Versand sofort eingetragen.`, "err");
+  else meldung(`UVZ-Nr. ${uvz} übernommen. Der Versand wird eingetragen, sobald der Ablageordner freigegeben ist (einmal in den Bogen klicken bzw. „Ordnerzugriff erlauben“).`);
 }
 
 /* ---------- PDF erzeugen ---------- */
@@ -2444,6 +2446,6 @@ function zugriffLeisteEinrichten(holeOrdner){
 }
 zugriffLeisteEinrichten(async () => { if (!signiertOrdner) signiertOrdner = (await idbGet("signiert")) || null; return [[ordner, "readwrite"], [signiertOrdner, "read"]]; });
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.41 · Stand 17.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.42 · Stand 23.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
