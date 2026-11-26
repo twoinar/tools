@@ -354,10 +354,7 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
         <label class="cb" data-arten="kauf uebertragung scheidung"><input type="checkbox" data-f="anzeige_gutachterausschuss"><span>Anzeige Gutachterausschuss</span></label>
         <label class="cb" data-arten="kauf"><input type="checkbox" data-f="vorkaufsrecht_gemeinde"><span>Vorkaufsrechtsverzichtserklärung Gemeinde</span></label>
         <label class="cb" data-arten="kauf"><input type="checkbox" data-f="vorkaufsrecht_mieter"><span>Vorkaufsrecht des Mieters (§ 577 BGB): Mitteilung an den Mieter</span></label>
-        <label class="cb" data-arten="kauf uebertragung"><input type="checkbox" data-f="gb_vormerkung"><span>Eintragung Vormerkung beantragen</span></label>
-        <label class="cb" data-arten="uebertragung"><input type="checkbox" data-f="gb_rechte"><span>Eintragung Rechte beantragen (Wohnungsrecht, Nießbrauch, Rückauflassungsvormerkung)</span></label>
         <label class="cb" data-arten="kauf"><input type="checkbox" data-f="faelligkeit"><span>Fälligkeitsmitteilung an den Erwerber</span></label>
-        <label class="cb" data-arten="kauf uebertragung scheidung ehevertrag"><input type="checkbox" data-f="gb_umschreibung"><span>Eigentumsumschreibung beantragen (nach Unbedenklichkeitsbescheinigung)</span></label>
         <label class="cb" data-arten="grundschuld"><input type="checkbox" data-f="gs_ausfertigung"><span>Ausfertigung / Abschrift an Gläubiger</span></label>
         <div class="sub senk aufklapp" data-zeigen-wenn="gs_ausfertigung" data-leeren>
           <label class="cb"><input type="checkbox" data-f="gs_ausf_vollstr"><span>vollstreckbare Ausfertigung</span></label>
@@ -365,7 +362,6 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
           <label class="cb"><input type="checkbox" data-f="gs_ausf_begl"><span>beglaubigte Abschrift</span></label>
           <label class="cb"><input type="checkbox" data-f="gs_ausf_elektr"><span>elektronisch beglaubigte Abschrift</span></label>
         </div>
-        <label class="cb" data-arten="grundschuld"><input type="checkbox" data-f="gs_eintragung"><span>Eintragungsantrag beim Grundbuchamt</span></label>
         <label class="cb" data-arten="grundschuld"><input type="checkbox" data-f="gs_notarbestaetigung"><span>Notarbestätigung an Gläubiger</span></label>
         <label class="cb" data-arten="grundschuld"><input type="checkbox" data-f="gs_eintragungsnachricht"><span>Eintragungsnachricht / Grundbuchauszug an Gläubiger</span></label>
         <label class="cb" data-arten="scheidung"><input type="checkbox" data-f="bank_entlassung"><span>Schuldhaftentlassung durch die Bank</span></label>
@@ -413,7 +409,6 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
         <label class="cb" data-arten="erbschein"><input type="checkbox" data-f="es_nachlassgericht"><span>Einreichung beim Nachlassgericht</span></label>
         <label class="cb" data-arten="erbschein"><input type="checkbox" data-f="es_urkunden"><span>Personenstandsurkunden beigefügt / nachreichen</span></label>
         <label class="cb" data-arten="erbschein"><input type="checkbox" data-f="es_erteilt"><span>Erbschein erteilt, Ausfertigung an den Antragsteller</span></label>
-        <label class="cb" data-arten="erbschein"><input type="checkbox" data-f="es_grundbuch"><span>Grundbuchberichtigung beantragen</span></label>
         <label class="cb" data-arten="erbschein"><input type="checkbox" data-f="es_abschriften"><span>Abschriften an Banken / Versicherungen</span></label>
         <label class="cb" data-arten="kauf uebertragung grundschuld scheidung ehevertrag gmbh erbausschlagung"><input type="checkbox" data-f="gen_sammel"><span>Genehmigungen / Zustimmungen</span></label>
         <div class="sub senk aufklapp" data-zeigen-wenn="gen_sammel" data-leeren>
@@ -2573,6 +2568,6 @@ function zugriffLeisteEinrichten(holeOrdner){
 }
 zugriffLeisteEinrichten(async () => { if (!signiertOrdner) signiertOrdner = (await idbGet("signiert")) || null; return [[ordner, "readwrite"], [signiertOrdner, "read"]]; });
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.45 · Stand 26.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.46 · Stand 26.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
