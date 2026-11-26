@@ -280,6 +280,10 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
         <option value="testament">Testament / Erbvertrag</option>
         <option value="vorsorge">Vorsorgevollmacht</option>
         <option value="nachlass">Nachlassverzeichnis</option>
+        <option value="gmbh">GmbH-Anteilsabtretung</option>
+        <option value="hr">Handelsregisteranmeldung</option>
+        <option value="erbausschlagung">Erbausschlagung</option>
+        <option value="erbschein">Erbscheinsantrag</option>
         <option value="__neu">＋ Neue Urkundsart …</option>
       </select></div>
     <div class="artneu nodruck" id="artNeu" hidden>
@@ -338,14 +342,19 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
     <h2><span>4</span><span>Vollzugsschritte</span></h2>
     <div class="schritte">
       <div>
-        <label class="cb" data-arten="kauf uebertragung scheidung ehevertrag"><input type="checkbox" data-f="anzeige_grest"><span>Anzeige Finanzamt Grunderwerbsteuer</span></label>
+        <label class="cb" data-arten="kauf uebertragung scheidung ehevertrag gmbh"><input type="checkbox" data-f="anzeige_grest"><span>Anzeige Finanzamt Grunderwerbsteuer</span></label>
         <div class="sub aufklapp" data-zeigen-wenn="anzeige_grest" data-leeren>
           <label class="cb"><input type="checkbox" data-f="grest_mit_ub" data-gruppe="ub"><span>mit UB</span></label>
           <label class="cb"><input type="checkbox" data-f="grest_ohne_ub" data-gruppe="ub"><span>ohne UB</span></label>
         </div>
-        <label class="cb" data-arten="kauf uebertragung scheidung ehevertrag"><input type="checkbox" data-f="anzeige_schenkungsteuer"><span>Anzeige Finanzamt Schenkungsteuer</span></label>
+        <label class="cb" data-arten="kauf uebertragung scheidung ehevertrag gmbh"><input type="checkbox" data-f="anzeige_schenkungsteuer"><span>Anzeige Finanzamt Schenkungsteuer</span></label>
         <label class="cb" data-arten="kauf uebertragung scheidung"><input type="checkbox" data-f="anzeige_gutachterausschuss"><span>Anzeige Gutachterausschuss</span></label>
         <label class="cb" data-arten="kauf"><input type="checkbox" data-f="vorkaufsrecht_gemeinde"><span>Vorkaufsrechtsverzichtserklärung Gemeinde</span></label>
+        <label class="cb" data-arten="kauf"><input type="checkbox" data-f="vorkaufsrecht_mieter"><span>Vorkaufsrecht des Mieters (§ 577 BGB): Mitteilung an den Mieter</span></label>
+        <label class="cb" data-arten="kauf uebertragung"><input type="checkbox" data-f="gb_vormerkung"><span>Eintragung Vormerkung beantragen</span></label>
+        <label class="cb" data-arten="uebertragung"><input type="checkbox" data-f="gb_rechte"><span>Eintragung Rechte beantragen (Wohnungsrecht, Nießbrauch, Rückauflassungsvormerkung)</span></label>
+        <label class="cb" data-arten="kauf"><input type="checkbox" data-f="faelligkeit"><span>Fälligkeitsmitteilung an den Erwerber</span></label>
+        <label class="cb" data-arten="kauf uebertragung scheidung ehevertrag"><input type="checkbox" data-f="gb_umschreibung"><span>Eigentumsumschreibung beantragen (nach Unbedenklichkeitsbescheinigung)</span></label>
         <label class="cb" data-arten="grundschuld"><input type="checkbox" data-f="gs_ausfertigung"><span>Ausfertigung / Abschrift an Gläubiger</span></label>
         <div class="sub senk aufklapp" data-zeigen-wenn="gs_ausfertigung" data-leeren>
           <label class="cb"><input type="checkbox" data-f="gs_ausf_vollstr"><span>vollstreckbare Ausfertigung</span></label>
@@ -353,16 +362,21 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
           <label class="cb"><input type="checkbox" data-f="gs_ausf_begl"><span>beglaubigte Abschrift</span></label>
           <label class="cb"><input type="checkbox" data-f="gs_ausf_elektr"><span>elektronisch beglaubigte Abschrift</span></label>
         </div>
+        <label class="cb" data-arten="grundschuld"><input type="checkbox" data-f="gs_eintragung"><span>Eintragungsantrag beim Grundbuchamt</span></label>
         <label class="cb" data-arten="grundschuld"><input type="checkbox" data-f="gs_notarbestaetigung"><span>Notarbestätigung an Gläubiger</span></label>
+        <label class="cb" data-arten="grundschuld"><input type="checkbox" data-f="gs_eintragungsnachricht"><span>Eintragungsnachricht / Grundbuchauszug an Gläubiger</span></label>
         <label class="cb" data-arten="scheidung"><input type="checkbox" data-f="bank_entlassung"><span>Schuldhaftentlassung durch die Bank</span></label>
         <div class="sub aufklapp" data-zeigen-wenn="bank_entlassung" data-leeren>
           <label class="cb"><input type="checkbox" data-f="bank_wir" data-gruppe="bank"><span>wir holen ein</span></label>
           <label class="cb"><input type="checkbox" data-f="bank_beteiligte" data-gruppe="bank"><span>Beteiligte holen ein</span></label>
         </div>
+        <label class="cb" data-arten="scheidung"><input type="checkbox" data-f="abschrift_familiengericht"><span>Abschrift an das Familiengericht (Versorgungsausgleich)</span></label>
+        <label class="cb" data-arten="scheidung"><input type="checkbox" data-f="abschrift_anwaelte"><span>Abschriften an die Rechtsanwälte</span></label>
         <label class="cb" data-arten="ehevertrag"><input type="checkbox" data-f="gueterrechtsregister"><span>Eintragung Güterrechtsregister</span></label>
         <label class="cb" data-arten="ehevertrag"><input type="checkbox" data-f="ausfertigungen"><span>Ausfertigungen an die Beteiligten</span></label>
         <label class="cb" data-arten="scheidung ehevertrag testament"><input type="checkbox" data-f="ztr"><span>Registrierung Zentrales Testamentsregister</span></label>
         <label class="cb" data-arten="testament"><input type="checkbox" data-f="verwahrung_ag"><span>Ablieferung in die besondere amtliche Verwahrung (Amtsgericht)</span></label>
+        <label class="cb" data-arten="testament"><input type="checkbox" data-f="verwahrung_notar"><span>Erbvertrag in notarieller Verwahrung (§ 34 Abs. 3 BeurkG)</span></label>
         <label class="cb" data-arten="testament"><input type="checkbox" data-f="abschrift_erblasser"><span>Beglaubigte Abschrift an Testator</span></label>
         <div class="sub aufklapp" data-zeigen-wenn="abschrift_erblasser" data-leeren>
           <label class="cb"><input type="checkbox" data-f="abschrift_erbl_email"><span>elektronisch per E-Mail</span></label>
@@ -375,16 +389,48 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
         <label class="cb" data-arten="vorsorge"><input type="checkbox" data-f="ausf_vollmachtgeber"><span>Ausfertigung an Vollmachtgeber</span></label>
         <label class="cb" data-arten="vorsorge"><input type="checkbox" data-f="ausf_bevollmaechtigte"><span>Ausfertigungen an Bevollmächtigte</span></label>
         <label class="cb" data-arten="vorsorge"><input type="checkbox" data-f="ausf_zurueckhalten"><span>Ausfertigungen erst auf Anweisung des Vollmachtgebers erteilen</span></label>
-        <label class="cb" data-arten="kauf uebertragung grundschuld scheidung ehevertrag"><input type="checkbox" data-f="gen_sammel"><span>Genehmigungen / Zustimmungen</span></label>
+        <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gmbh_zahlung"><span>Kaufpreiszahlung bestätigt (aufschiebende Bedingung)</span></label>
+        <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gmbh_liste"><span>Neue Gesellschafterliste mit Notarbescheinigung ans Handelsregister (§ 40 Abs. 2 GmbHG)</span></label>
+        <div class="sub senk aufklapp" data-zeigen-wenn="gmbh_liste" data-leeren>
+          <label class="cb"><input type="checkbox" data-f="gmbh_liste_wirksam"><span>erst nach Wirksamkeit der Abtretung</span></label>
+          <label class="cb"><input type="checkbox" data-f="gmbh_liste_ges"><span>Abschrift an die Gesellschaft</span></label>
+        </div>
+        <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gmbh_kst"><span>Anzeige Finanzamt Körperschaftsteuer (§ 54 EStDV, binnen 2 Wochen)</span></label>
+        <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gmbh_transparenz"><span>Hinweis an die Gesellschaft: Mitteilung Transparenzregister (§ 20 GwG)</span></label>
+        <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gmbh_abschrift_stb"><span>Abschriften an Gesellschaft / Steuerberater</span></label>
+        <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gmbh_hr_folge"><span>Folgeanmeldung Handelsregister (z. B. Geschäftsführerwechsel)</span></label>
+        <label class="cb" data-arten="hr"><input type="checkbox" data-f="hr_einreichung"><span>Elektronische Einreichung beim Handelsregister (XNP)</span></label>
+        <label class="cb" data-arten="hr"><input type="checkbox" data-f="hr_liste"><span>Gesellschafterliste mit einreichen (Gründung, Kapitalmaßnahme)</span></label>
+        <label class="cb" data-arten="hr"><input type="checkbox" data-f="hr_ihk"><span>Stellungnahme IHK / Handwerkskammer (Firma)</span></label>
+        <label class="cb" data-arten="hr"><input type="checkbox" data-f="hr_eintragung"><span>Eintragungsnachricht an die Gesellschaft</span></label>
+        <label class="cb" data-arten="hr"><input type="checkbox" data-f="hr_transparenz"><span>Hinweis Transparenzregister (§ 20 GwG)</span></label>
+        <label class="cb" data-arten="erbausschlagung"><input type="checkbox" data-f="ea_nachlassgericht"><span>Einreichung beim Nachlassgericht (Frist 6 Wochen, § 1944 BGB)</span></label>
+        <label class="cb" data-arten="erbausschlagung"><input type="checkbox" data-f="ea_eingang"><span>Eingangsbestätigung des Nachlassgerichts</span></label>
+        <label class="cb" data-arten="erbausschlagung"><input type="checkbox" data-f="ea_abschrift"><span>Abschrift an den Ausschlagenden</span></label>
+        <label class="cb" data-arten="erbschein"><input type="checkbox" data-f="es_nachlassgericht"><span>Einreichung beim Nachlassgericht</span></label>
+        <label class="cb" data-arten="erbschein"><input type="checkbox" data-f="es_urkunden"><span>Personenstandsurkunden beigefügt / nachreichen</span></label>
+        <label class="cb" data-arten="erbschein"><input type="checkbox" data-f="es_erteilt"><span>Erbschein erteilt, Ausfertigung an den Antragsteller</span></label>
+        <label class="cb" data-arten="erbschein"><input type="checkbox" data-f="es_grundbuch"><span>Grundbuchberichtigung beantragen</span></label>
+        <label class="cb" data-arten="erbschein"><input type="checkbox" data-f="es_abschriften"><span>Abschriften an Banken / Versicherungen</span></label>
+        <label class="cb" data-arten="kauf uebertragung grundschuld scheidung ehevertrag gmbh erbausschlagung"><input type="checkbox" data-f="gen_sammel"><span>Genehmigungen / Zustimmungen</span></label>
         <div class="sub senk aufklapp" data-zeigen-wenn="gen_sammel" data-leeren>
+          <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gen_gmbh_gesellschaft"><span>Zustimmung der Gesellschaft (§ 15 Abs. 5 GmbHG, Satzung prüfen)</span></label>
+          <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gen_gmbh_gv"><span>Zustimmungsbeschluss der Gesellschafterversammlung</span></label>
+          <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gen_gmbh_alle"><span>Zustimmung aller Gesellschafter</span></label>
+          <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gen_gmbh_einzelne"><span>Zustimmung einzelner Gesellschafter</span></label>
+          <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gen_gmbh_vorerwerb"><span>Verzicht auf Vorkaufs- / Vorerwerbsrecht der Mitgesellschafter</span></label>
+          <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gen_gmbh_teilung"><span>Gesellschafterbeschluss zur Teilung von Geschäftsanteilen (§ 46 Nr. 4 GmbHG)</span></label>
           <label class="cb" data-arten="kauf uebertragung scheidung"><input type="checkbox" data-f="gen_grdstvg"><span>Genehmigung Grundstücksverkehrsgesetz</span></label>
           <label class="cb" data-arten="kauf uebertragung grundschuld scheidung"><input type="checkbox" data-f="zust_eigentuemer"><span>Zustimmung des Grundstückseigentümers</span></label>
           <label class="cb" data-arten="kauf uebertragung scheidung grundschuld"><input type="checkbox" data-f="zust_verwalter"><span>Zustimmung des Verwalters</span></label>
           <label class="cb" data-arten="kauf uebertragung grundschuld"><input type="checkbox" data-f="gen_sanierung"><span>Sanierungsrechtliche Genehmigung</span></label>
           <label class="cb" data-arten="kauf uebertragung grundschuld"><input type="checkbox" data-f="gen_entwicklung"><span>Entwicklungsrechtliche Genehmigung</span></label>
-          <label class="cb" data-arten="kauf uebertragung grundschuld scheidung"><input type="checkbox" data-f="gen_betreuungsgericht"><span>Genehmigung Betreuungsgericht</span></label>
-          <label class="cb" data-arten="kauf uebertragung grundschuld"><input type="checkbox" data-f="gen_nachlassgericht"><span>Genehmigung Nachlassgericht</span></label>
-          <label class="cb" data-arten="kauf uebertragung grundschuld scheidung ehevertrag"><input type="checkbox" data-f="gen_familiengericht"><span>Genehmigung Familiengericht</span></label>
+          <label class="cb" data-arten="kauf uebertragung grundschuld scheidung gmbh erbausschlagung"><input type="checkbox" data-f="gen_betreuungsgericht"><span>Genehmigung Betreuungsgericht</span></label>
+          <label class="cb" data-arten="kauf uebertragung grundschuld gmbh"><input type="checkbox" data-f="gen_nachlassgericht"><span>Genehmigung Nachlassgericht</span></label>
+          <label class="cb" data-arten="kauf uebertragung grundschuld scheidung ehevertrag gmbh erbausschlagung"><input type="checkbox" data-f="gen_familiengericht"><span>Genehmigung Familiengericht</span></label>
+          <label class="cb" data-arten="kauf uebertragung gmbh"><input type="checkbox" data-f="zust_ehegatte"><span>Zustimmung des Ehegatten (§ 1365 BGB)</span></label>
+          <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gen_kartell"><span>Freigabe Bundeskartellamt (Fusionskontrolle)</span></label>
+          <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gen_awv"><span>Unbedenklichkeitsbescheinigung BMWK (Investitionsprüfung, AWV)</span></label>
           <div class="gen-plus nodruck" id="genPlus"><button type="button" id="genPlusKnopf">+ weitere Genehmigung</button>
             <input type="text" id="genNeuName" hidden autocomplete="off" placeholder="z. B. Erklärung nach der Genehmigungsfreistellungsverordnung" aria-label="Bezeichnung der Genehmigung">
             <button type="button" id="genNeuOk" hidden>Dauerhaft aufnehmen</button><button type="button" id="genNeuAb" hidden>Abbrechen</button></div>
@@ -631,9 +677,9 @@ loeschZuruecksetzen(false);
 /* ---------- Sammelbogen: weitere Urkunden im selben Termin (bis 6) ----------
    Jede Urkunde hat Art, UVZ-Nr., Vorgangs-Nr., die zur Art passenden Vollzugsschritte, eine eigene
    Nachgenehmigung und eine Versandzeile, die der Versand aus dem Verteilerzettel von selbst füllt.                       */
-const WU_OHNE_NG = ["vorsorge"];   // Arten ohne Nachgenehmigung
+const WU_OHNE_NG = ["vorsorge","hr","erbausschlagung","erbschein"];   // Arten ohne Nachgenehmigung
 const WU_ARTEN = [["testament","Testament / Erbvertrag"],["vorsorge","Vorsorgevollmacht"],["patient","Patientenverfügung"],
-  ["uebertragung","Übertragungsvertrag"],["kauf","Kaufvertrag"],["grundschuld","Grundschuld"],["ehevertrag","Ehevertrag"],["sonst","Sonstige Urkunde"]];
+  ["uebertragung","Übertragungsvertrag"],["kauf","Kaufvertrag"],["grundschuld","Grundschuld"],["ehevertrag","Ehevertrag"],["gmbh","GmbH-Anteilsabtretung"],["hr","Handelsregisteranmeldung"],["erbausschlagung","Erbausschlagung"],["erbschein","Erbscheinsantrag"],["sonst","Sonstige Urkunde"]];
 // [Feld, Text, Arten, Feld im Einzelbogen]
 const WU_PUNKTE = [
   ["ztr","Registrierung Zentrales Testamentsregister","testament ehevertrag","ztr"],
@@ -652,7 +698,12 @@ const WU_PUNKTE = [
   ["gs_glaeubiger","Ausfertigung / Abschrift an Gläubiger","grundschuld","gs_ausfertigung"],
   ["gs_bestaetigung","Notarbestätigung an Gläubiger","grundschuld","gs_notarbestaetigung"],
   ["gueterrecht","Eintragung Güterrechtsregister","ehevertrag","gueterrechtsregister"],
-  ["genehm","Genehmigungen / Zustimmungen (siehe Sonstiges)","uebertragung kauf grundschuld ehevertrag","gen_sammel"],
+  ["gmbh_liste","Gesellschafterliste ans Handelsregister (§ 40 GmbHG)","gmbh","gmbh_liste"],
+  ["gmbh_kst","Anzeige Finanzamt Körperschaftsteuer (§ 54 EStDV)","gmbh","gmbh_kst"],
+  ["hr_einr","Einreichung beim Handelsregister","hr","hr_einreichung"],
+  ["ea_ng","Einreichung beim Nachlassgericht (Frist 6 Wochen)","erbausschlagung","ea_nachlassgericht"],
+  ["es_ng","Einreichung beim Nachlassgericht","erbschein","es_nachlassgericht"],
+  ["genehm","Genehmigungen / Zustimmungen (siehe Sonstiges)","uebertragung kauf grundschuld ehevertrag gmbh erbausschlagung","gen_sammel"],
 ];
 const wuListe = document.getElementById("wuListe");
 for (let i=1;i<=6;i++){
@@ -755,6 +806,11 @@ const ARTEN = {
   nachlass:     { name:"Nachlassverzeichnis",    v:["Erbe",1],       e:["Pflichtteilsberechtigter",1], makler:null, loesch:false, gw:"Nachlassverzeichnis", kr:"nachlass",
                   ohneVz:true, ohneNg:true, ohneSchritte:true, sonst:["Anwalt Erbe","Anwalt Pflichtteilsberechtigter"],
                   hinweis:"Dem Pflichtteilsberechtigten und seinem Anwalt wird die Urkunde nur mit Einwilligung des Erben bzw. des Anwalts des Erben übersandt." },
+  // Wunsch Thomas 26.11.2026: eigene Vollzugsschritte statt der vom Grundstückskaufvertrag übernommenen
+  gmbh:         { name:"GmbH-Anteilsabtretung",   v:["Veräußerer",1], e:["Erwerber",1], makler:null, loesch:false, sonst:["Gesellschaft"] },
+  hr:           { name:"Handelsregisteranmeldung", v:["Anmeldender",1], e:null, makler:null, loesch:false, sonst:["Gesellschaft"], ohneNg:true },
+  erbausschlagung:{ name:"Erbausschlagung",       v:["Ausschlagender",1], e:null, makler:null, loesch:false, ohneNg:true },
+  erbschein:    { name:"Erbscheinsantrag",         v:["Antragsteller",1], e:null, makler:null, loesch:false, ohneNg:true },
 };
 const artWahl = () => document.querySelector('[data-f="urkundsart"]');
 const art = () => { const k = artWahl().value, c = ARTEN[k]; return c ? (c.basis || k) : "kauf"; };   // Logik: eigene Arten wie ihr Aufbau
@@ -797,9 +853,15 @@ async function eigenLaden(){
       }
     }
   }catch{}
-  liste.forEach(eigenOption);
+  liste.filter(w=>!eigenJetztEingebaut(w)).forEach(eigenOption);
   try{ localStorage.setItem("vollzug_urkundsarten", JSON.stringify(liste)); }catch{}
   genAufbauen(genListe());
+}
+// eigene Art (z. B. „GmbH-Anteilskauf“), die es seit 1.44 als eingebaute Art gibt: nicht mehr zur Auswahl anbieten
+const EINGEBAUT_ERKENNEN = [/gmbh|geschäftsanteil|anteils(abtretung|kauf)/i];   // Wunsch Thomas 26.11.: die vom Kaufvertrag übernommene GmbH-Art ersetzen
+function eigenJetztEingebaut(w){
+  const e = eigenAusWert(w); if (!e) return false;
+  return Object.entries(ARTEN).some(([,c])=>!c.basis && c.name.toLowerCase()===e.name.toLowerCase()) || EINGEBAUT_ERKENNEN.some(r=>r.test(e.name));
 }
 function eigenAnzeigen(){ document.getElementById("artEigen").hidden = !(ARTEN[artWahl().value]||{}).eigen; }
 function gruppenSetzen(){
@@ -1803,7 +1865,7 @@ async function ablegen(){
 /* ---------- Sammelbogen zusätzlich als Einzelbögen ablegen (je weitere Urkunde ein eigener Bogen) ----------
    Der Sammelbogen bleibt, wie er ist: er wird vorher als PDF erzeugt und danach wieder geladen.               */
 const WU_ZU_ART = { testament:"testament", vorsorge:"vorsorge", uebertragung:"uebertragung", kauf:"kauf", grundschuld:"grundschuld",
-  ehevertrag:"ehevertrag", patient:"eigen:vorsorge:Patientenverfügung", sonst:"eigen:vorsorge:Sonstige Urkunde" };
+  ehevertrag:"ehevertrag", gmbh:"gmbh", hr:"hr", erbausschlagung:"erbausschlagung", erbschein:"erbschein", patient:"eigen:vorsorge:Patientenverfügung", sonst:"eigen:vorsorge:Sonstige Urkunde" };
 async function wuEinzelnAblegen(){
   const karten = istAn("wu_an") ? wuKarten().filter(k=>!k.hidden && wuF(k.dataset.wu,"uvz").value.trim()) : [];
   if (!karten.length){ meldung("Bitte zuerst bei den weiteren Urkunden die UVZ-Nr. eintragen.","err"); return; }
@@ -2452,6 +2514,6 @@ function zugriffLeisteEinrichten(holeOrdner){
 }
 zugriffLeisteEinrichten(async () => { if (!signiertOrdner) signiertOrdner = (await idbGet("signiert")) || null; return [[ordner, "readwrite"], [signiertOrdner, "read"]]; });
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.43 · Stand 24.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.44 · Stand 26.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
