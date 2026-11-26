@@ -121,6 +121,9 @@ td input.bez{min-width:0;width:118px;font-weight:bold;background:transparent;box
 td input.bez:focus{background:var(--field-focus)}
 .fussnote{font-size:11px;color:var(--muted);margin-top:6px}
 .sub.senk{flex-direction:column;gap:0}
+#schrittWeg{position:absolute;z-index:20;border:1px solid #d0d5dd;background:#fff;color:#b3261e;border-radius:4px;font:14px/1 system-ui,sans-serif;padding:2px 6px;cursor:pointer}
+#schrittWeg:hover{background:#fdecea}
+.sliste small.ohne button{font-size:11px;margin-left:4px}
 /* eigene Genehmigungen (dauerhaft in der Liste) */
 .gen-eigen{display:flex;align-items:center;gap:6px}
 .gen-eigen .gen-weg{background:transparent;color:var(--muted);padding:0 6px;font-size:15px;line-height:1}
@@ -292,7 +295,7 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
       <button type="button" id="artNeuOk">Weiter: Vollzugsschritte festlegen</button><button type="button" id="artNeuAb">Abbrechen</button>
       <div class="hilfe">Beteiligte, Löschungen und Geschäftswert richten sich nach dem gewählten Aufbau. Die Vollzugsschritte legen Sie danach selbst fest: Vorschlag aus dem Aufbau, frei änderbar (eigene Schritte hinzufügen, umbenennen, löschen, Reihenfolge). Die neue Urkundsart bleibt mit ihren Schritten dauerhaft in der Liste (auch für die Kollegen, die denselben Ablageordner nutzen).</div>
     </div>
-    <div class="artneu nodruck" id="artEigen" hidden><span>Eigene Urkundsart.</span><button type="button" id="artSchritte">Vollzugsschritte bearbeiten</button><button type="button" id="artWeg">Aus der Liste entfernen</button></div>
+    <div class="artneu nodruck" id="artEigen" hidden><span>Eigene Urkundsart. Einen Schritt dauerhaft entfernen: mit der Maus darauf zeigen und rechts daneben × klicken.</span><button type="button" id="artSchritte">Vollzugsschritte bearbeiten</button><button type="button" id="artWeg">Aus der Liste entfernen</button></div>
     <div class="artzeile" id="gwZeile"><label for="f_gw">Geschäftswert:</label>
       <div class="gw-feld"><input type="text" id="f_gw" data-f="geschaeftswert" inputmode="decimal" autocomplete="off" placeholder="von Hand eintragen oder ermitteln"><span>€</span>
         <button type="button" id="btnGw" class="nodruck">Geschäftswert ermitteln</button></div></div>
@@ -954,7 +957,14 @@ function vorlageGueltig(v){
     const k = s.f ? s.f : s.id;
     if (gesehen.has(k)) return false; gesehen.add(k);
     return s.f ? SCHRITT_EINHEITEN.some(e=>e.f===s.f) : (/^es_[a-z0-9]+$/.test(s.id||"") && String(s.t||"").trim()!=="");
-  }).map(s=>s.f ? (s.t && String(s.t).trim() ? {f:s.f, t:String(s.t).trim()} : {f:s.f}) : {id:s.id, t:String(s.t).trim()});
+  }).map(s=>{
+    if (!s.f) return {id:s.id, t:String(s.t).trim()};
+    const o = {f:s.f}; if (s.t && String(s.t).trim()) o.t = String(s.t).trim();
+    const e = SCHRITT_EINHEITEN.find(x=>x.f===s.f), unter = e ? e.els.slice(1).flatMap(x=>[...x.querySelectorAll("input[data-f]")].map(i=>i.dataset.f)) : [];
+    const ohne = Array.isArray(s.ohne) ? [...new Set(s.ohne.filter(f=>unter.includes(f)))] : [];
+    if (ohne.length) o.ohne = ohne;   // dauerhaft entfernte Unterpunkte (z. B. einzelne Genehmigungen)
+    return o;
+  });
 }
 const vorlageFuerArt = w => vorlageGueltig(vorlagenAlle()[w]);
 const vorlageAusBasis = basis => SCHRITT_EINHEITEN.filter(e=>e.arten.split(" ").includes(basis)).map(e=>({f:e.f}));
@@ -962,6 +972,8 @@ function schrittPasst(l, a, v){
   if (!v) return l.dataset.arten.split(" ").includes(a);
   const sub = l.closest(".sub");
   if (!sub) return v.some(s=>s.f===l.querySelector("input").dataset.f);
+  { const e = SCHRITT_EINHEITEN.find(x=>x.els.includes(sub)), s = e && v.find(x=>x.f===e.f);
+    if (s && s.ohne && s.ohne.includes(l.querySelector("input").dataset.f)) return false; }
   // Unterpunkte eines übernommenen Schritts: die zum Aufbau passenden, sonst alle
   const passend = [...sub.querySelectorAll("[data-arten]")].filter(x=>x.dataset.arten.split(" ").includes(a));
   return !passend.length || passend.includes(l);
@@ -1210,6 +1222,49 @@ document.getElementById("artSchritte").onclick = ()=>{
   });
 };
 
+/* Einzelnen Schritt direkt im Bogen dauerhaft entfernen (Wunsch Thomas 26.11.2026), nur bei eigenen Urkundsarten:
+   × erscheint beim Darüberfahren; auch einzelne Unterpunkte mit eigener Art-Zuordnung (z. B. Genehmigungen).
+   Zurückholen über „Vollzugsschritte bearbeiten“.                                                          */
+const schrittWeg = document.createElement("button");
+schrittWeg.type = "button"; schrittWeg.id = "schrittWeg"; schrittWeg.className = "nodruck"; schrittWeg.hidden = true;
+schrittWeg.textContent = "×"; schrittWeg.title = "Diesen Schritt bei dieser Urkundsart dauerhaft entfernen"; schrittWeg.setAttribute("aria-label", schrittWeg.title);
+document.body.append(schrittWeg);
+let schrittWegZiel = null;
+function schrittWegFuer(l){
+  if (!l || !l.matches || !l.matches("label.cb")) return null;
+  if (!(ARTEN[artWahl().value]||{}).eigen || !l.closest(".schritte") || l.closest(".sonst")) return null;
+  if (l.hasAttribute("data-eigen-schritt") || (l.hasAttribute("data-arten") && !l.closest(".sub"))) return l;
+  return l.hasAttribute("data-arten") && l.closest(".sub") ? l : null;   // Unterpunkte ohne Zuordnung (mit/ohne UB) bleiben am Schritt
+}
+document.getElementById("schrittBereich").addEventListener("mouseover", e=>{
+  const l = schrittWegFuer(e.target.closest && e.target.closest("label.cb"));
+  if (!l){ if (!e.target.closest || !e.target.closest("#schrittWeg")) return; return; }
+  schrittWegZiel = l; const r = (l.querySelector("span")||l).getBoundingClientRect();
+  schrittWeg.style.left = (window.scrollX + r.right + 8) + "px"; schrittWeg.style.top = (window.scrollY + r.top + r.height/2 - 11) + "px";
+  schrittWeg.hidden = false;
+});
+document.getElementById("schrittBereich").addEventListener("mouseleave", e=>{ if (e.relatedTarget!==schrittWeg) schrittWeg.hidden = true; });
+schrittWeg.addEventListener("mouseleave", e=>{ if (!e.relatedTarget || !e.relatedTarget.closest || !e.relatedTarget.closest("#schrittBereich")) schrittWeg.hidden = true; });
+schrittWeg.onclick = async ()=>{
+  const l = schrittWegZiel; schrittWeg.hidden = true; if (!l) return;
+  const w = artWahl().value, c = ARTEN[w]; if (!c || !c.eigen) return;
+  const inp = l.querySelector("input"), f = inp.dataset.f, text = l.textContent.trim();
+  if (!confirm(`„${text}“ bei „${c.name}“ dauerhaft entfernen?\n\nDer Schritt erscheint dann bei dieser Urkundsart nicht mehr (auch für die Kollegen). Bereits abgelegte Bögen bleiben, wie sie sind. Zurückholen können Sie ihn über „Vollzugsschritte bearbeiten“.`)) return;
+  const v = JSON.parse(JSON.stringify(aktVorlage || vorlageAusBasis(c.basis)));
+  const sub = l.closest(".sub");
+  let neu;
+  if (!sub) neu = v.filter(s=>(s.f||s.id)!==f);
+  else {
+    const e = SCHRITT_EINHEITEN.find(x=>x.els.includes(sub)), s = e && v.find(x=>x.f===e.f); if (!s) return;
+    s.ohne = [...new Set([...(s.ohne||[]), f])]; neu = v;
+  }
+  const vg = vorlageGueltig(neu);
+  [inp, ...(sub ? [] : (SCHRITT_EINHEITEN.find(x=>x.f===f)||{els:[]}).els.flatMap(x=>[...x.querySelectorAll("input[data-f]")]))].forEach(i=>{ i.checked = false; });
+  const geteilt = await vorlageSpeichern(w, vg);
+  artAnwenden(false, vg); geaendert = true; dynamik(); textfelderAnpassen();
+  meldung(`„${text}“ ist bei „${c.name}“ entfernt` + (geteilt ? " (auch für die Kollegen im Ablageordner)." : ". Für die Kollegen gilt das, sobald der Ablageordner freigegeben ist."));
+};
+
 /* Editor-Dialog: Schritte hinzufügen, umbenennen, löschen, Reihenfolge ändern */
 const schrittDialog = document.getElementById("schrittDialog"), schrittListe = document.getElementById("schrittListe");
 let schrittFertig = null;
@@ -1218,8 +1273,10 @@ function schrittZeile(s){
   const e = s.f ? SCHRITT_EINHEITEN.find(x=>x.f===s.f) : null;
   const z = document.createElement("div"); z.className = "srow";
   if (s.f) z.dataset.f = s.f; else z.dataset.id = s.id || neueSchrittId();
+  if (s.ohne && s.ohne.length) z.dataset.ohne = JSON.stringify(s.ohne);
   z.innerHTML = `<span class="snr"></span><input type="text" aria-label="Bezeichnung des Schritts"${e ? "" : ' placeholder="z. B. Anzeige an …"'}>`
     + (e && e.els.length>1 ? '<small title="Unterpunkte werden mit übernommen">+ Unterpunkte</small>' : "")
+    + (s.ohne && s.ohne.length ? `<small class="ohne">${s.ohne.length} entfernt<button type="button" data-s="ohne" title="Entfernte Unterpunkte wieder anzeigen">zurückholen</button></small>` : "")
     + '<button type="button" data-s="hoch" title="nach oben" aria-label="nach oben">↑</button><button type="button" data-s="runter" title="nach unten" aria-label="nach unten">↓</button><button type="button" data-s="weg" title="Schritt löschen" aria-label="Schritt löschen">×</button>';
   const inp = z.querySelector("input"); inp.value = s.t || (e ? e.text : "");
   if (e) inp.placeholder = e.text;
@@ -1253,6 +1310,7 @@ schrittListe.addEventListener("click", e=>{
   if (b.dataset.s==="hoch" && z.previousElementSibling) z.previousElementSibling.before(z);
   if (b.dataset.s==="runter" && z.nextElementSibling) z.nextElementSibling.after(z);
   if (b.dataset.s==="weg") z.remove();
+  if (b.dataset.s==="ohne"){ delete z.dataset.ohne; b.closest("small").remove(); schrittListeAnzeigen(); return; }
   schrittListeAnzeigen();
   if (b.isConnected && !b.disabled) b.focus();
 });
@@ -1265,7 +1323,8 @@ document.getElementById("schrittForm").addEventListener("submit", e=>{
   e.preventDefault();
   const v = vorlageGueltig([...schrittListe.children].map(z=>{
     const t = z.querySelector("input").value.replace(/\s+/g," ").trim();
-    if (z.dataset.f){ const e = SCHRITT_EINHEITEN.find(x=>x.f===z.dataset.f); return (t && t!==e.text) ? {f:z.dataset.f, t} : {f:z.dataset.f}; }
+    if (z.dataset.f){ const e = SCHRITT_EINHEITEN.find(x=>x.f===z.dataset.f), o = (t && t!==e.text) ? {f:z.dataset.f, t} : {f:z.dataset.f};
+      if (z.dataset.ohne) o.ohne = JSON.parse(z.dataset.ohne); return o; }
     return {id:z.dataset.id, t};
   }));
   const f = schrittFertig; schrittDialog.close(); schrittFertig = null;
@@ -2514,6 +2573,6 @@ function zugriffLeisteEinrichten(holeOrdner){
 }
 zugriffLeisteEinrichten(async () => { if (!signiertOrdner) signiertOrdner = (await idbGet("signiert")) || null; return [[ordner, "readwrite"], [signiertOrdner, "read"]]; });
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.44 · Stand 26.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.45 · Stand 26.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
