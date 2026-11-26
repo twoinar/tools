@@ -354,7 +354,6 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
         <label class="cb" data-arten="kauf uebertragung scheidung"><input type="checkbox" data-f="anzeige_gutachterausschuss"><span>Anzeige Gutachterausschuss</span></label>
         <label class="cb" data-arten="kauf"><input type="checkbox" data-f="vorkaufsrecht_gemeinde"><span>Vorkaufsrechtsverzichtserklärung Gemeinde</span></label>
         <label class="cb" data-arten="kauf"><input type="checkbox" data-f="vorkaufsrecht_mieter"><span>Vorkaufsrecht des Mieters (§ 577 BGB): Mitteilung an den Mieter</span></label>
-        <label class="cb" data-arten="kauf"><input type="checkbox" data-f="faelligkeit"><span>Fälligkeitsmitteilung an den Erwerber</span></label>
         <label class="cb" data-arten="grundschuld"><input type="checkbox" data-f="gs_ausfertigung"><span>Ausfertigung / Abschrift an Gläubiger</span></label>
         <div class="sub senk aufklapp" data-zeigen-wenn="gs_ausfertigung" data-leeren>
           <label class="cb"><input type="checkbox" data-f="gs_ausf_vollstr"><span>vollstreckbare Ausfertigung</span></label>
@@ -363,7 +362,6 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
           <label class="cb"><input type="checkbox" data-f="gs_ausf_elektr"><span>elektronisch beglaubigte Abschrift</span></label>
         </div>
         <label class="cb" data-arten="grundschuld"><input type="checkbox" data-f="gs_notarbestaetigung"><span>Notarbestätigung an Gläubiger</span></label>
-        <label class="cb" data-arten="grundschuld"><input type="checkbox" data-f="gs_eintragungsnachricht"><span>Eintragungsnachricht / Grundbuchauszug an Gläubiger</span></label>
         <label class="cb" data-arten="scheidung"><input type="checkbox" data-f="bank_entlassung"><span>Schuldhaftentlassung durch die Bank</span></label>
         <div class="sub aufklapp" data-zeigen-wenn="bank_entlassung" data-leeren>
           <label class="cb"><input type="checkbox" data-f="bank_wir" data-gruppe="bank"><span>wir holen ein</span></label>
@@ -389,11 +387,6 @@ dialog.offen ul.unklar{font-size:12px;color:var(--muted);margin:6px 0}
         <label class="cb" data-arten="vorsorge"><input type="checkbox" data-f="ausf_bevollmaechtigte"><span>Ausfertigungen an Bevollmächtigte</span></label>
         <label class="cb" data-arten="vorsorge"><input type="checkbox" data-f="ausf_zurueckhalten"><span>Ausfertigungen erst auf Anweisung des Vollmachtgebers erteilen</span></label>
         <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gmbh_zahlung"><span>Kaufpreiszahlung bestätigt (aufschiebende Bedingung)</span></label>
-        <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gmbh_liste"><span>Neue Gesellschafterliste mit Notarbescheinigung ans Handelsregister (§ 40 Abs. 2 GmbHG)</span></label>
-        <div class="sub senk aufklapp" data-zeigen-wenn="gmbh_liste" data-leeren>
-          <label class="cb"><input type="checkbox" data-f="gmbh_liste_wirksam"><span>erst nach Wirksamkeit der Abtretung</span></label>
-          <label class="cb"><input type="checkbox" data-f="gmbh_liste_ges"><span>Abschrift an die Gesellschaft</span></label>
-        </div>
         <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gmbh_kst"><span>Anzeige Finanzamt Körperschaftsteuer (§ 54 EStDV, binnen 2 Wochen)</span></label>
         <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gmbh_transparenz"><span>Hinweis an die Gesellschaft: Mitteilung Transparenzregister (§ 20 GwG)</span></label>
         <label class="cb" data-arten="gmbh"><input type="checkbox" data-f="gmbh_abschrift_stb"><span>Abschriften an Gesellschaft / Steuerberater</span></label>
@@ -696,7 +689,6 @@ const WU_PUNKTE = [
   ["gs_glaeubiger","Ausfertigung / Abschrift an Gläubiger","grundschuld","gs_ausfertigung"],
   ["gs_bestaetigung","Notarbestätigung an Gläubiger","grundschuld","gs_notarbestaetigung"],
   ["gueterrecht","Eintragung Güterrechtsregister","ehevertrag","gueterrechtsregister"],
-  ["gmbh_liste","Gesellschafterliste ans Handelsregister (§ 40 GmbHG)","gmbh","gmbh_liste"],
   ["gmbh_kst","Anzeige Finanzamt Körperschaftsteuer (§ 54 EStDV)","gmbh","gmbh_kst"],
   ["hr_einr","Einreichung beim Handelsregister","hr","hr_einreichung"],
   ["ea_ng","Einreichung beim Nachlassgericht (Frist 6 Wochen)","erbausschlagung","ea_nachlassgericht"],
@@ -2568,6 +2560,6 @@ function zugriffLeisteEinrichten(holeOrdner){
 }
 zugriffLeisteEinrichten(async () => { if (!signiertOrdner) signiertOrdner = (await idbGet("signiert")) || null; return [[ordner, "readwrite"], [signiertOrdner, "read"]]; });
 </script>
-<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.46 · Stand 26.11.2026</p><style>@media print{.stand-version{display:none}}</style>
+<p class="stand-version" style="font:12px/1.4 system-ui,sans-serif;color:#80868b;text-align:center;margin:24px 0 12px">Version 1.47 · Stand 26.11.2026</p><style>@media print{.stand-version{display:none}}</style>
 </body>
 </html>
